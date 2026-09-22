@@ -30,7 +30,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('home.urls')),
     path('api-auth/', include('rest_framework.urls')),
-    path('todo/', include('todo.urls')),
     path('api/v1/articles/', include('article_module.urls')),
     path('api/v1/about/', include('site_module.urls')),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
