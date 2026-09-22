@@ -1,23 +1,13 @@
-from django.contrib.auth import login, logout
-from django.contrib.auth.decorators import login_required
-from django.http import Http404
-from django.shortcuts import render, redirect
-from django.urls import reverse
-from django.utils.crypto import get_random_string
-from django.utils.decorators import method_decorator
-from django.views.generic import FormView, View
-from .forms import SignUpForm, LoginForm, ForgetPasswordForm, RewritePasswordForm, ChangePasswordForm, EditProfileForm
-from .models import User
-# from utils.email_service import send_email
-
-
-# Create your views here.
-
+from django.contrib.auth import logout
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.views import APIView
-from article_module.serializers import UserSerializer
-from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+from .models import User
+from .serializers import UserSerializer, RegisterSerializer
 
 
 class CurrentUserView(APIView):
@@ -27,13 +17,36 @@ class CurrentUserView(APIView):
         return Response(UserSerializer(request.user).data)
 
 
-
-class LoginView(ObtainAuthToken):
-    pass
-
+class LoginView(TokenObtainPairView):
+    permission_classes = [AllowAny]
 
 
-# سیستم خروج از حساب
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserSerializer(user).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class LogoutView(APIView):
-    pass
-    
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        # JWT access/refresh tokens are kept in the frontend server's
+        # httpOnly cookies. The server clears those cookies on logout.
+        # This endpoint is intentionally stateless.
+        logout(request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
