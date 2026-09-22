@@ -75,17 +75,16 @@ async function refreshAccessToken() {
     return null;
   }
 
-  const result = (await response.json()) as { access?: string };
+  const result = (await response.json()) as {
+    access?: string;
+    refresh?: string;
+  };
   if (!result.access) {
     clearAuthCookies();
     return null;
   }
 
-  setCookie(
-    ACCESS_COOKIE,
-    result.access,
-    cookieOptions(ACCESS_MAX_AGE),
-  );
+  setAuthCookies(result.access, result.refresh);
   return result.access;
 }
 
