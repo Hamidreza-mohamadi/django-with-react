@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'site_module',
     'account_module',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'order_module',
 
 ]
