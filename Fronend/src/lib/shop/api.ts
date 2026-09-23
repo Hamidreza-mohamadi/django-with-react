@@ -88,6 +88,20 @@ async function refreshAccessToken() {
   return result.access;
 }
 
+function formatApiError(error: Record<string, unknown>): string {
+  const detail = error.detail ?? error.message ?? error.error;
+  if (typeof detail === "string") return detail;
+
+  const entries = Object.entries(error)
+    .map(([field, value]) => {
+      const message = Array.isArray(value) ? value.join("، ") : String(value);
+      return `${field}: ${message}`;
+    })
+    .filter(Boolean);
+
+  return entries.length ? entries.join(" | ") : "درخواست ناموفق بود.";
+}
+
 async function djangoFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -115,15 +129,8 @@ async function djangoFetch<T>(
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    const message =
-      error.detail ||
-      error.message ||
-      error.error ||
-      `HTTP ${response.status}`;
-    throw new Error(
-      typeof message === "string" ? message : JSON.stringify(message),
-    );
+    const error = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    throw new Error(formatApiError(error));
   }
 
   if (response.status === 204) {
@@ -294,9 +301,26 @@ export const login = createServerFn({ method: "POST" })
     };
     setAuthCookies(tokens.access, tokens.refresh);
 
+    // The cookie is written to the response, so it is not guaranteed to be
+    // visible to getCookie() again during this same server function call.
+    // Send the access token explicitly for the immediate /me request.
+    const userResponse = await fetch(`${API_BASE_URL()}/auth/me/`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${tokens.access}`,
+      },
+    });
+
+    if (!userResponse.ok) {
+      const error = (await userResponse.json().catch(() => ({}))) as Record<string, unknown>;
+      throw new Error(formatApiError(error));
+    }
+
+    const user = (await userResponse.json()) as User;
+
     return {
       ...tokens,
-      user: await djangoFetch<User>("/auth/me/"),
+      user,
     };
   });
 
