@@ -591,3 +591,61 @@ export const getSiteSettings = getSiteSetting;
 //       body: JSON.stringify(data),
 //     });
 //   });
+
+export const activateAccount = createServerFn({ method: "GET" })
+  .validator((data: { code: string }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<{ detail: string }>(`/auth/active-account/${encodeURIComponent(data.code)}/`, {}, false),
+  );
+
+export const requestPasswordReset = createServerFn({ method: "POST" })
+  .validator((data: { email: string }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<{ detail: string }>("/auth/forget-pass/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }, false),
+  );
+
+export const resetPassword = createServerFn({ method: "POST" })
+  .validator((data: { code: string; new_password: string; confirm_password: string }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<{ detail: string }>(`/auth/rewrite-pass/${encodeURIComponent(data.code)}/`, {
+      method: "POST",
+      body: JSON.stringify({ new_password: data.new_password, confirm_password: data.confirm_password }),
+    }, false),
+  );
+
+export const changePassword = createServerFn({ method: "POST" })
+  .validator((data: { old_password: string; new_password: string; confirm_password: string }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<{ detail: string }>("/auth/change-pass/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  );
+
+export const updateProfile = createServerFn({ method: "POST" })
+  .validator((data: { username: string; first_name: string; last_name: string; about_user: string; avatarData?: string; avatarName?: string; avatarType?: string }) => data)
+  .handler(async ({ data }) => {
+    const form = new FormData();
+    form.set("username", data.username);
+    form.set("first_name", data.first_name);
+    form.set("last_name", data.last_name);
+    form.set("about_user", data.about_user);
+    if (data.avatarData) {
+      const bytes = Uint8Array.from(atob(data.avatarData.split(",")[1] ?? ""), (char) => char.charCodeAt(0));
+      form.set("avatar", new Blob([bytes], { type: data.avatarType || "application/octet-stream" }), data.avatarName || "avatar");
+    }
+    const access = getCookie(ACCESS_COOKIE);
+    const response = await fetch(`${API_BASE_URL()}/auth/edit-profile/`, {
+      method: "PATCH",
+      headers: access ? { Authorization: `Bearer ${access}` } : {},
+      body: form,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({})) as Record<string, unknown>;
+      throw new Error(formatApiError(error));
+    }
+    return response.json() as Promise<User>;
+  });
