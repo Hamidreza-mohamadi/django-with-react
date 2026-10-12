@@ -155,6 +155,20 @@ export function Header() {
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                   </div>
                   <Link
+                    to="/edit-profile"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                  >
+                    <User className="h-4 w-4" />
+                    ویرایش پروفایل
+                  </Link>
+                  <Link
+                    to="/change-pass"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    تغییر رمز عبور
+                  </Link>
+                  <Link
                     to="/orders"
                     className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
                   >
@@ -204,6 +218,22 @@ export function Header() {
                 <hr className="my-2 border-border" />
                 {user ? (
                   <>
+                    <Link
+                      to="/edit-profile"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                    >
+                      <User className="h-4 w-4" />
+                      ویرایش پروفایل
+                    </Link>
+                    <Link
+                      to="/change-pass"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      تغییر رمز عبور
+                    </Link>
                     <Link
                       to="/orders"
                       onClick={() => setMobileMenuOpen(false)}
