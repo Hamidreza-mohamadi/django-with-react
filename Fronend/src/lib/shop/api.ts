@@ -326,45 +326,12 @@ export const login = createServerFn({ method: "POST" })
 
 export const register = createServerFn({ method: "POST" })
   .validator((data: RegisterCredentials) => data)
-  .handler(async ({ data }) => {
-    // MOCK DATA — comment/remove this block when using Django.
-    // if (USE_MOCK()) {
-    //   const user: User = {
-    //     id: 1,
-    //     username: data.username,
-    //     email: data.email,
-    //     first_name: data.first_name,
-    //     last_name: data.last_name,
-    //   };
-    //   setAuthCookies("mock_access", "mock_refresh");
-    //   return {
-    //     user,
-    //     token: "mock_access",
-    //     access: "mock_access",
-    //     refresh: "mock_refresh",
-    //   };
-    // }
-
-    const result = await djangoFetch<{
-      access?: string;
-      refresh?: string;
-      token?: string;
-      user?: User;
-    }>("/auth/register/", {
+  .handler(async ({ data }) =>
+    djangoFetch<{ detail: string }>("/auth/register/", {
       method: "POST",
       body: JSON.stringify(data),
-    }, false);
-
-    const access = result.access ?? result.token;
-    if (!access) throw new Error("ثبت‌نام توکن برنگرداند.");
-    setAuthCookies(access, result.refresh);
-
-    return {
-      ...result,
-      access,
-      user: result.user ?? (await djangoFetch<User>("/auth/me/")),
-    };
-  });
+    }, false),
+  );
 
 export const getCurrentUser = createServerFn({ method: "GET" }).handler(
   async () => {
