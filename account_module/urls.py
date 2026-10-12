@@ -9,5 +9,10 @@ urlpatterns = [
     path("token/", views.LoginView.as_view(), name="api-token"),
     path("token/refresh/", TokenRefreshView.as_view(), name="api-token-refresh"),
     path("register/", views.RegisterView.as_view(), name="api-register"),
+    path("active-account/<str:code>/", views.ActiveAccountView.as_view(), name="active-account"),
+    path("forget-pass/", views.ForgetPasswordView.as_view(), name="forget-pass"),
+    path("rewrite-pass/<str:code>/", views.RewritePassView.as_view(), name="rewrite-password"),
+    path("change-pass/", views.ChangePasswordView.as_view(), name="change-pass"),
+    path("edit-profile/", views.EditProfileView.as_view(), name="edit-profile"),
     path("logout/", views.LogoutView.as_view(), name="api-logout"),
 ]
