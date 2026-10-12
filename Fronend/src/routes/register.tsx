@@ -19,6 +19,7 @@ function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
 
   if (isAuthenticated) {
     router.navigate({ to: search.redirect || "/" });
@@ -48,7 +49,7 @@ function RegisterPage() {
         first_name: String(formData.get("first_name") || ""),
         last_name: String(formData.get("last_name") || ""),
       });
-      router.navigate({ to: search.redirect || "/" });
+      setSuccess("ثبت‌نام انجام شد. لطفاً ایمیل خود را برای فعال‌سازی حساب بررسی کنید.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "ثبت‌نام ناموفق بود");
     } finally {
@@ -154,6 +155,8 @@ function RegisterPage() {
               className="w-full rounded-md border border-input bg-background px-4 py-2 text-sm outline-none ring-ring focus-visible:ring-1"
             />
           </div>
+
+          {success && <div className="rounded-md bg-primary/10 p-3 text-sm text-primary">{success}</div>}
 
           {error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
