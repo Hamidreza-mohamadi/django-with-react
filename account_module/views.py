@@ -1,11 +1,9 @@
-import os
 import secrets
 import string
 
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
 from django.core.mail import send_mail
-from django.core.validators import validate_email
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -19,6 +17,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User
 from .serializers import UserSerializer, RegisterSerializer
+
+
+class EmailInputSerializer(serializers.Serializer):
+    email = serializers.EmailField()
 
 
 def _new_code():
@@ -86,8 +88,7 @@ class ForgetPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = serializers.Serializer(data=request.data)
-        serializer.fields["email"] = serializers.EmailField()
+        serializer = EmailInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"]
         user = User.objects.filter(email__iexact=email, is_active=True).first()
