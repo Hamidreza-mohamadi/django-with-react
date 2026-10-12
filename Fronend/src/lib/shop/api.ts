@@ -398,13 +398,11 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
   const refresh = getCookie(REFRESH_COOKIE);
 
   try {
-    if (refresh && process.env.DJANGO_API_BASE_URL) {
-      await fetch(`${API_BASE_URL()}/auth/logout/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh }),
-      });
-    }
+    await fetch(`${API_BASE_URL()}/auth/logout/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(refresh ? { refresh } : {}),
+    });
   } finally {
     clearAuthCookies();
   }
