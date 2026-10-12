@@ -18,7 +18,13 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        error_messages={
+            "min_length": "رمز عبور باید حداقل ۸ کاراکتر داشته باشد.",
+        },
+    )
 
     class Meta:
         model = User
