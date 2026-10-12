@@ -129,7 +129,7 @@ function RegisterPage() {
                 name="password"
                 type={showPassword ? "text" : "password"}
                 required
-                minLength={8}
+                
                 className="w-full rounded-md border border-input bg-background px-4 py-2 text-sm outline-none ring-ring focus-visible:ring-1"
               />
               <button
