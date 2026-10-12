@@ -3,38 +3,25 @@ from account_module.models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    avatar = serializers.ImageField(required=False, allow_null=True)
     class Meta:
         model = User
-        fields = (
-            "id",
-            "username",
-            "email",
-            "first_name",
-            "last_name",
-            "avatar",
-            "about_user",
-        )
-        read_only_fields = ("id",)
+        fields = ("id", "username", "email", "first_name", "last_name", "avatar", "about_user")
+        read_only_fields = ("id", "email")
+
+    def validate_username(self, value):
+        query = User.objects.filter(username__iexact=value).exclude(pk=self.instance.pk if self.instance else None)
+        if query.exists():
+            raise serializers.ValidationError("این نام کاربری قبلاً استفاده شده است.")
+        return value
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(
-        write_only=True,
-        min_length=8,
-        error_messages={
-            "min_length": "رمز عبور باید حداقل ۸ کاراکتر داشته باشد.",
-        },
-    )
+    password = serializers.CharField(write_only=True, min_length=8, error_messages={"min_length": "رمز عبور باید حداقل ۸ کاراکتر داشته باشد."})
 
     class Meta:
         model = User
-        fields = (
-            "username",
-            "email",
-            "password",
-            "first_name",
-            "last_name",
-        )
+        fields = ("username", "email", "password", "first_name", "last_name")
 
     def validate_username(self, value):
         if User.objects.filter(username__iexact=value).exists():
