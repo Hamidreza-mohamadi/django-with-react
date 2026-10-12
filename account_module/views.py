@@ -1,11 +1,10 @@
+import logging
 import secrets
 import string
 
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
 from django.core.mail import send_mail
-from django.core.exceptions import ValidationError as DjangoValidationError
-from django.contrib.auth.password_validation import validate_password
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status, serializers
@@ -17,6 +16,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User
 from .serializers import UserSerializer, RegisterSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class EmailInputSerializer(serializers.Serializer):
@@ -31,6 +32,8 @@ def _new_code():
 def _send_account_email(subject, user, path, message):
     frontend_url = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3000").rstrip("/")
     link = f"{frontend_url}/{path.lstrip('/')}"
+    if settings.DEBUG:
+        logger.warning("[ACCOUNT EMAIL LINK - DEBUG ONLY] %s", link)
     send_mail(subject, f"{message}\n\n{link}", settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
 
 
@@ -117,10 +120,8 @@ class RewritePassView(APIView):
         confirm_password = request.data.get("confirm_password", "")
         if new_password != confirm_password:
             return Response({"confirm_password": ["رمز عبور و تکرار آن یکسان نیستند."]}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            validate_password(new_password, user=user)
-        except DjangoValidationError as exc:
-            return Response({"new_password": list(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        if not new_password:
+            return Response({"new_password": ["رمز عبور نمی‌تواند خالی باشد."]}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(new_password)
         user.activation_code = _new_code()
         user.save(update_fields=["password", "activation_code"])
@@ -138,10 +139,8 @@ class ChangePasswordView(APIView):
             return Response({"old_password": ["رمز عبور فعلی صحیح نیست."]}, status=status.HTTP_400_BAD_REQUEST)
         if new_password != confirm_password:
             return Response({"confirm_password": ["رمز عبور و تکرار آن یکسان نیستند."]}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            validate_password(new_password, user=request.user)
-        except DjangoValidationError as exc:
-            return Response({"new_password": list(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        if not new_password:
+            return Response({"new_password": ["رمز عبور نمی‌تواند خالی باشد."]}, status=status.HTTP_400_BAD_REQUEST)
         request.user.set_password(new_password)
         request.user.save(update_fields=["password"])
         update_session_auth_hash(request, request.user)
