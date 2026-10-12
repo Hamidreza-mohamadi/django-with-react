@@ -51,7 +51,7 @@ function EditProfilePage() {
           <label className="block space-y-2 text-sm font-medium">نام خانوادگی<input name="last_name" defaultValue={user.last_name || ""} className="w-full rounded-md border border-input bg-background px-4 py-2 font-normal" /></label>
         </div>
         <label className="block space-y-2 text-sm font-medium">درباره من<textarea name="about_user" maxLength={200} defaultValue={user.about_user || ""} rows={4} className="w-full rounded-md border border-input bg-background px-4 py-2 font-normal" /></label>
-        <label className="block space-y-2 text-sm font-medium">آواتار<input name="avatar" type="file" accept="image/*" className="w-full rounded-md border border-input bg-background px-4 py-2 font-normal" /><span className="text-xs font-normal text-muted-foreground">فقط تصویر، حداکثر ۵ مگابایت. برای حفظ تصویر فعلی، این فیلد را خالی بگذارید.</span></label>
+        <label className="block space-y-2 text-sm font-medium">آواتار<input name="avatar" type="file" accept="image/*" className="block w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-normal file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium" /><span className="text-xs font-normal text-muted-foreground">فقط تصویر، حداکثر ۵ مگابایت. برای حفظ تصویر فعلی، این فیلد را خالی بگذارید.</span></label>
         {message && <p className="rounded-md bg-primary/10 p-3 text-sm">{message}</p>}
         {error && <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
         <Button type="submit" className="w-full" disabled={loading}>{loading ? "در حال ذخیره..." : "ذخیره تغییرات"}</Button>
