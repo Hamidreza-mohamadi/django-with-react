@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User
@@ -45,8 +46,13 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        # JWT access/refresh tokens are kept in the frontend server's
-        # httpOnly cookies. The server clears those cookies on logout.
-        # This endpoint is intentionally stateless.
+        refresh_token = request.data.get("refresh")
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+            except TokenError:
+                # An expired or already-blacklisted token is already unusable.
+                pass
+
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
