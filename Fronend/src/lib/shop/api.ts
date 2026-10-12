@@ -34,7 +34,7 @@ const USE_MOCK = () => !process.env.DJANGO_API_BASE_URL;
 const ACCESS_COOKIE = "django_access_token";
 const REFRESH_COOKIE = "django_refresh_token";
 const ACCESS_MAX_AGE = 60 * 15;
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
+const REFRESH_MAX_AGE = 60 * 60 * 24 * 30;
 
 function cookieOptions(maxAge: number) {
   return {
