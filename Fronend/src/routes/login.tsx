@@ -104,6 +104,7 @@ function LoginPage() {
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
+          <Link to="/forget-pass" className="mb-3 block font-medium text-primary hover:underline">رمز عبور را فراموش کرده‌اید؟</Link>
           حساب ندارید؟{" "}
           <Link
             to="/register"
