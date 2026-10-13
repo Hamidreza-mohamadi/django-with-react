@@ -72,6 +72,7 @@ function OrdersPage() {
           <div>
             <h2 className="font-semibold">سفارش شماره {order.id}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{order.created_at ? new Date(order.created_at).toLocaleDateString("fa-IR") + " · " : ""}{order.address ? order.address.city + "، " + order.address.exact_address : "آدرس ثبت نشده"}</p>
+            {order.status === "pending" && !order.is_paid && order.expires_at && <p className="mt-1 text-xs text-muted-foreground">مهلت پرداخت تا {new Date(order.expires_at).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="rounded-full bg-secondary px-3 py-1 text-sm">{statusLabels[order.status ?? "pending"]}</span>
