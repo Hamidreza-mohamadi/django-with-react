@@ -84,7 +84,7 @@ function OrdersPage() {
         <div className="mt-4 space-y-2">
           {order.items.map((item) => <div key={item.id} className="flex justify-between gap-3 text-sm">
             <span>{item.product.name} × {item.quantity}</span>
-            <span className="whitespace-nowrap">{formatPrice(item.price ?? item.product.price * item.quantity)} تومان</span>
+            <span className="whitespace-nowrap">{formatPrice(item.line_total ?? item.price ?? item.product.price * item.quantity)} تومان</span>
           </div>)}
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
