@@ -45,7 +45,14 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
 
       <button
         type="button"
-        onClick={() => toggleFavorite(product)}
+        onClick={() => {
+          if (isLoading) return;
+          if (!isAuthenticated) {
+            router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` } });
+            return;
+          }
+          toggleFavorite(product);
+        }}
         aria-label={favorite ? `حذف ${product.name} از علاقه‌مندی‌ها` : `افزودن ${product.name} به علاقه‌مندی‌ها`}
         aria-pressed={favorite}
         className="absolute left-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-card/90 text-muted-foreground shadow-sm backdrop-blur transition hover:text-destructive"
