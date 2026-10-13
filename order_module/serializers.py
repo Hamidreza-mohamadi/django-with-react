@@ -48,12 +48,19 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(source="orderitem_set", many=True, read_only=True)
     address = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
+    shipping_cost = serializers.SerializerMethodField()
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Order
-        fields = ["id", "user", "pay_date", "is_paid", "status", "created_at", "updated_at", "total", "items", "address"]
+        fields = ["id", "user", "pay_date", "is_paid", "status", "created_at", "updated_at", "shipping_cost", "total", "items", "address"]
         read_only_fields = fields
+
+    def get_shipping_cost(self, obj):
+        try:
+            return obj.postaladdress.shipping_cost or 0
+        except PostalAddress.DoesNotExist:
+            return 0
 
     def get_total(self, obj):
         return obj.calculate_total_price()
