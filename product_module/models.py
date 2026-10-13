@@ -95,9 +95,15 @@ class Product(models.Model):
     attributes = models.ManyToManyField(AttributeValue, verbose_name='ویژگی های محصول', blank=True)
 
     def save(self, *args, **kwargs):
-        if (self.discounted and self.discounted.amount and self.discounted.is_active and
-                self.discounted.valid_from <= timezone.now() <= self.discounted.valid_until):
-            self.current_price = self.discounted.amount
+        discount = getattr(self, "discounted", None)
+        now = timezone.now()
+        if (
+            discount
+            and discount.amount is not None
+            and discount.is_active
+            and discount.valid_from <= now <= discount.valid_until
+        ):
+            self.current_price = discount.amount
         else:
             self.current_price = self.price
         super().save(*args, **kwargs)
