@@ -81,12 +81,27 @@ export interface OrderItem {
 
 export interface Order {
   id: number;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  status?: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  is_paid?: boolean;
+  pay_date?: string | null;
   total: number;
   items: OrderItem[];
-  created_at: string;
+  created_at?: string;
   updated_at?: string;
-  shipping_address?: string;
+  address?: {
+    province?: string;
+    city: string;
+    postal_code: string;
+    exact_address: string;
+    phone: string;
+  } | null;
+  shipping_address?: {
+    province?: string;
+    city: string;
+    postal_code: string;
+    exact_address: string;
+    phone: string;
+  } | string;
 }
 
 export interface User {
