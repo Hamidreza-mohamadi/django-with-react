@@ -81,7 +81,7 @@ export interface OrderItem {
 
 export interface Order {
   id: number;
-  status?: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   is_paid?: boolean;
   pay_date?: string | null;
   total: number;
