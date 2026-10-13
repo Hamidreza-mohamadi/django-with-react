@@ -18,10 +18,10 @@ class PostalAddressInline(admin.StackedInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "status", "is_paid", "created_at", "updated_at")
+    list_display = ("id", "user", "status", "is_paid", "created_at", "expires_at")
     list_filter = ("status", "is_paid", "created_at")
     search_fields = ("id", "user__username", "user__email")
-    readonly_fields = ("created_at", "updated_at", "pay_date")
+    readonly_fields = ("created_at", "updated_at", "pay_date", "expires_at")
     inlines = (OrderItemInline, PostalAddressInline)
     ordering = ("-created_at",)
 
