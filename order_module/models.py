@@ -7,9 +7,20 @@ from product_module.models import Product
 
 
 class Order(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "در انتظار پرداخت"
+        CONFIRMED = "confirmed", "تأیید شده"
+        PROCESSING = "processing", "در حال آماده‌سازی"
+        SHIPPED = "shipped", "ارسال شده"
+        DELIVERED = "delivered", "تحویل شده"
+        CANCELLED = "cancelled", "لغو شده"
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="کاربر")
-    pay_date = models.DateField(verbose_name="نهایی شده", null=True, blank=True)
+    pay_date = models.DateField(verbose_name="تاریخ پرداخت", null=True, blank=True)
     is_paid = models.BooleanField(verbose_name="پرداخت شده", default=False)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="وضعیت سفارش")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ثبت")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="آخرین تغییر")
 
     def total_net_price(self):
         total_amount = 0
@@ -33,8 +44,8 @@ class Order(models.Model):
         return str(self.user)
 
     class Meta:
-        verbose_name = "سبد خرید"
-        verbose_name_plural = "سبدهای خرید"
+        verbose_name = "سفارش"
+        verbose_name_plural = "سفارش‌ها"
 
 
 class OrderItem(models.Model):
