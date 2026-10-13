@@ -146,7 +146,8 @@ class OrderListCreateView(APIView):
                 order=order,
                 product=product,
                 quantity=quantity,
-                # Legacy final_price represents the total for this order line.
+                unit_price=unit_price,
+                # final_price remains the total for this order line for backwards compatibility.
                 final_price=unit_price * quantity,
                 final_discount=0,
             )
