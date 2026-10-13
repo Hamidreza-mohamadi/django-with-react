@@ -21,7 +21,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = "__all__"
+        exclude = ("favorited_by",)
 
     def get_price(self, obj):
         discount = getattr(obj, "discounted", None)
