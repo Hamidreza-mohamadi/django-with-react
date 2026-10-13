@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 from .models import Product, Category
 
@@ -23,11 +24,21 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_price(self, obj):
-        return obj.current_price if obj.current_price is not None else obj.price
+        discount = getattr(obj, "discounted", None)
+        now = timezone.now()
+        if (
+            discount
+            and discount.is_active
+            and discount.amount is not None
+            and discount.amount >= 0
+            and discount.valid_from <= now <= discount.valid_until
+        ):
+            return discount.amount
+        return obj.price or 0
 
     def get_compare_price(self, obj):
-        current = obj.current_price if obj.current_price is not None else obj.price
-        return obj.price if current < obj.price else None
+        current = self.get_price(obj)
+        return obj.price if obj.price is not None and current < obj.price else None
 
     def get_is_available(self, obj):
         return bool(obj.is_active and obj.inventory > 0)
