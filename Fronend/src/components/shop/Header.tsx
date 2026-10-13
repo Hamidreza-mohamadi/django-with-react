@@ -155,6 +155,13 @@ export function Header() {
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                   </div>
                   <Link
+                    to="/account"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                  >
+                    <User className="h-4 w-4" />
+                    پنل کاربری
+                  </Link>
+                  <Link
                     to="/edit-profile"
                     className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
                   >
