@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import generics, status
@@ -9,7 +10,7 @@ from rest_framework.views import APIView
 
 from product_module.models import Product
 from .models import Order, OrderItem, PostalAddress
-from .serializers import OrderSerializer, CheckoutSerializer
+from .serializers import OrderQuoteSerializer, OrderSerializer, CheckoutSerializer
 
 
 def get_effective_product_price(product):
@@ -25,6 +26,61 @@ def get_effective_product_price(product):
     ):
         return discount.amount
     return product.price or 0
+
+
+class OrderQuoteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        quote_serializer = OrderQuoteSerializer(data=request.data)
+        quote_serializer.is_valid(raise_exception=True)
+        items = quote_serializer.validated_data["items"]
+        product_ids = [item["product_id"] for item in items]
+        products = {
+            product.id: product
+            for product in Product.objects.filter(id__in=product_ids, is_active=True)
+        }
+        missing = sorted(set(product_ids) - set(products))
+        if missing:
+            return Response(
+                {"detail": "یک یا چند محصول وجود ندارد یا غیرفعال شده است.", "product_ids": missing},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        quoted_items = []
+        subtotal = 0
+        for item in items:
+            product = products[item["product_id"]]
+            quantity = item["quantity"]
+            if quantity > product.inventory:
+                return Response(
+                    {"detail": f"موجودی محصول «{product.title}» کافی نیست."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            unit_price = get_effective_product_price(product)
+            if unit_price < 0:
+                return Response(
+                    {"detail": f"قیمت محصول «{product.title}» معتبر نیست."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            line_total = unit_price * quantity
+            subtotal += line_total
+            quoted_items.append({
+                "product_id": product.pk,
+                "name": product.title,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "line_total": line_total,
+            })
+
+        shipping_cost = settings.ORDER_SHIPPING_COST
+        return Response({
+            "items": quoted_items,
+            "subtotal": subtotal,
+            "shipping_cost": shipping_cost,
+            "total": subtotal + shipping_cost,
+            "currency": "IRR",
+        })
 
 
 class OrderListCreateView(APIView):
@@ -79,10 +135,10 @@ class OrderListCreateView(APIView):
             user=request.user,
             is_paid=False,
             status=Order.Status.PENDING,
-            expires_at=timezone.now() + timedelta(minutes=15),
+            expires_at=timezone.now() + timedelta(minutes=settings.ORDER_PAYMENT_WINDOW_MINUTES),
         )
         address_data = dict(data["shipping_address"])
-        PostalAddress.objects.create(order=order, shipping_cost=40000, **address_data)
+        PostalAddress.objects.create(order=order, shipping_cost=settings.ORDER_SHIPPING_COST, **address_data)
 
         for item in data["items"]:
             product = products[item["product_id"]]
