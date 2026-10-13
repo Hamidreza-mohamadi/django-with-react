@@ -82,7 +82,9 @@ export interface OrderItem {
 }
 
 export interface OrderQuote {
-  items: { product_id: number; name: string; quantity: number; unit_price: number; line_total: number }[];
+  items: { product_id: number; name: string; quantity: number; regular_unit_price: number; unit_price: number; line_discount: number; line_total: number }[];
+  original_subtotal: number;
+  discount_total: number;
   subtotal: number;
   shipping_cost: number;
   total: number;
