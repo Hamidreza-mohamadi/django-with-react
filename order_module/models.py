@@ -21,6 +21,7 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="وضعیت سفارش")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ثبت")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="آخرین تغییر")
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name="مهلت پرداخت")
 
     def total_net_price(self):
         total_amount = 0
