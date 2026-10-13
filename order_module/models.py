@@ -52,9 +52,10 @@ class Order(models.Model):
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, verbose_name="سبد خرید")
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="محصول")
-    quantity = models.IntegerField(verbose_name="تعداد", default=1)
-    final_price = models.IntegerField(verbose_name="قیمت تمام شده", null=True, blank=True)
-    final_discount = models.IntegerField(verbose_name="مبلغ تخفیف نهایی", default=0)
+    quantity = models.PositiveIntegerField(verbose_name="تعداد", default=1)
+    unit_price = models.PositiveIntegerField(verbose_name="قیمت واحد هنگام سفارش", null=True, blank=True)
+    final_price = models.PositiveIntegerField(verbose_name="مبلغ کل ردیف سفارش", null=True, blank=True)
+    final_discount = models.PositiveIntegerField(verbose_name="مبلغ تخفیف نهایی", default=0)
 
     def allowance_applied(self):
         allowance_amount = 0
