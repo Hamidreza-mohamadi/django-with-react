@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import type { Product } from "@/lib/shop/types";
+import { useAuth } from "@/hooks/use-auth";
 
 export interface CartItem {
   product: Product;
@@ -18,29 +19,35 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-const CART_STORAGE_KEY = "shop_cart";
+// Never reuse one browser-wide cart between different signed-in accounts.
+function cartStorageKey(userId: number | undefined) {
+  return userId ? `shop_cart:user:${userId}` : "shop_cart:guest";
+}
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user, isLoading: authLoading } = useAuth();
+  const storageKey = cartStorageKey(user?.id);
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    setHydrated(false);
     try {
-      const stored = localStorage.getItem(CART_STORAGE_KEY);
-      if (stored) {
-        setItems(JSON.parse(stored));
-      }
+      const stored = localStorage.getItem(storageKey);
+      const parsed: unknown = stored ? JSON.parse(stored) : [];
+      setItems(Array.isArray(parsed) ? parsed as CartItem[] : []);
     } catch {
-      // ignore
+      setItems([]);
     }
     setHydrated(true);
-  }, []);
+  }, [authLoading, storageKey]);
 
   useEffect(() => {
-    if (hydrated) {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    if (hydrated && !authLoading) {
+      localStorage.setItem(storageKey, JSON.stringify(items));
     }
-  }, [items, hydrated]);
+  }, [items, hydrated, authLoading, storageKey]);
 
   const addItem = useCallback((product: Product, quantity = 1) => {
     setItems((prev) => {
