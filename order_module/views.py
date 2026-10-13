@@ -162,7 +162,7 @@ class OrderListCreateView(APIView):
                 unit_price=unit_price,
                 # final_price remains the total for this order line for backwards compatibility.
                 final_price=unit_price * quantity,
-                final_discount=0,
+                final_discount=max(0, (product.price or 0) - unit_price) * quantity,
             )
             product.inventory -= quantity
             product.save(update_fields=["inventory"])
