@@ -25,6 +25,7 @@ function CheckoutPage() {
   useEffect(() => {
     if (!isAuthenticated || items.length === 0) {
       setQuote(null);
+      setQuoteLoading(false);
       return;
     }
     let active = true;
@@ -95,6 +96,8 @@ function CheckoutPage() {
     <Button className="mt-5" asChild><Link to="/products">مشاهده محصولات</Link></Button>
   </div>;
 
+  const staleProductError = error.includes("محصول") && (error.includes("وجود ندارد") || error.includes("غیرفعال"));
+
   return <div dir="rtl" className="container-shop mx-auto max-w-3xl py-10">
     <h1 className="text-3xl font-bold">تکمیل سفارش</h1>
     <div className="mt-6 grid gap-8 md:grid-cols-[1fr_280px]">
@@ -115,7 +118,13 @@ function CheckoutPage() {
         <label className="block space-y-2 text-sm font-medium">شماره تماس
           <input name="phone" required type="tel" className="w-full rounded-md border border-input bg-background px-3 py-2 font-normal" />
         </label>
-        {error && <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+        {error && <div role="alert" className="space-y-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          <p>{error}</p>
+          {staleProductError && <div>
+            <p>احتمالاً سبد خرید از اطلاعات قدیمی مرورگر ساخته شده است. سبد را خالی کنید و محصولات را دوباره از فروشگاه اضافه کنید.</p>
+            <Button type="button" variant="outline" onClick={() => { clearCart(); setError(""); setQuote(null); }}>خالی کردن سبد خرید</Button>
+          </div>}
+        </div>}
         <Button type="submit" className="w-full" disabled={loading || quoteLoading || !quote}>{loading ? "در حال ثبت سفارش..." : quoteLoading ? "در حال بررسی قیمت..." : "ثبت سفارش"}</Button>
       </form>
       <aside className="h-fit rounded-xl border border-border bg-card p-5">
