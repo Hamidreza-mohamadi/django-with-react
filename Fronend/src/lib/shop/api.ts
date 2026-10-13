@@ -355,9 +355,14 @@ export const getCurrentUser = createServerFn({ method: "GET" }).handler(
 
     try {
       return await djangoFetch<User>("/auth/me/");
-    } catch {
-      clearAuthCookies();
-      return null;
+    } catch (error) {
+      // djangoFetch/refreshAccessToken clears cookies only when the refresh token
+      // is rejected. Keep tokens when the API is temporarily unreachable so a
+      // transient network failure does not silently sign the user out.
+      if (!getCookie(ACCESS_COOKIE) && !getCookie(REFRESH_COOKIE)) {
+        return null;
+      }
+      throw error;
     }
   },
 );
