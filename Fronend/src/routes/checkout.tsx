@@ -103,10 +103,14 @@ function CheckoutPage() {
             <span className="whitespace-nowrap">{formatPrice(item.product.price * item.quantity)} تومان</span>
           </div>)}
         </div>
-        <div className="mt-4 flex justify-between border-t border-border pt-4 font-bold">
-          <span>جمع فعلی</span><span>{formatPrice(total)} تومان</span>
+        <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
+          <div className="flex justify-between"><span>جمع محصولات</span><span>{formatPrice(total)} تومان</span></div>
+          <div className="flex justify-between"><span>هزینه ارسال</span><span>{formatPrice(40000)} تومان</span></div>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">مبلغ نهایی در سمت سرور و بر اساس قیمت فعلی محصولات محاسبه می‌شود.</p>
+        <div className="mt-3 flex justify-between border-t border-border pt-3 font-bold">
+          <span>جمع تخمینی</span><span>{formatPrice(total + 40000)} تومان</span>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">قیمت نهایی در سرور بررسی می‌شود. سفارش پس از ثبت، ۱۵ دقیقه برای پرداخت مهلت دارد و در صورت پرداخت‌نشدن باید لغو/منقضی شود.</p>
       </aside>
     </div>
   </div>;
