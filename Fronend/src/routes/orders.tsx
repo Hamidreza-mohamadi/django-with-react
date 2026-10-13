@@ -2,7 +2,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/hooks/use-auth";
-import { getOrders } from "@/lib/shop/api";
+import { cancelOrder, getOrders } from "@/lib/shop/api";
 import type { Order } from "@/lib/shop/types";
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +12,8 @@ function OrdersPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const loadOrders = useServerFn(getOrders);
+  const cancelOrderFn = useServerFn(cancelOrder);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -33,6 +35,20 @@ function OrdersPage() {
   }
 
   const formatPrice = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
+
+  async function handleCancel(orderId: number) {
+    if (!window.confirm("از لغو این سفارش مطمئن هستید؟ موجودی محصولات به انبار برمی‌گردد.")) return;
+    setCancellingId(orderId);
+    setError("");
+    try {
+      const updated = await cancelOrderFn({ data: { orderId } });
+      setOrders((current) => current.map((order) => order.id === orderId ? updated : order));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "لغو سفارش ناموفق بود.");
+    } finally {
+      setCancellingId(null);
+    }
+  }
   const statusLabels: Record<NonNullable<Order["status"]>, string> = {
     pending: "در انتظار پرداخت",
     confirmed: "تأیید شده",
@@ -70,8 +86,16 @@ function OrdersPage() {
             <span className="whitespace-nowrap">{formatPrice(item.price ?? item.product.price * item.quantity)} تومان</span>
           </div>)}
         </div>
-        <div className="mt-4 flex justify-between border-t border-border pt-4 font-bold">
-          <span>مبلغ سفارش</span><span>{formatPrice(order.total)} تومان</span>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <div className="flex justify-between gap-3 font-bold">
+            <span>مبلغ سفارش</span><span>{formatPrice(order.total)} تومان</span>
+          </div>
+          {order.status === "pending" && !order.is_paid && <Button
+            variant="outline"
+            size="sm"
+            disabled={cancellingId === order.id}
+            onClick={() => void handleCancel(order.id)}
+          >{cancellingId === order.id ? "در حال لغو..." : "لغو سفارش"}</Button>}
         </div>
       </article>)}
     </div>
