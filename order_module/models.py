@@ -66,7 +66,8 @@ class OrderItem(models.Model):
         if self.final_price is not None:
             return max(0, self.final_price)
         else:
-            return self.product.current_price * self.quantity - self.allowance_applied()
+            unit_price = self.product.current_price if self.product.current_price is not None else self.product.price
+            return max(0, unit_price * self.quantity - self.allowance_applied())
 
     def __str__(self):
         return str(self.product)
