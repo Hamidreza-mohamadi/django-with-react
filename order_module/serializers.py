@@ -1,40 +1,94 @@
 from rest_framework import serializers
 
-from product_module.serializers import ProductSerializer
-from .models import Order , OrderItem, PostalAddress, Allowance
-from account_module.models import User
-from account_module.serializers import UserSerializer
+from .models import Order, OrderItem, PostalAddress
+from product_module.models import Product
 
 
-class OrderSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-
-    class Meta:
-        model = Order
-        fields = '__all__'
-
-
-class OrderItemSerializer(serializers.ModelSerializer):
-    order = OrderSerializer(read_only=True)
-    product = ProductSerializer(read_only=True)
+class OrderProductSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="title", read_only=True)
+    price = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     class Meta:
-        model = OrderItem
-        fields = '__all__'
+        model = Product
+        fields = ["id", "name", "slug", "price", "image"]
+
+    def get_price(self, obj):
+        return obj.current_price if obj.current_price is not None else obj.price
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if not obj.image:
+            return None
+        url = obj.image.url
+        return request.build_absolute_uri(url) if request else url
 
 
 class PostalAddressSerializer(serializers.ModelSerializer):
-    order = OrderSerializer(read_only=True)
-
     class Meta:
         model = PostalAddress
-        fields = '__all__'
+        fields = ["province", "city", "postal_code", "exact_address", "phone"]
+        read_only_fields = []
 
 
-class AllowanceSerializer(serializers.ModelSerializer):
-    order_item = OrderItemSerializer(read_only=True)
-    product = ProductSerializer(read_only=True)
+class OrderItemSerializer(serializers.ModelSerializer):
+    product = OrderProductSerializer(read_only=True)
+    unit_price = serializers.SerializerMethodField()
+    line_total = serializers.SerializerMethodField()
 
     class Meta:
-        model = Allowance
-        fields = '__all__'
+        model = OrderItem
+        fields = ["id", "product", "quantity", "unit_price", "line_total", "final_discount"]
+
+    def get_unit_price(self, obj):
+        if obj.final_price is not None:
+            return max(0, obj.final_price // max(obj.quantity, 1))
+        price = obj.product.current_price if obj.product.current_price is not None else obj.product.price
+        return price
+
+    def get_line_total(self, obj):
+        return obj.item_total_price()
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(source="orderitem_set", many=True, read_only=True)
+    address = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ["id", "user", "pay_date", "is_paid", "total", "items", "address"]
+        read_only_fields = fields
+
+    def get_total(self, obj):
+        return obj.calculate_total_price()
+
+    def get_address(self, obj):
+        try:
+            address = obj.postaladdress
+        except PostalAddress.DoesNotExist:
+            return None
+        return PostalAddressSerializer(address).data
+
+
+class CheckoutItemSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1, max_value=100)
+
+
+class CheckoutSerializer(serializers.Serializer):
+    items = CheckoutItemSerializer(many=True, allow_empty=False)
+    shipping_address = PostalAddressSerializer()
+
+    def validate_items(self, items):
+        product_ids = [item["product_id"] for item in items]
+        if len(product_ids) != len(set(product_ids)):
+            raise serializers.ValidationError("هر محصول باید فقط یک بار در سفارش ارسال شود.")
+        return items
+
+    def validate_shipping_address(self, value):
+        for field in ("city", "postal_code", "exact_address", "phone"):
+            if not str(value.get(field, "")).strip():
+                raise serializers.ValidationError({field: "این فیلد الزامی است."})
+        return value
