@@ -93,3 +93,13 @@ class CheckoutSerializer(serializers.Serializer):
             if not str(value.get(field, "")).strip():
                 raise serializers.ValidationError({field: "این فیلد الزامی است."})
         return value
+
+
+class OrderQuoteSerializer(serializers.Serializer):
+    items = CheckoutItemSerializer(many=True, allow_empty=False)
+
+    def validate_items(self, items):
+        product_ids = [item["product_id"] for item in items]
+        if len(product_ids) != len(set(product_ids)):
+            raise serializers.ValidationError("هر محصول باید فقط یک بار در سفارش ارسال شود.")
+        return items
