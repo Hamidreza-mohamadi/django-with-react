@@ -28,11 +28,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
   const storageKey = cartStorageKey(user?.id);
   const [items, setItems] = useState<CartItem[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
-    setHydrated(false);
+    setHydratedKey(null);
     try {
       const stored = localStorage.getItem(storageKey);
       const parsed: unknown = stored ? JSON.parse(stored) : [];
@@ -40,14 +40,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch {
       setItems([]);
     }
-    setHydrated(true);
+    setHydratedKey(storageKey);
   }, [authLoading, storageKey]);
 
   useEffect(() => {
-    if (hydrated && !authLoading) {
+    if (hydratedKey === storageKey && !authLoading) {
       localStorage.setItem(storageKey, JSON.stringify(items));
     }
-  }, [items, hydrated, authLoading, storageKey]);
+  }, [items, hydratedKey, authLoading, storageKey]);
 
   const addItem = useCallback((product: Product, quantity = 1) => {
     setItems((prev) => {
