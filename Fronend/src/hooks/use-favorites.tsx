@@ -14,11 +14,10 @@ interface FavoritesContextValue {
 }
 
 const FavoritesContext = createContext<FavoritesContextValue | null>(null);
-const favoritesKey = ["favorites"];
-
 export function FavoritesProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const queryClient = useQueryClient();
+  const favoritesKey = ["favorites", user?.id ?? "guest"];
   const favoritesQuery = useQuery({
     queryKey: favoritesKey,
     queryFn: () => getFavorites(),
