@@ -76,6 +76,8 @@ export interface OrderItem {
   id: number;
   product: Product;
   quantity: number;
+  unit_price?: number;
+  line_total?: number;
   price: number;
 }
 
