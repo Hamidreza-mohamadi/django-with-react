@@ -33,20 +33,14 @@ class PostalAddressSerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = OrderProductSerializer(read_only=True)
-    unit_price = serializers.SerializerMethodField()
-    line_total = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "quantity", "unit_price", "line_total", "final_discount"]
+        fields = ["id", "product", "quantity", "price", "final_discount"]
 
-    def get_unit_price(self, obj):
-        if obj.final_price is not None:
-            return max(0, obj.final_price // max(obj.quantity, 1))
-        price = obj.product.current_price if obj.product.current_price is not None else obj.product.price
-        return price
-
-    def get_line_total(self, obj):
+    def get_price(self, obj):
+        # Total price for this line, based on the order-time price snapshot.
         return obj.item_total_price()
 
 
