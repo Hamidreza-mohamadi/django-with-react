@@ -1,9 +1,10 @@
-import { createFileRoute, notFound, Link } from "@tanstack/react-router";
+import { createFileRoute, notFound, Link, useRouter } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { Minus, Plus, ShoppingCart, Truck, ShieldCheck, RotateCcw, Store, Package, CreditCard, Headphones } from "lucide-react";
 import { useState } from "react";
 import { getProduct, getProductComments, getProducts } from "@/lib/shop/api";
 import { useCart } from "@/hooks/use-cart";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { ProductComments } from "@/components/shop/ProductComments";
 import { StarRating } from "@/components/shop/StarRating";
@@ -61,6 +62,8 @@ function ProductDetailPage() {
   const { data: comments } = useSuspenseQuery(productCommentsQueryOptions(product.id));
   const { data: related } = useSuspenseQuery(relatedQueryOptions());
   const { addItem } = useCart();
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
   const [quantity, setQuantity] = useState(1);
   const gallery = product.images?.length ? product.images : [product.image || "/placeholder.svg"];
   const [activeImage, setActiveImage] = useState(gallery[0]);
@@ -327,7 +330,15 @@ function ProductDetailPage() {
             <Button
               size="lg"
               className="mt-3 w-full rounded-md text-base"
-              onClick={() => addItem(product, quantity)}
+              onClick={() => {
+                if (isLoading) return;
+                if (!isAuthenticated) {
+                  router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` } });
+                  return;
+                }
+                addItem(product, quantity);
+              }}
+              disabled={isLoading}
             >
               <ShoppingCart className="ml-2 h-5 w-5" />
               افزودن به سبد خرید
