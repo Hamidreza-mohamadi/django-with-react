@@ -36,7 +36,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/v1/auth/', include('account_module.urls')),
     path('api/v1/products/', include('product_module.urls')),
-    path('api/v1/orders/', include('product_module.urls')),
+    path('api/v1/orders/', include('order_module.urls')),
 
 ]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
