@@ -33,6 +33,14 @@ function OrdersPage() {
   }
 
   const formatPrice = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
+  const statusLabels: Record<NonNullable<Order["status"]>, string> = {
+    pending: "در انتظار پرداخت",
+    confirmed: "تأیید شده",
+    processing: "در حال آماده‌سازی",
+    shipped: "ارسال شده",
+    delivered: "تحویل شده",
+    cancelled: "لغو شده",
+  };
 
   return <div dir="rtl" className="container-shop py-10">
     <h1 className="text-3xl font-bold">سفارش‌های من</h1>
@@ -47,11 +55,14 @@ function OrdersPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold">سفارش شماره {order.id}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{order.address ? order.address.city + "، " + order.address.exact_address : "آدرس ثبت نشده"}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{order.created_at ? new Date(order.created_at).toLocaleDateString("fa-IR") + " · " : ""}{order.address ? order.address.city + "، " + order.address.exact_address : "آدرس ثبت نشده"}</p>
           </div>
-          <span className={order.is_paid ? "rounded-full bg-primary/10 px-3 py-1 text-sm" : "rounded-full bg-secondary px-3 py-1 text-sm"}>
-            {order.is_paid ? "پرداخت شده" : "در انتظار پرداخت"}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-secondary px-3 py-1 text-sm">{statusLabels[order.status ?? "pending"]}</span>
+            <span className={order.is_paid ? "rounded-full bg-primary/10 px-3 py-1 text-sm" : "rounded-full bg-secondary px-3 py-1 text-sm"}>
+              {order.is_paid ? "پرداخت شده" : "پرداخت نشده"}
+            </span>
+          </div>
         </div>
         <div className="mt-4 space-y-2">
           {order.items.map((item) => <div key={item.id} className="flex justify-between gap-3 text-sm">
