@@ -10,6 +10,7 @@ import type {
   Category,
   LoginCredentials,
   Order,
+  OrderQuote,
   Product,
   ProductComment,
   ProductFilterOptions,
@@ -380,6 +381,15 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
 export const getOrders = createServerFn({ method: "GET" }).handler(async () => {
   return djangoFetch<Order[]>("/orders/");
 });
+
+export const getOrderQuote = createServerFn({ method: "POST" })
+  .validator((data: { items: { product_id: number; quantity: number }[] }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<OrderQuote>("/orders/quote/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  );
 
 export const cancelOrder = createServerFn({ method: "POST" })
   .validator((data: { orderId: number }) => data)
