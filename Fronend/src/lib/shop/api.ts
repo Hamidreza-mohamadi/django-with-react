@@ -615,3 +615,25 @@ export const updateProfile = createServerFn({ method: "POST" })
     }
     return response.json() as Promise<User>;
   });
+
+
+export const getFavorites = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<Product[]>("/products/favorites/"),
+);
+
+export const addFavorite = createServerFn({ method: "POST" })
+  .validator((data: { productId: number }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<Product>("/products/favorites/", {
+      method: "POST",
+      body: JSON.stringify({ product_id: data.productId }),
+    }),
+  );
+
+export const removeFavorite = createServerFn({ method: "POST" })
+  .validator((data: { productId: number }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<{}>(`/products/favorites/?product_id=${data.productId}`, {
+      method: "DELETE",
+    }),
+  );
