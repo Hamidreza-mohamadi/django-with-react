@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/hooks/use-cart";
-import { createOrder } from "@/lib/shop/api";
+import { createOrder, getOrderQuote } from "@/lib/shop/api";
+import type { OrderQuote } from "@/lib/shop/types";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
@@ -13,10 +14,32 @@ function CheckoutPage() {
   const { items, total, clearCart } = useCart();
   const router = useRouter();
   const submitOrder = useServerFn(createOrder);
+  const fetchQuote = useServerFn(getOrderQuote);
+  const [quote, setQuote] = useState<OrderQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [orderId, setOrderId] = useState<number | null>(null);
   const formatPrice = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
+
+  useEffect(() => {
+    if (!isAuthenticated || items.length === 0) {
+      setQuote(null);
+      return;
+    }
+    let active = true;
+    setQuoteLoading(true);
+    fetchQuote({ data: { items: items.map((item) => ({ product_id: item.product.id, quantity: item.quantity })) } })
+      .then((result) => { if (active) { setQuote(result); setError(""); } })
+      .catch((err) => {
+        if (active) {
+          setQuote(null);
+          setError(err instanceof Error ? err.message : "محاسبه مبلغ سفارش ناموفق بود.");
+        }
+      })
+      .finally(() => { if (active) setQuoteLoading(false); });
+    return () => { active = false; };
+  }, [fetchQuote, isAuthenticated, items]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -97,20 +120,24 @@ function CheckoutPage() {
       </form>
       <aside className="h-fit rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold">خلاصه سفارش</h2>
+        {quoteLoading && <p className="mt-3 text-sm text-muted-foreground">در حال محاسبه قیمت روز محصولات...</p>}
         <div className="mt-4 space-y-3 text-sm">
-          {items.map((item) => <div key={item.product.id} className="flex justify-between gap-3">
-            <span>{item.product.name} × {item.quantity}</span>
-            <span className="whitespace-nowrap">{formatPrice(item.product.price * item.quantity)} تومان</span>
-          </div>)}
+          {items.map((item) => {
+            const quoted = quote?.items.find((line) => line.product_id === item.product.id);
+            return <div key={item.product.id} className="flex justify-between gap-3">
+              <span>{item.product.name} × {item.quantity}</span>
+              <span className="whitespace-nowrap">{formatPrice(quoted?.line_total ?? item.product.price * item.quantity)} تومان</span>
+            </div>;
+          })}
         </div>
         <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
-          <div className="flex justify-between"><span>جمع محصولات</span><span>{formatPrice(total)} تومان</span></div>
-          <div className="flex justify-between"><span>هزینه ارسال</span><span>{formatPrice(40000)} تومان</span></div>
+          <div className="flex justify-between"><span>جمع محصولات</span><span>{formatPrice(quote?.subtotal ?? total)} تومان</span></div>
+          <div className="flex justify-between"><span>هزینه ارسال</span><span>{formatPrice(quote?.shipping_cost ?? 0)} تومان</span></div>
         </div>
         <div className="mt-3 flex justify-between border-t border-border pt-3 font-bold">
-          <span>جمع تخمینی</span><span>{formatPrice(total + 40000)} تومان</span>
+          <span>مبلغ نهایی</span><span>{formatPrice(quote?.total ?? total)} تومان</span>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">قیمت نهایی در سرور بررسی می‌شود. سفارش پس از ثبت، ۱۵ دقیقه برای پرداخت مهلت دارد و در صورت پرداخت‌نشدن باید لغو/منقضی شود.</p>
+        <p className="mt-3 text-xs text-muted-foreground">مبلغ و موجودی در سمت سرور بررسی می‌شوند. موجودی سفارش پرداخت‌نشده برای ۱۵ دقیقه رزرو می‌شود.</p>
       </aside>
     </div>
   </div>;
