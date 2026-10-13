@@ -30,14 +30,4 @@ class Migration(migrations.Migration):
             name="quantity",
             field=models.PositiveIntegerField(default=1, verbose_name="تعداد"),
         ),
-        migrations.AlterField(
-            model_name="orderitem",
-            name="final_price",
-            field=models.PositiveIntegerField(blank=True, null=True, verbose_name="مبلغ کل ردیف سفارش"),
-        ),
-        migrations.AlterField(
-            model_name="orderitem",
-            name="final_discount",
-            field=models.PositiveIntegerField(default=0, verbose_name="مبلغ تخفیف نهایی"),
-        ),
     ]
