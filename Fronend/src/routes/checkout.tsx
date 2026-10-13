@@ -116,7 +116,7 @@ function CheckoutPage() {
           <input name="phone" required type="tel" className="w-full rounded-md border border-input bg-background px-3 py-2 font-normal" />
         </label>
         {error && <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-        <Button type="submit" className="w-full" disabled={loading}>{loading ? "در حال ثبت سفارش..." : "ثبت سفارش"}</Button>
+        <Button type="submit" className="w-full" disabled={loading || quoteLoading || !quote}>{loading ? "در حال ثبت سفارش..." : quoteLoading ? "در حال بررسی قیمت..." : "ثبت سفارش"}</Button>
       </form>
       <aside className="h-fit rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold">خلاصه سفارش</h2>
