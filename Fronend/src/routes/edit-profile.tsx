@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { updateProfile } from "@/lib/shop/api";
 import { Button } from "@/components/ui/button";
+import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/edit-profile")({ component: EditProfilePage });
 
@@ -42,7 +43,7 @@ function EditProfilePage() {
 
   return <div dir="rtl" className="container-shop flex justify-center py-12">
     <div className="w-full max-w-2xl space-y-6 rounded-2xl border border-border bg-card p-8 shadow-sm">
-      <div><h1 className="text-2xl font-bold">ویرایش پروفایل</h1><p className="mt-2 text-sm text-muted-foreground">اطلاعات شخصی، آواتار و درباره من را مدیریت کنید.</p></div>
+      <div><h1 className="text-2xl font-bold">ویرایش پروفایل</h1><p className="mt-2 text-sm text-muted-foreground">اطلاعات شخصی، آواتار و درباره من را مدیریت کنید.</p><p className="mt-3 text-sm"><Link to="/change-pass" className="text-primary hover:underline">تغییر رمز عبور</Link></p></div>
       {user.avatar && <img src={user.avatar} alt="آواتار فعلی" className="h-24 w-24 rounded-full border border-border object-cover" />}
       <form onSubmit={submit} className="space-y-4">
         <label className="block space-y-2 text-sm font-medium">نام کاربری<input name="username" defaultValue={user.username} required className="w-full rounded-md border border-input bg-background px-4 py-2 font-normal" /></label>
