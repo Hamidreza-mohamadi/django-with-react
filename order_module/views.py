@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import generics, status
@@ -73,7 +75,12 @@ class OrderListCreateView(APIView):
 
         # Inventory is reserved by decrementing stock inside the same transaction.
         # It is restored if a pending unpaid order is cancelled.
-        order = Order.objects.create(user=request.user, is_paid=False, status=Order.Status.PENDING)
+        order = Order.objects.create(
+            user=request.user,
+            is_paid=False,
+            status=Order.Status.PENDING,
+            expires_at=timezone.now() + timedelta(minutes=15),
+        )
         address_data = dict(data["shipping_address"])
         PostalAddress.objects.create(order=order, shipping_cost=40000, **address_data)
 
