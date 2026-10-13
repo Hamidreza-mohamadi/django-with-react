@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Order, OrderItem, PostalAddress
@@ -14,7 +15,17 @@ class OrderProductSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug", "price", "image"]
 
     def get_price(self, obj):
-        return obj.current_price if obj.current_price is not None else obj.price
+        discount = getattr(obj, "discounted", None)
+        now = timezone.now()
+        if (
+            discount
+            and discount.is_active
+            and discount.amount is not None
+            and discount.amount >= 0
+            and discount.valid_from <= now <= discount.valid_until
+        ):
+            return discount.amount
+        return obj.price or 0
 
     def get_image(self, obj):
         request = self.context.get("request")
