@@ -15,7 +15,7 @@ class Order(models.Model):
         DELIVERED = "delivered", "تحویل شده"
         CANCELLED = "cancelled", "لغو شده"
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="کاربر")
+    user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="کاربر")
     pay_date = models.DateField(verbose_name="تاریخ پرداخت", null=True, blank=True)
     is_paid = models.BooleanField(verbose_name="پرداخت شده", default=False)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="وضعیت سفارش")
@@ -50,7 +50,7 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, verbose_name="سبد خرید")
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name="محصول")
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="محصول")
     quantity = models.IntegerField(verbose_name="تعداد", default=1)
     final_price = models.IntegerField(verbose_name="قیمت تمام شده", null=True, blank=True)
     final_discount = models.IntegerField(verbose_name="مبلغ تخفیف نهایی", default=0)
