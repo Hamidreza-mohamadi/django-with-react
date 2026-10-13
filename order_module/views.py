@@ -63,19 +63,30 @@ class OrderQuoteView(APIView):
                     {"detail": f"قیمت محصول «{product.title}» معتبر نیست."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            regular_unit_price = product.price or 0
             line_total = unit_price * quantity
+            line_discount = max(0, regular_unit_price - unit_price) * quantity
             subtotal += line_total
             quoted_items.append({
                 "product_id": product.pk,
                 "name": product.title,
                 "quantity": quantity,
+                "regular_unit_price": regular_unit_price,
                 "unit_price": unit_price,
+                "line_discount": line_discount,
                 "line_total": line_total,
             })
 
+        original_subtotal = sum(
+            (products[item["product_id"]].price or 0) * item["quantity"]
+            for item in items
+        )
+        discount_total = max(0, original_subtotal - subtotal)
         shipping_cost = settings.ORDER_SHIPPING_COST
         return Response({
             "items": quoted_items,
+            "original_subtotal": original_subtotal,
+            "discount_total": discount_total,
             "subtotal": subtotal,
             "shipping_cost": shipping_cost,
             "total": subtotal + shipping_cost,
