@@ -1,4 +1,7 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
+import { addFavorite, getFavorites, removeFavorite } from "@/lib/shop/api";
 import type { Product } from "@/lib/shop/types";
 
 interface FavoritesContextValue {
@@ -7,57 +10,71 @@ interface FavoritesContextValue {
   toggleFavorite: (product: Product) => void;
   removeFavorite: (productId: number) => void;
   favoriteCount: number;
+  isLoading: boolean;
 }
 
 const FavoritesContext = createContext<FavoritesContextValue | null>(null);
-
-const STORAGE_KEY = "shop_favorites";
+const favoritesKey = ["favorites"];
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
-  const [favorites, setFavorites] = useState<Product[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
+  const favoritesQuery = useQuery({
+    queryKey: favoritesKey,
+    queryFn: () => getFavorites(),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: false,
+  });
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setFavorites(JSON.parse(stored));
-    } catch {
-      // ignore
-    }
-    setHydrated(true);
-  }, []);
+  const addMutation = useMutation({
+    mutationFn: (product: Product) => addFavorite({ data: { productId: product.id } }),
+    onMutate: async (product) => {
+      await queryClient.cancelQueries({ queryKey: favoritesKey });
+      const previous = queryClient.getQueryData<Product[]>(favoritesKey) ?? [];
+      queryClient.setQueryData<Product[]>(favoritesKey, [
+        ...previous.filter((item) => item.id !== product.id),
+        product,
+      ]);
+      return { previous };
+    },
+    onError: (_error, _product, context) => {
+      if (context?.previous) queryClient.setQueryData(favoritesKey, context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: favoritesKey }),
+  });
 
-  useEffect(() => {
-    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites));
-  }, [favorites, hydrated]);
+  const removeMutation = useMutation({
+    mutationFn: (productId: number) => removeFavorite({ data: { productId } }),
+    onMutate: async (productId) => {
+      await queryClient.cancelQueries({ queryKey: favoritesKey });
+      const previous = queryClient.getQueryData<Product[]>(favoritesKey) ?? [];
+      queryClient.setQueryData<Product[]>(favoritesKey, previous.filter((item) => item.id !== productId));
+      return { previous };
+    },
+    onError: (_error, _productId, context) => {
+      if (context?.previous) queryClient.setQueryData(favoritesKey, context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: favoritesKey }),
+  });
 
-  const isFavorite = useCallback(
-    (productId: number) => favorites.some((p) => p.id === productId),
-    [favorites],
-  );
-
-  const toggleFavorite = useCallback((product: Product) => {
-    setFavorites((prev) =>
-      prev.some((p) => p.id === product.id)
-        ? prev.filter((p) => p.id !== product.id)
-        : [...prev, product],
-    );
-  }, []);
-
-  const removeFavorite = useCallback((productId: number) => {
-    setFavorites((prev) => prev.filter((p) => p.id !== productId));
-  }, []);
+  const favorites = isAuthenticated ? (favoritesQuery.data ?? []) : [];
+  const isFavorite = (productId: number) => favorites.some((product) => product.id === productId);
+  const remove = (productId: number) => removeMutation.mutate(productId);
+  const toggleFavorite = (product: Product) => {
+    if (isFavorite(product.id)) remove(product.id);
+    else addMutation.mutate(product);
+  };
 
   return (
-    <FavoritesContext.Provider
-      value={{
-        favorites,
-        isFavorite,
-        toggleFavorite,
-        removeFavorite,
-        favoriteCount: favorites.length,
-      }}
-    >
+    <FavoritesContext.Provider value={{
+      favorites,
+      isFavorite,
+      toggleFavorite,
+      removeFavorite: remove,
+      favoriteCount: favorites.length,
+      isLoading: isAuthenticated && favoritesQuery.isLoading,
+    }}>
       {children}
     </FavoritesContext.Provider>
   );
