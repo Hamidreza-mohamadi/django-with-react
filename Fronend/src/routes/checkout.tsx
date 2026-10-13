@@ -134,13 +134,39 @@ function CheckoutPage() {
           {items.map((item) => {
             const quoted = quote?.items.find((line) => line.product_id === item.product.id);
             return <div key={item.product.id} className="flex justify-between gap-3">
-              <span>{item.product.name} × {item.quantity}</span>
-              <span className="whitespace-nowrap">{formatPrice(quoted?.line_total ?? item.product.price * item.quantity)} تومان</span>
+              <div className="min-w-0">
+                <span className="block">{quoted?.name ?? item.product.name} × {item.quantity}</span>
+                {quoted && quoted.line_discount > 0 && (
+                  <span className="mt-1 block text-xs text-green-700">
+                    تخفیف: {formatPrice(quoted.line_discount)} تومان
+                  </span>
+                )}
+              </div>
+              <div className="whitespace-nowrap text-left">
+                {quoted && quoted.regular_unit_price > quoted.unit_price && (
+                  <span className="block text-xs text-muted-foreground line-through">
+                    {formatPrice(quoted.regular_unit_price * item.quantity)}
+                  </span>
+                )}
+                <span>{formatPrice(quoted?.line_total ?? item.product.price * item.quantity)} تومان</span>
+              </div>
             </div>;
           })}
         </div>
         <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
-          <div className="flex justify-between"><span>جمع محصولات</span><span>{formatPrice(quote?.subtotal ?? total)} تومان</span></div>
+          {quote && quote.discount_total > 0 && (
+            <>
+              <div className="flex justify-between">
+                <span>جمع قبل از تخفیف</span>
+                <span className="line-through text-muted-foreground">{formatPrice(quote.original_subtotal)} تومان</span>
+              </div>
+              <div className="flex justify-between text-green-700">
+                <span>مجموع تخفیف</span>
+                <span>− {formatPrice(quote.discount_total)} تومان</span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between"><span>جمع محصولات پس از تخفیف</span><span>{formatPrice(quote?.subtotal ?? total)} تومان</span></div>
           <div className="flex justify-between"><span>هزینه ارسال</span><span>{formatPrice(quote?.shipping_cost ?? 0)} تومان</span></div>
         </div>
         <div className="mt-3 flex justify-between border-t border-border pt-3 font-bold">
