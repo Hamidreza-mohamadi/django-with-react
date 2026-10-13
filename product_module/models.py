@@ -93,6 +93,7 @@ class Product(models.Model):
     created_date = models.DateTimeField(auto_now_add=True)
     rating = models.IntegerField(verbose_name='امتیاز محصول', blank=True, null=True)
     attributes = models.ManyToManyField(AttributeValue, verbose_name='ویژگی های محصول', blank=True)
+    favorited_by = models.ManyToManyField(User, related_name="favorite_products", blank=True, verbose_name="علاقه‌مندان")
 
     def save(self, *args, **kwargs):
         discount = getattr(self, "discounted", None)
