@@ -378,18 +378,6 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
 });
 
 export const getOrders = createServerFn({ method: "GET" }).handler(async () => {
-  // MOCK DATA — comment/remove this block when using Django.
-  if (USE_MOCK()) {
-    return [
-      {
-        id: 1001,
-        status: "delivered",
-        total: 1290000,
-        created_at: "2024-12-15T10:30:00Z",
-        items: [],
-      },
-    ] as Order[];
-  }
   return djangoFetch<Order[]>("/orders/");
 });
 
@@ -400,22 +388,12 @@ export const createOrder = createServerFn({ method: "POST" })
       shipping_address: { province?: string; city: string; postal_code: string; exact_address: string; phone: string };
     }) => data,
   )
-  .handler(async ({ data }) => {
-    // MOCK DATA — comment/remove this block when using Django.
-    if (USE_MOCK()) {
-      return {
-        id: Date.now(),
-        status: "pending",
-        total: 0,
-        created_at: new Date().toISOString(),
-        items: [],
-      } as Order;
-    }
-    return djangoFetch<Order>("/orders/", {
+  .handler(async ({ data }) =>
+    djangoFetch<Order>("/orders/", {
       method: "POST",
       body: JSON.stringify(data),
-    });
-  });
+    }),
+  );
 
 export const getArticles = createServerFn({ method: "GET" })
   .validator((data: { category?: string; search?: string } = {}) => data)
