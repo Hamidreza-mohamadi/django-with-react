@@ -19,11 +19,12 @@ class Order(models.Model):
 
     def calculate_total_price(self):
         total_amount = 0
-        if hasattr(self, 'postaladdress'): #aya fieldi be in nam darad
-            print('k')
-            if self.postaladdress:
-                print('j')
-                total_amount = self.postaladdress.shipping_cost
+        try:
+            address = self.postaladdress
+        except PostalAddress.DoesNotExist:
+            address = None
+        if address and address.shipping_cost:
+            total_amount += address.shipping_cost
         for item in self.orderitem_set.all():
             total_amount += item.item_total_price()
         return total_amount
@@ -51,8 +52,8 @@ class OrderItem(models.Model):
         return allowance_amount
 
     def item_total_price(self):
-        if self.final_price:
-            return self.final_price
+        if self.final_price is not None:
+            return max(0, self.final_price)
         else:
             return self.product.current_price * self.quantity - self.allowance_applied()
 
