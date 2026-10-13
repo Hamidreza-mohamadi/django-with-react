@@ -79,6 +79,14 @@ export interface OrderItem {
   price: number;
 }
 
+export interface OrderQuote {
+  items: { product_id: number; name: string; quantity: number; unit_price: number; line_total: number }[];
+  subtotal: number;
+  shipping_cost: number;
+  total: number;
+  currency: string;
+}
+
 export interface Order {
   id: number;
   status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
