@@ -77,7 +77,7 @@ class OrderQuoteView(APIView):
             "subtotal": subtotal,
             "shipping_cost": shipping_cost,
             "total": subtotal + shipping_cost,
-            "currency": "IRR",
+            "currency": "TOMAN",
         })
 
 
