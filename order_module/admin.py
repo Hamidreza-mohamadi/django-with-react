@@ -6,7 +6,7 @@ from .models import Allowance, Order, OrderItem, PostalAddress
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ("product", "quantity", "final_price", "final_discount")
+    readonly_fields = ("product", "quantity", "unit_price", "final_price", "final_discount")
     can_delete = False
 
 
