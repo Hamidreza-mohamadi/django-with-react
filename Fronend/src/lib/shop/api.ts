@@ -397,7 +397,7 @@ export const createOrder = createServerFn({ method: "POST" })
   .validator(
     (data: {
       items: { product_id: number; quantity: number }[];
-      shipping_address: string;
+      shipping_address: { province?: string; city: string; postal_code: string; exact_address: string; phone: string };
     }) => data,
   )
   .handler(async ({ data }) => {
