@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { updateProfile } from "@/lib/shop/api";
 import { Button } from "@/components/ui/button";
-import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/edit-profile")({ component: EditProfilePage });
 
