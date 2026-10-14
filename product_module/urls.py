@@ -4,7 +4,8 @@ from product_module import views
 
 urlpatterns = [
     path("favorites/", views.FavoritesView.as_view(), name="product-favorites"),
-    # path('api/v1/products/' , views.HomeView.as_view() , name='home'),
-    path("", views.ProductListView.as_view(), name='products'),
-    path("<slug:slug>/", views.ProductDetailGeneric.as_view(), name='products-detail'),
+    path("filters/", views.ProductFilterOptionsView.as_view(), name="product-filter-options"),
+    path("categories/", views.CategoryListView.as_view(), name="product-categories"),
+    path("", views.ProductListView.as_view(), name="products"),
+    path("<slug:slug>/", views.ProductDetailGeneric.as_view(), name="products-detail"),
 ]
