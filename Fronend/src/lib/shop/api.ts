@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import {
   getCookie,
@@ -35,6 +36,7 @@ const USE_MOCK = () => !process.env.DJANGO_API_BASE_URL;
 
 const ACCESS_COOKIE = "django_access_token";
 const REFRESH_COOKIE = "django_refresh_token";
+const VISITOR_COOKIE = "shop_visitor_id";
 const ACCESS_MAX_AGE = 60 * 15;
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -300,8 +302,14 @@ export const getProduct = createServerFn({ method: "GET" })
     //   if (!product) throw new Error("Product not found");
     //   return product;
     // }
+    let visitorId = getCookie(VISITOR_COOKIE);
+    if (!visitorId) {
+      visitorId = randomUUID();
+      setCookie(VISITOR_COOKIE, visitorId, cookieOptions(60 * 60 * 24 * 365));
+    }
     return djangoFetch<Product>(
       `/products/${encodeURIComponent(data.slug)}/`,
+      { headers: { "X-Visitor-ID": visitorId } },
     );
   });
 
