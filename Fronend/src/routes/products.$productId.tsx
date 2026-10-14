@@ -259,7 +259,7 @@ function ProductDetailPage() {
               onClick={() => {
                 if (isLoading) return;
                 if (!isAuthenticated) {
-                  router.navigate({ to: "/login", search: { redirect: "/products/" + product.slug } });
+                  router.navigate({ to: "/login", search: { redirect: "/products/" + product.slug }, replace: true });
                   return;
                 }
                 toggleFavorite(product);
@@ -353,7 +353,7 @@ function ProductDetailPage() {
               onClick={() => {
                 if (isLoading) return;
                 if (!isAuthenticated) {
-                  router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` } });
+                  router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` }, replace: true });
                   return;
                 }
                 addItem(product, quantity);
