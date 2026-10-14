@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from product_module.filters import ProductFilter
-from product_module.models import AttributeValue, Category, Product, ProductVisit
+from product_module.models import AttributeValue, Category, Product
 from product_module.serializers import CategorySerializer, ProductSerializer
 
 
