@@ -22,7 +22,7 @@ function RegisterPage() {
   const [success, setSuccess] = useState("");
 
   if (isAuthenticated) {
-    router.navigate({ to: search.redirect || "/" });
+    router.navigate({ to: search.redirect || "/", replace: true });
     return null;
   }
 
