@@ -637,3 +637,10 @@ export const removeFavorite = createServerFn({ method: "POST" })
       method: "DELETE",
     }),
   );
+
+
+export const getPublicProfile = createServerFn({ method: "GET" })
+  .validator((data: { username: string }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<PublicUser>(`/auth/users/${encodeURIComponent(data.username)}/`, {}, false),
+  );
