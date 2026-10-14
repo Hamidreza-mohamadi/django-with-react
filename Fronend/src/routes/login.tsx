@@ -36,7 +36,7 @@ function LoginPage() {
         username: String(formData.get("username")),
         password: String(formData.get("password")),
       });
-      router.navigate({ to: search.redirect || "/" });
+      router.navigate({ to: search.redirect || "/", replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "ورود ناموفق بود");
     } finally {
