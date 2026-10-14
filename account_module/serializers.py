@@ -35,3 +35,12 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)
+
+
+class PublicUserSerializer(serializers.ModelSerializer):
+    avatar = serializers.ImageField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "first_name", "last_name", "avatar", "about_user")
+        read_only_fields = fields

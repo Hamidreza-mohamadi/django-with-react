@@ -7,9 +7,21 @@ from product_module.models import Product
 
 
 class Order(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="کاربر")
-    pay_date = models.DateField(verbose_name="نهایی شده", null=True, blank=True)
+    class Status(models.TextChoices):
+        PENDING = "pending", "در انتظار پرداخت"
+        CONFIRMED = "confirmed", "تأیید شده"
+        PROCESSING = "processing", "در حال آماده‌سازی"
+        SHIPPED = "shipped", "ارسال شده"
+        DELIVERED = "delivered", "تحویل شده"
+        CANCELLED = "cancelled", "لغو شده"
+
+    user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="کاربر")
+    pay_date = models.DateField(verbose_name="تاریخ پرداخت", null=True, blank=True)
     is_paid = models.BooleanField(verbose_name="پرداخت شده", default=False)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="وضعیت سفارش")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ثبت")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="آخرین تغییر")
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name="مهلت پرداخت")
 
     def total_net_price(self):
         total_amount = 0
@@ -19,11 +31,12 @@ class Order(models.Model):
 
     def calculate_total_price(self):
         total_amount = 0
-        if hasattr(self, 'postaladdress'): #aya fieldi be in nam darad
-            print('k')
-            if self.postaladdress:
-                print('j')
-                total_amount = self.postaladdress.shipping_cost
+        try:
+            address = self.postaladdress
+        except PostalAddress.DoesNotExist:
+            address = None
+        if address and address.shipping_cost:
+            total_amount += address.shipping_cost
         for item in self.orderitem_set.all():
             total_amount += item.item_total_price()
         return total_amount
@@ -32,15 +45,16 @@ class Order(models.Model):
         return str(self.user)
 
     class Meta:
-        verbose_name = "سبد خرید"
-        verbose_name_plural = "سبدهای خرید"
+        verbose_name = "سفارش"
+        verbose_name_plural = "سفارش‌ها"
 
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, verbose_name="سبد خرید")
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name="محصول")
-    quantity = models.IntegerField(verbose_name="تعداد", default=1)
-    final_price = models.IntegerField(verbose_name="قیمت تمام شده", null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="محصول")
+    quantity = models.PositiveIntegerField(verbose_name="تعداد", default=1)
+    unit_price = models.PositiveIntegerField(verbose_name="قیمت واحد هنگام سفارش", null=True, blank=True)
+    final_price = models.IntegerField(verbose_name="مبلغ کل ردیف سفارش", null=True, blank=True)
     final_discount = models.IntegerField(verbose_name="مبلغ تخفیف نهایی", default=0)
 
     def allowance_applied(self):
@@ -51,10 +65,11 @@ class OrderItem(models.Model):
         return allowance_amount
 
     def item_total_price(self):
-        if self.final_price:
-            return self.final_price
+        if self.final_price is not None:
+            return max(0, self.final_price)
         else:
-            return self.product.current_price * self.quantity - self.allowance_applied()
+            unit_price = self.product.current_price if self.product.current_price is not None else self.product.price
+            return max(0, unit_price * self.quantity - self.allowance_applied())
 
     def __str__(self):
         return str(self.product)

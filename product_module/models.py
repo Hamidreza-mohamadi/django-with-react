@@ -93,11 +93,18 @@ class Product(models.Model):
     created_date = models.DateTimeField(auto_now_add=True)
     rating = models.IntegerField(verbose_name='امتیاز محصول', blank=True, null=True)
     attributes = models.ManyToManyField(AttributeValue, verbose_name='ویژگی های محصول', blank=True)
+    favorited_by = models.ManyToManyField(User, related_name="favorite_products", blank=True, verbose_name="علاقه‌مندان")
 
     def save(self, *args, **kwargs):
-        if (self.discounted and self.discounted.amount and self.discounted.is_active and
-                self.discounted.valid_from <= timezone.now() <= self.discounted.valid_until):
-            self.current_price = self.discounted.amount
+        discount = getattr(self, "discounted", None)
+        now = timezone.now()
+        if (
+            discount
+            and discount.amount is not None
+            and discount.is_active
+            and discount.valid_from <= now <= discount.valid_until
+        ):
+            self.current_price = discount.amount
         else:
             self.current_price = self.price
         super().save(*args, **kwargs)

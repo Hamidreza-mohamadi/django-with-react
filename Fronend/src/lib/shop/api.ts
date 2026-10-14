@@ -10,10 +10,12 @@ import type {
   Category,
   LoginCredentials,
   Order,
+  OrderQuote,
   Product,
   ProductComment,
   ProductFilterOptions,
   ProductFilters,
+  PublicUser,
   RegisterCredentials,
   SiteSetting,
   User,
@@ -354,9 +356,14 @@ export const getCurrentUser = createServerFn({ method: "GET" }).handler(
 
     try {
       return await djangoFetch<User>("/auth/me/");
-    } catch {
-      clearAuthCookies();
-      return null;
+    } catch (error) {
+      // djangoFetch/refreshAccessToken clears cookies only when the refresh token
+      // is rejected. Keep tokens when the API is temporarily unreachable so a
+      // transient network failure does not silently sign the user out.
+      if (!getCookie(ACCESS_COOKIE) && !getCookie(REFRESH_COOKIE)) {
+        return null;
+      }
+      throw error;
     }
   },
 );
@@ -378,44 +385,37 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
 });
 
 export const getOrders = createServerFn({ method: "GET" }).handler(async () => {
-  // MOCK DATA — comment/remove this block when using Django.
-  if (USE_MOCK()) {
-    return [
-      {
-        id: 1001,
-        status: "delivered",
-        total: 1290000,
-        created_at: "2024-12-15T10:30:00Z",
-        items: [],
-      },
-    ] as Order[];
-  }
   return djangoFetch<Order[]>("/orders/");
 });
+
+export const getOrderQuote = createServerFn({ method: "POST" })
+  .validator((data: { items: { product_id: number; quantity: number }[] }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<OrderQuote>("/orders/quote/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  );
+
+export const cancelOrder = createServerFn({ method: "POST" })
+  .validator((data: { orderId: number }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<Order>(`/orders/${data.orderId}/cancel/`, { method: "POST" }),
+  );
 
 export const createOrder = createServerFn({ method: "POST" })
   .validator(
     (data: {
       items: { product_id: number; quantity: number }[];
-      shipping_address: string;
+      shipping_address: { province?: string; city: string; postal_code: string; exact_address: string; phone: string };
     }) => data,
   )
-  .handler(async ({ data }) => {
-    // MOCK DATA — comment/remove this block when using Django.
-    if (USE_MOCK()) {
-      return {
-        id: Date.now(),
-        status: "pending",
-        total: 0,
-        created_at: new Date().toISOString(),
-        items: [],
-      } as Order;
-    }
-    return djangoFetch<Order>("/orders/", {
+  .handler(async ({ data }) =>
+    djangoFetch<Order>("/orders/", {
       method: "POST",
       body: JSON.stringify(data),
-    });
-  });
+    }),
+  );
 
 export const getArticles = createServerFn({ method: "GET" })
   .validator((data: { category?: string; search?: string } = {}) => data)
@@ -616,3 +616,32 @@ export const updateProfile = createServerFn({ method: "POST" })
     }
     return response.json() as Promise<User>;
   });
+
+
+export const getFavorites = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<Product[]>("/products/favorites/"),
+);
+
+export const addFavorite = createServerFn({ method: "POST" })
+  .validator((data: { productId: number }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<Product>("/products/favorites/", {
+      method: "POST",
+      body: JSON.stringify({ product_id: data.productId }),
+    }),
+  );
+
+export const removeFavorite = createServerFn({ method: "POST" })
+  .validator((data: { productId: number }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<{}>(`/products/favorites/?product_id=${data.productId}`, {
+      method: "DELETE",
+    }),
+  );
+
+
+export const getPublicProfile = createServerFn({ method: "GET" })
+  .validator((data: { username: string }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<PublicUser>(`/auth/users/${encodeURIComponent(data.username)}/`, {}, false),
+  );

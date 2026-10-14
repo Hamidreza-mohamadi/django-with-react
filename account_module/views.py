@@ -4,7 +4,7 @@ import string
 
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
-from django.core.mail import send_mail
+from django.core.mail import send_mail\nfrom django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status, serializers
@@ -15,7 +15,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User
-from .serializers import UserSerializer, RegisterSerializer
+from .serializers import UserSerializer, RegisterSerializer, PublicUserSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,14 @@ class CurrentUserView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user, context={"request": request}).data)
+
+
+class PublicUserProfileView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, username):
+        user = get_object_or_404(User, username__iexact=username, is_active=True)
+        return Response(PublicUserSerializer(user, context={"request": request}).data)
 
 
 class LoginView(TokenObtainPairView):

@@ -76,17 +76,46 @@ export interface OrderItem {
   id: number;
   product: Product;
   quantity: number;
+  unit_price?: number;
+  line_total?: number;
   price: number;
+}
+
+export interface OrderQuote {
+  items: { product_id: number; name: string; quantity: number; regular_unit_price: number; unit_price: number; line_discount: number; line_total: number }[];
+  original_subtotal: number;
+  discount_total: number;
+  subtotal: number;
+  shipping_cost: number;
+  total: number;
+  currency: string;
 }
 
 export interface Order {
   id: number;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
+  is_paid?: boolean;
+  pay_date?: string | null;
   total: number;
   items: OrderItem[];
-  created_at: string;
+  created_at?: string;
   updated_at?: string;
-  shipping_address?: string;
+  expires_at?: string | null;
+  shipping_cost?: number;
+  address?: {
+    province?: string;
+    city: string;
+    postal_code: string;
+    exact_address: string;
+    phone: string;
+  } | null;
+  shipping_address?: {
+    province?: string;
+    city: string;
+    postal_code: string;
+    exact_address: string;
+    phone: string;
+  } | string;
 }
 
 export interface User {
@@ -166,4 +195,14 @@ export interface SiteSetting {
   site_logo?: string;
   picture?: string;
   is_main_setting: boolean;
+}
+
+
+export interface PublicUser {
+  id: number;
+  username: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string | null;
+  about_user?: string | null;
 }

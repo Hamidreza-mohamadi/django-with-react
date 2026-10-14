@@ -1,7 +1,8 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { ShoppingCart, PackageX, PackageCheck, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
+import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/hooks/use-favorites";
 import { StarRating } from "@/components/shop/StarRating";
 import { StrikePrice } from "@/components/shop/StrikePrice";
@@ -14,6 +15,8 @@ interface ProductCardProps {
 
 export function ProductCard({ product, compact = false }: ProductCardProps) {
   const { addItem } = useCart();
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavorites();
   const favorite = isFavorite(product.id);
 
@@ -42,7 +45,14 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
 
       <button
         type="button"
-        onClick={() => toggleFavorite(product)}
+        onClick={() => {
+          if (isLoading) return;
+          if (!isAuthenticated) {
+            router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` } });
+            return;
+          }
+          toggleFavorite(product);
+        }}
         aria-label={favorite ? `حذف ${product.name} از علاقه‌مندی‌ها` : `افزودن ${product.name} به علاقه‌مندی‌ها`}
         aria-pressed={favorite}
         className="absolute left-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-card/90 text-muted-foreground shadow-sm backdrop-blur transition hover:text-destructive"
@@ -103,7 +113,15 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
             <Button
               size="icon"
               className={`shrink-0 rounded-md ${compact ? "h-8 w-8" : ""}`}
-              onClick={() => addItem(product)}
+              onClick={() => {
+                if (isLoading) return;
+                if (!isAuthenticated) {
+                  router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` } });
+                  return;
+                }
+                addItem(product);
+              }}
+              disabled={isLoading}
               aria-label={`افزودن ${product.name} به سبد خرید`}
             >
               <ShoppingCart className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />

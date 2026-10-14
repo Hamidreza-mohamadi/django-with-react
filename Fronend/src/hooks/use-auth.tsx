@@ -22,10 +22,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const doLogout = useServerFn(logoutFn);
   const doRegister = useServerFn(registerFn);
 
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, isError } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: fetchUser,
     staleTime: 5 * 60 * 1000,
+    retry: 2,
+    refetchOnWindowFocus: true,
   });
 
   const login = async (credentials: LoginCredentials) => {
@@ -48,7 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user: user || null,
-        isLoading,
+        // A temporary API/network error is not proof that the user signed out.
+        // Keep protected routes waiting until a refetch can confirm auth state.
+        isLoading: isLoading || isError,
         isAuthenticated: !!user,
         login,
         register,
