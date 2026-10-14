@@ -28,11 +28,11 @@ interface ProductSearch {
 }
 
 const SORT_OPTIONS: { value: ProductOrdering; label: string }[] = [
-  { value: "-created_at", label: "جدیدترین" },
+  { value: "-created_date", label: "جدیدترین" },
   { value: "-sales_count", label: "پرفروش‌ترین" },
   { value: "-views", label: "پربازدیدترین" },
-  { value: "-price", label: "گران‌ترین" },
-  { value: "price", label: "ارزان‌ترین" },
+  { value: "-current_price", label: "گران‌ترین" },
+  { value: "current_price", label: "ارزان‌ترین" },
 ];
 
 const productsQueryOptions = (filters: ProductSearch) =>
@@ -129,7 +129,7 @@ function ProductsPage() {
   const selectedBrands = search.brand ?? [];
   const selectedColors = search.color ?? [];
   const inStockOnly = search.in_stock === true;
-  const ordering = search.ordering ?? "-created_at";
+  const ordering = search.ordering ?? "-created_date";
 
   const appliedMin = search.min_price ?? 0;
   const appliedMax = search.max_price ?? PRICE_MAX;
