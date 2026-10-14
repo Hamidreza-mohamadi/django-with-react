@@ -5,10 +5,11 @@ from .models import Product, Category
 
 class CategorySerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="title", read_only=True)
+    description = serializers.CharField(source="about", read_only=True)
 
     class Meta:
         model = Category
-        fields = ["id", "title", "name", "slug", "is_active"]
+        fields = ["id", "title", "name", "slug", "is_active", "image", "description"]
 
 
 class ProductSerializer(serializers.ModelSerializer):
