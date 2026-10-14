@@ -13,7 +13,7 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate({ to: "/login", search: { redirect: location.href } });
+      navigate({ to: "/login", search: { redirect: location.href }, replace: true });
     }
   }, [isAuthenticated, isLoading, navigate, location.href]);
 
