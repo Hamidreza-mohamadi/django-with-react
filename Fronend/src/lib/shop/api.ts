@@ -249,7 +249,7 @@ export const getProducts = createServerFn({ method: "GET" })
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(data)) {
       if (Array.isArray(value)) {
-        value.forEach((item) => params.append(key, String(item)));
+        if (value.length) params.set(key, value.map(String).join(","));
       } else if (value !== undefined) {
         params.set(key, String(value));
       }
