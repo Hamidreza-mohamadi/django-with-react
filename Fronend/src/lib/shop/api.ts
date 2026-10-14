@@ -15,6 +15,7 @@ import type {
   ProductComment,
   ProductFilterOptions,
   ProductFilters,
+  PublicUser,
   RegisterCredentials,
   SiteSetting,
   User,
