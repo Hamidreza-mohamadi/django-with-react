@@ -307,12 +307,7 @@ export const getProduct = createServerFn({ method: "GET" })
   });
 
 export const getCategories = createServerFn({ method: "GET" }).handler(
-  async () => {
-    // MOCK DATA — comment/remove this block when using Django.
-    return USE_MOCK()
-      ? mockCategories
-      : djangoFetch<Category[]>("/categories/");
-  },
+  async () => djangoFetch<Category[]>("/products/categories/"),
 );
 
 export const login = createServerFn({ method: "POST" })
