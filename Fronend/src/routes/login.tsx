@@ -21,7 +21,7 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) {
-    router.navigate({ to: search.redirect || "/" });
+    router.navigate({ to: search.redirect || "/", replace: true });
     return null;
   }
 
