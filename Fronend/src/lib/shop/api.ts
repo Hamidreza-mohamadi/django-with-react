@@ -445,6 +445,12 @@ export const cancelOrder = createServerFn({ method: "POST" })
     djangoFetch<Order>(`/orders/${data.orderId}/cancel/`, { method: "POST" }),
   );
 
+export const simulateOrderPayment = createServerFn({ method: "POST" })
+  .validator((data: { orderId: number }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<Order>(`/orders/${data.orderId}/simulate-payment/`, { method: "POST" }),
+  );
+
 export const createOrder = createServerFn({ method: "POST" })
   .validator(
     (data: {
