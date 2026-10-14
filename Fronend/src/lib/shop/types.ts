@@ -54,6 +54,13 @@ export interface ProductFilters {
   ordering?: ProductOrdering;
 }
 
+export interface ProductPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Product[];
+}
+
 export interface ProductFilterOptions {
   brands: string[];
   colors: string[];
