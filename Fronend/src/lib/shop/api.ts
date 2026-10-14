@@ -69,7 +69,7 @@ type RefreshCacheEntry = {
 // trying to refresh with the same cookie. Reuse the result briefly for requests
 // that arrived with that same (now rotated) cookie.
 const refreshTokenCache = new Map<string, RefreshCacheEntry>();
-const REFRESH_CACHE_TTL_MS = 10_000;
+const REFRESH_CACHE_TTL_MS = 120_000;
 
 async function refreshAccessToken(): Promise<string | null> {
   const refresh = getCookie(REFRESH_COOKIE);
@@ -99,18 +99,28 @@ async function refreshAccessToken(): Promise<string | null> {
       return { access: result.access, refresh: result.refresh };
     })();
 
-    entry = { expiresAt: now + REFRESH_CACHE_TTL_MS, promise };
+    // Do not expire an in-flight refresh: otherwise a slow response could
+    // allow a second request to rotate the same refresh token concurrently.
+    entry = { expiresAt: Number.POSITIVE_INFINITY, promise };
     refreshTokenCache.set(refresh, entry);
+    void promise.then(
+      () => {
+        const currentEntry = refreshTokenCache.get(refresh);
+        if (currentEntry?.promise === promise) {
+          currentEntry.expiresAt = Date.now() + REFRESH_CACHE_TTL_MS;
+        }
+      },
+      () => {
+        if (refreshTokenCache.get(refresh)?.promise === promise) {
+          refreshTokenCache.delete(refresh);
+        }
+      },
+    );
     // Keep the process-local cache bounded if many distinct sessions refresh.
     if (refreshTokenCache.size > 500) {
       const oldestKey = refreshTokenCache.keys().next().value;
       if (oldestKey) refreshTokenCache.delete(oldestKey);
     }
-    void promise.catch(() => {
-      if (refreshTokenCache.get(refresh)?.promise === promise) {
-        refreshTokenCache.delete(refresh);
-      }
-    });
   }
 
   const result = await entry.promise;
