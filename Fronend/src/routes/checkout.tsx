@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/hooks/use-cart";
-import { createOrder, getOrderQuote } from "@/lib/shop/api";
+import { createOrder, getOrderQuote, simulateOrderPayment } from "@/lib/shop/api";
 import type { OrderQuote } from "@/lib/shop/types";
 import { Button } from "@/components/ui/button";
 
@@ -15,11 +15,15 @@ function CheckoutPage() {
   const router = useRouter();
   const submitOrder = useServerFn(createOrder);
   const fetchQuote = useServerFn(getOrderQuote);
+  const payTestOrder = useServerFn(simulateOrderPayment);
   const [quote, setQuote] = useState<OrderQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [orderId, setOrderId] = useState<number | null>(null);
+  const [canSimulatePayment, setCanSimulatePayment] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState("");
   const formatPrice = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
 
   useEffect(() => {
@@ -62,12 +66,29 @@ function CheckoutPage() {
         },
       });
       setOrderId(order.id);
+      setCanSimulatePayment(Boolean(order.can_simulate_payment));
       clearCart();
       formElement.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "ثبت سفارش ناموفق بود.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function simulatePayment() {
+    if (orderId === null || paymentLoading) return;
+    setPaymentLoading(true);
+    setPaymentMessage("");
+    setError("");
+    try {
+      const paidOrder = await payTestOrder({ data: { orderId } });
+      setCanSimulatePayment(Boolean(paidOrder.can_simulate_payment));
+      setPaymentMessage(paidOrder.is_paid ? "پرداخت آزمایشی موفق بود؛ فروش این محصول در مرتب‌سازی پرفروش‌ترین‌ها محاسبه می‌شود." : "وضعیت سفارش به‌روزرسانی شد.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "پرداخت آزمایشی ناموفق بود.");
+    } finally {
+      setPaymentLoading(false);
     }
   }
 
@@ -82,7 +103,10 @@ function CheckoutPage() {
       <div className="rounded-2xl border border-border bg-card p-8">
         <h1 className="text-2xl font-bold">سفارش ثبت شد</h1>
         <p className="mt-3 text-muted-foreground">شماره سفارش: {orderId}</p>
-        <p className="mt-2 text-sm text-muted-foreground">سفارش فعلاً پرداخت‌نشده است؛ اتصال درگاه پرداخت هنوز انجام نشده است.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{canSimulatePayment ? "درگاه واقعی متصل نیست؛ برای آزمایش شمارش فروش می‌توانید پرداخت توسعه را شبیه‌سازی کنید." : "سفارش ثبت شده است. درگاه پرداخت واقعی هنوز متصل نیست."}</p>
+        {paymentMessage && <p role="status" className="mt-3 rounded-md bg-green-500/10 p-3 text-sm text-green-700">{paymentMessage}</p>}
+        {error && <p role="alert" className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+        {canSimulatePayment && <Button className="mt-5" onClick={simulatePayment} disabled={paymentLoading}>{paymentLoading ? "در حال شبیه‌سازی پرداخت..." : "پرداخت آزمایشی (محیط توسعه)"}</Button>}
         <div className="mt-6 flex justify-center gap-3">
           <Button asChild><Link to="/orders">مشاهده سفارش‌ها</Link></Button>
           <Button variant="outline" asChild><Link to="/products">ادامه خرید</Link></Button>
