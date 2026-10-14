@@ -1,6 +1,7 @@
 export interface Category {
   id: number;
   name: string;
+  title?: string;
   slug: string;
   is_active: boolean;
   image?: string;
@@ -35,11 +36,11 @@ export interface Product {
 }
 
 export type ProductOrdering =
-  | "-created_at"
+  | "-created_date"
   | "-sales_count"
   | "-views"
-  | "-price"
-  | "price";
+  | "-current_price"
+  | "current_price";
 
 export interface ProductFilters {
   category?: string;
