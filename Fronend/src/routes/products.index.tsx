@@ -81,10 +81,12 @@ export const Route = createFileRoute("/products/")({
       : undefined,
   }),
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => {
-    context.queryClient.ensureQueryData(productsQueryOptions(deps));
-    context.queryClient.ensureQueryData(categoriesQueryOptions);
-    context.queryClient.ensureQueryData(filterOptionsQueryOptions(deps.category));
+  loader: async ({ context, deps }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(productsQueryOptions(deps)),
+      context.queryClient.ensureQueryData(categoriesQueryOptions),
+      context.queryClient.ensureQueryData(filterOptionsQueryOptions(deps.category)),
+    ]);
   },
   component: ProductsPage,
 });
@@ -116,7 +118,7 @@ const faNum = (n: number) => new Intl.NumberFormat("fa-IR").format(n);
 function ProductsPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const { data: products } = useSuspenseQuery(productsQueryOptions(search));
+  const { data: productsPage } = useSuspenseQuery(productsQueryOptions(search));
   const { data: categories } = useSuspenseQuery(categoriesQueryOptions);
   const { data: filterOptions } = useSuspenseQuery(filterOptionsQueryOptions(search.category));
 
@@ -144,7 +146,7 @@ function ProductsPage() {
   const toggleValue = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
-  const filtered = products ?? [];
+  const filtered = productsPage?.results ?? [];
 
   const resetFilters = () => {
     setPriceDraft([0, PRICE_MAX]);
@@ -389,6 +391,9 @@ function ProductsPage() {
             ))}
           </div>
 
+          <p className="mb-4 text-sm text-muted-foreground">
+            {faNum(productsPage?.count ?? 0)} محصول پیدا شد
+          </p>
           {filtered.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((product) => (
@@ -408,6 +413,29 @@ function ProductsPage() {
                 onClick={resetFilters}
               >
                 پاک کردن فیلترها
+              </Button>
+            </div>
+          )}
+          {((productsPage?.previous && (search.page ?? 1) > 1) || productsPage?.next) && (
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!productsPage?.previous}
+                onClick={() => navigate({ search: (prev: ProductSearch) => ({ ...prev, page: Math.max(1, (prev.page ?? 1) - 1) }) })}
+              >
+                قبلی
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                صفحه {faNum(search.page ?? 1)}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!productsPage?.next}
+                onClick={() => navigate({ search: (prev: ProductSearch) => ({ ...prev, page: (prev.page ?? 1) + 1 }) })}
+              >
+                بعدی
               </Button>
             </div>
           )}
