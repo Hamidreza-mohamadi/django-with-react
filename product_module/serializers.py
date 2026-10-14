@@ -19,6 +19,8 @@ class ProductSerializer(serializers.ModelSerializer):
     price = serializers.SerializerMethodField()
     compare_price = serializers.SerializerMethodField()
     is_available = serializers.SerializerMethodField()
+    views = serializers.IntegerField(read_only=True)
+    sales_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Product
