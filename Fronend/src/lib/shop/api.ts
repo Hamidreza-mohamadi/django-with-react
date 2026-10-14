@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import {
   getCookie,
@@ -304,7 +303,7 @@ export const getProduct = createServerFn({ method: "GET" })
     // }
     let visitorId = getCookie(VISITOR_COOKIE);
     if (!visitorId) {
-      visitorId = randomUUID();
+      visitorId = crypto.randomUUID();
       setCookie(VISITOR_COOKIE, visitorId, cookieOptions(60 * 60 * 24 * 365));
     }
     return djangoFetch<Product>(
