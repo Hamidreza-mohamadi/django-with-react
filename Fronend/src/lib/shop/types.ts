@@ -103,6 +103,7 @@ export interface Order {
   id: number;
   status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   is_paid?: boolean;
+  can_simulate_payment?: boolean;
   pay_date?: string | null;
   total: number;
   items: OrderItem[];
