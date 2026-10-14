@@ -104,6 +104,7 @@ class ProductListView(generics.ListAPIView):
 
 
 class ProductDetailGeneric(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
     queryset = Product.objects.filter(is_active=True).order_by("created_date")
     serializer_class = ProductSerializer
     lookup_field = "slug"
