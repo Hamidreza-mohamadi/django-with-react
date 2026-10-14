@@ -196,3 +196,13 @@ export interface SiteSetting {
   picture?: string;
   is_main_setting: boolean;
 }
+
+
+export interface PublicUser {
+  id: number;
+  username: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string | null;
+  about_user?: string | null;
+}
