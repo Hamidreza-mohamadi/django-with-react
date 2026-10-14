@@ -24,7 +24,6 @@ import type {
 import {
   mockArticles,
   mockArticleComments,
-  mockCategories,
   mockProductComments,
   mockProducts,
   mockSiteSetting,
