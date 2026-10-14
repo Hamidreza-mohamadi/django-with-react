@@ -215,3 +215,43 @@ class CancelOrderView(APIView):
         order.status = Order.Status.CANCELLED
         order.save(update_fields=["status", "updated_at"])
         return Response(OrderSerializer(order, context={"request": request}).data)
+
+
+
+class SimulateOrderPaymentView(APIView):
+    """Development-only fake payment to exercise the paid-order sales ranking."""
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        if not settings.DEBUG:
+            # Do not expose a fake-payment mechanism in production.
+            from django.http import Http404
+            raise Http404
+
+        try:
+            order = Order.objects.select_for_update().get(pk=pk, user=request.user)
+        except Order.DoesNotExist:
+            return Response({"detail": "سفارش پیدا نشد."}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.is_paid:
+            return Response(
+                {"detail": "این سفارش قبلاً پرداخت شده است."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if order.status != Order.Status.PENDING:
+            return Response(
+                {"detail": "فقط سفارش در انتظار پرداخت قابل پرداخت آزمایشی است."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if order.expires_at and order.expires_at <= timezone.now():
+            return Response(
+                {"detail": "مهلت سفارش تمام شده است؛ سفارش جدید ثبت کنید."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        order.is_paid = True
+        order.status = Order.Status.CONFIRMED
+        order.pay_date = timezone.localdate()
+        order.save(update_fields=["is_paid", "status", "pay_date", "updated_at"])
+        return Response(OrderSerializer(order, context={"request": request}).data)
