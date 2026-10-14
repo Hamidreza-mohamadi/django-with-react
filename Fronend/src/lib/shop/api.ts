@@ -59,29 +59,62 @@ function setAuthCookies(access: string, refresh?: string) {
   }
 }
 
-async function refreshAccessToken() {
+type RefreshedTokens = { access: string; refresh?: string };
+type RefreshCacheEntry = {
+  expiresAt: number;
+  promise: Promise<RefreshedTokens | null>;
+};
+
+// Refresh-token rotation can invalidate a token while another SSR request is
+// trying to refresh with the same cookie. Reuse the result briefly for requests
+// that arrived with that same (now rotated) cookie.
+const refreshTokenCache = new Map<string, RefreshCacheEntry>();
+const REFRESH_CACHE_TTL_MS = 10_000;
+
+async function refreshAccessToken(): Promise<string | null> {
   const refresh = getCookie(REFRESH_COOKIE);
   if (!refresh) return null;
 
-  const response = await fetch(
-    `${API_BASE_URL()}/auth/token/refresh/`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh }),
-    },
-  );
-
-  if (!response.ok) {
-    clearAuthCookies();
-    return null;
+  const now = Date.now();
+  for (const [token, entry] of refreshTokenCache) {
+    if (entry.expiresAt <= now) refreshTokenCache.delete(token);
   }
 
-  const result = (await response.json()) as {
-    access?: string;
-    refresh?: string;
-  };
-  if (!result.access) {
+  let entry = refreshTokenCache.get(refresh);
+  if (!entry) {
+    const promise = (async (): Promise<RefreshedTokens | null> => {
+      const response = await fetch(`${API_BASE_URL()}/auth/token/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh }),
+      });
+
+      if (!response.ok) return null;
+
+      const result = (await response.json()) as {
+        access?: string;
+        refresh?: string;
+      };
+      if (!result.access) return null;
+      return { access: result.access, refresh: result.refresh };
+    })();
+
+    entry = { expiresAt: now + REFRESH_CACHE_TTL_MS, promise };
+    refreshTokenCache.set(refresh, entry);
+    // Keep the process-local cache bounded if many distinct sessions refresh.
+    if (refreshTokenCache.size > 500) {
+      const oldestKey = refreshTokenCache.keys().next().value;
+      if (oldestKey) refreshTokenCache.delete(oldestKey);
+    }
+    void promise.catch(() => {
+      if (refreshTokenCache.get(refresh)?.promise === promise) {
+        refreshTokenCache.delete(refresh);
+      }
+    });
+  }
+
+  const result = await entry.promise;
+  if (!result) {
     clearAuthCookies();
     return null;
   }
@@ -108,11 +141,15 @@ async function djangoFetch<T>(
   path: string,
   options: RequestInit = {},
   retry = true,
+  accessOverride?: string,
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
 
-  const access = getCookie(ACCESS_COOKIE);
+  // A refreshed HttpOnly cookie is attached to the response and may not be
+  // readable again during this same server-function invocation. Use the token
+  // returned by refresh directly for the retry instead of re-reading the cookie.
+  const access = accessOverride ?? getCookie(ACCESS_COOKIE);
   if (access) {
     headers.set("Authorization", `Bearer ${access}`);
   }
@@ -125,7 +162,7 @@ async function djangoFetch<T>(
   if (response.status === 401 && retry) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
-      return djangoFetch<T>(path, options, false);
+      return djangoFetch<T>(path, options, false, refreshed);
     }
     clearAuthCookies();
   }
