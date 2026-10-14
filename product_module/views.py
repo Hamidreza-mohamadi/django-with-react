@@ -1,16 +1,17 @@
-from django.db.models import Count, IntegerField, Max, Q, Value
+from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from rest_framework import generics, status
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from product_module.filters import ProductFilter
 from product_module.models import AttributeValue, Category, Product
 from product_module.serializers import CategorySerializer, ProductSerializer
+from order_module.models import OrderItem
 
 
 class CategoryListView(generics.ListAPIView):
@@ -19,7 +20,7 @@ class CategoryListView(generics.ListAPIView):
 
 
 class ProductFilterOptionsView(APIView):
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def get(self, request):
         products = Product.objects.filter(is_active=True)
@@ -72,16 +73,26 @@ class ProductListView(generics.ListAPIView):
     pagination_class = ProductListPagination
 
     def get_queryset(self):
+        paid_units = (
+            OrderItem.objects.filter(
+                product_id=OuterRef("pk"),
+                order__is_paid=True,
+            )
+            .order_by()
+            .values("product_id")
+            .annotate(total=Sum("quantity"))
+            .values("total")[:1]
+        )
         return (
             Product.objects.filter(is_active=True)
             .annotate(
                 effective_price=Coalesce(
                     "current_price", "price", output_field=IntegerField()
                 ),
-                sales_count=Count(
-                    "orderitem",
-                    filter=Q(orderitem__order__is_paid=True),
-                    distinct=True,
+                sales_count=Coalesce(
+                    Subquery(paid_units, output_field=IntegerField()),
+                    Value(0),
+                    output_field=IntegerField(),
                 ),
                 views=Count("productvisit", distinct=True),
             )
