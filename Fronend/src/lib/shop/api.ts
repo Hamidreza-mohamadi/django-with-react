@@ -15,6 +15,7 @@ import type {
   ProductComment,
   ProductFilterOptions,
   ProductFilters,
+  ProductPage,
   PublicUser,
   RegisterCredentials,
   SiteSetting,
@@ -254,7 +255,7 @@ export const getProducts = createServerFn({ method: "GET" })
         params.set(key, String(value));
       }
     }
-    return djangoFetch<Product[]>(`/products/?${params.toString()}`);
+    return djangoFetch<ProductPage>(`/products/?${params.toString()}`);
   });
 
 export const getProductFilterOptions = createServerFn({ method: "GET" })
