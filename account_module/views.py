@@ -35,9 +35,7 @@ def _send_account_email(subject, user, path, message):
     link = f"{frontend_url}/{path.lstrip('/')}"
     if settings.DEBUG:
         logger.warning("[ACCOUNT EMAIL LINK - DEBUG ONLY] %s", link)
-    send_mail(subject, f"{message}
-
-{link}", settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+    send_mail(subject, f"{message}\n\n{link}", settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
 
 
 class CurrentUserView(APIView):
