@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from rest_framework import generics, status
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -9,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from product_module.filters import ProductFilter
-from product_module.models import AttributeValue, Category, Product
+from product_module.models import AttributeValue, Category, Product, ProductVisit
 from product_module.serializers import CategorySerializer, ProductSerializer
 from order_module.models import OrderItem
 
@@ -94,16 +97,45 @@ class ProductListView(generics.ListAPIView):
                     Value(0),
                     output_field=IntegerField(),
                 ),
-                views=Count("productvisit", distinct=True),
+                views=Count("productvisit__id", distinct=True),
             )
             .distinct()
         )
 
 
 class ProductDetailGeneric(generics.RetrieveAPIView):
-    queryset = Product.objects.all().order_by("created_date")
+    queryset = Product.objects.filter(is_active=True).order_by("created_date")
     serializer_class = ProductSerializer
     lookup_field = "slug"
+
+    def get_object(self):
+        product = super().get_object()
+        self._record_product_view(product)
+        return product
+
+    def _record_product_view(self, product):
+        # Count a visitor once per product in a 30-minute window, rather than
+        # inflating popularity on refreshes and repeated API calls from SSR.
+        now = timezone.now()
+        ip_address = self.request.META.get("REMOTE_ADDR", "")[:100] or "unknown"
+        recent_visits = ProductVisit.objects.filter(
+            product=product,
+            viewed_at__gte=now - timedelta(minutes=30),
+        )
+        if self.request.user.is_authenticated:
+            recent_visits = recent_visits.filter(user=self.request.user)
+            visitor = self.request.user
+        else:
+            recent_visits = recent_visits.filter(user__isnull=True, ip_address=ip_address)
+            visitor = None
+
+        if not recent_visits.exists():
+            ProductVisit.objects.create(
+                product=product,
+                user=visitor,
+                ip_address=ip_address,
+                viewed_at=now,
+            )
 
 
 class FavoritesView(APIView):
