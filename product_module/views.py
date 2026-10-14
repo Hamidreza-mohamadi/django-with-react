@@ -123,18 +123,24 @@ class ProductDetailGeneric(generics.RetrieveAPIView):
             product=product,
             viewed_at__gte=now - timedelta(minutes=30),
         )
+        visitor_key = self.request.headers.get("X-Visitor-ID", "")[:64]
         if self.request.user.is_authenticated:
             recent_visits = recent_visits.filter(user=self.request.user)
             visitor = self.request.user
+            visitor_key = ""
         else:
-            recent_visits = recent_visits.filter(user__isnull=True, ip_address=ip_address)
             visitor = None
+            if visitor_key:
+                recent_visits = recent_visits.filter(user__isnull=True, visitor_key=visitor_key)
+            else:
+                recent_visits = recent_visits.filter(user__isnull=True, ip_address=ip_address)
 
         if not recent_visits.exists():
             ProductVisit.objects.create(
                 product=product,
                 user=visitor,
                 ip_address=ip_address,
+                visitor_key=visitor_key,
                 viewed_at=now,
             )
 
