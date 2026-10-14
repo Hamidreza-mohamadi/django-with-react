@@ -140,6 +140,7 @@ class Product(models.Model):
 
 
 class ProductVisit(models.Model):
+    visitor_key = models.CharField(max_length=64, blank=True, default="", db_index=True, verbose_name="شناسه بازدیدکننده")
     viewed_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='زمان بازدید')
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name='کاربر')
     ip_address = models.CharField(verbose_name='ip', max_length=100)
