@@ -48,7 +48,7 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
         onClick={() => {
           if (isLoading) return;
           if (!isAuthenticated) {
-            router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` } });
+            router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` }, replace: true });
             return;
           }
           toggleFavorite(product);
