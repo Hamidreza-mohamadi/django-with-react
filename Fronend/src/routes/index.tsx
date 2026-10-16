@@ -14,6 +14,11 @@ const featuredProductsQueryOptions = queryOptions({
   queryFn: () => getProducts({ data: {} }),
 });
 
+const bestSellersQueryOptions = queryOptions({
+  queryKey: ["products", "best-sellers"],
+  queryFn: () => getProducts({ data: { ordering: "-sales_count" } }),
+});
+
 const categoriesQueryOptions = queryOptions({
   queryKey: ["categories"],
   queryFn: () => getCategories(),
@@ -28,6 +33,7 @@ export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
     await Promise.all([
       context.queryClient.ensureQueryData(featuredProductsQueryOptions),
+      context.queryClient.ensureQueryData(bestSellersQueryOptions),
       context.queryClient.ensureQueryData(categoriesQueryOptions),
       context.queryClient.ensureQueryData(articlesQueryOptions),
     ]);
@@ -37,13 +43,14 @@ export const Route = createFileRoute("/")({
 
 function HomePage() {
   const { data: products } = useSuspenseQuery(featuredProductsQueryOptions);
+  const { data: bestSellerPage } = useSuspenseQuery(bestSellersQueryOptions);
   const { data: categories } = useSuspenseQuery(categoriesQueryOptions);
   const { data: articles } = useSuspenseQuery(articlesQueryOptions);
 
   // Django returns a paginated ProductPage, not a bare Product array.
   const all = products?.results ?? [];
   const featured = all.slice(0, 8);
-  const bestSellers = [...all].sort((a, b) => (b.sales_count ?? 0) - (a.sales_count ?? 0)).slice(0, 8);
+  const bestSellers = (bestSellerPage?.results ?? []).slice(0, 8);
   const discounted = all.filter((p) => p.compare_price && p.compare_price > p.price).slice(0, 8);
   const latestArticles = [...(articles || [])]
     .sort((a, b) => +new Date(b.pub_date) - +new Date(a.pub_date))
