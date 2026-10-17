@@ -25,7 +25,7 @@ interface ProductSearch {
   max_price?: number;
   in_stock?: boolean;
   ordering?: ProductOrdering;
-  [key: string]: unknown;
+  [key: string]: string | number | boolean | string[] | undefined;
 }
 
 const SORT_OPTIONS: { value: ProductOrdering; label: string }[] = [
@@ -83,7 +83,7 @@ export const Route = createFileRoute("/products/")({
       : undefined,
     ...Object.fromEntries(
       Object.entries(search)
-        .filter(([key, value]) => /^attribute_\\d+$/.test(key) && value !== undefined)
+        .filter(([key, value]) => /^attribute_[0-9]+$/.test(key) && value !== undefined)
         .map(([key, value]) => [key, asStringArray(value)]),
     ),
   }),
