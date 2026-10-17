@@ -67,18 +67,6 @@ class Discount(models.Model):
     #         return self.title
 
 
-class AttributeValue(models.Model):
-    attribute = models.ForeignKey(Attribute, on_delete=models.CASCADE, verbose_name="ویژگی محصول")
-    value = models.CharField(max_length=300, verbose_name="محتوای ویژگی")
-
-    def __str__(self):
-        return self.attribute.title + ' : ' + self.value
-
-    class Meta:
-        verbose_name = 'محتوای ویژگی محصول'
-        verbose_name_plural = 'محتوای ویژگیهای محصولات'
-
-
 class Product(models.Model):
     title = models.CharField(max_length=80, verbose_name='نام محصول')
     price = models.IntegerField(blank=True, verbose_name='قیمت محصول')
@@ -94,7 +82,6 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True, verbose_name='فعال یا غیرفعال')
     created_date = models.DateTimeField(auto_now_add=True)
     rating = models.IntegerField(verbose_name='امتیاز محصول', blank=True, null=True)
-    attributes = models.ManyToManyField(AttributeValue, verbose_name='ویژگی های محصول', blank=True)
     favorited_by = models.ManyToManyField(User, related_name="favorite_products", blank=True, verbose_name="علاقه‌مندان")
 
     def save(self, *args, **kwargs):
