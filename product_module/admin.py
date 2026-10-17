@@ -12,6 +12,7 @@ class ProductAttributeInline(admin.TabularInline):
 
 class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductAttributeInline]
+    exclude = ("attributes",)  # legacy AttributeValue relation; use the category-aware inline below
     # readonly_fields = ['slug']
     # prepopulated_fields = {'slug' :['title']}
     list_display = ['title', 'current_price', 'is_active']
