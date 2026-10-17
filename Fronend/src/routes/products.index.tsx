@@ -25,6 +25,7 @@ interface ProductSearch {
   max_price?: number;
   in_stock?: boolean;
   ordering?: ProductOrdering;
+  [key: string]: unknown;
 }
 
 const SORT_OPTIONS: { value: ProductOrdering; label: string }[] = [
@@ -80,6 +81,11 @@ export const Route = createFileRoute("/products/")({
     ordering: SORT_OPTIONS.some((o) => o.value === search.ordering)
       ? (search.ordering as ProductOrdering)
       : undefined,
+    ...Object.fromEntries(
+      Object.entries(search)
+        .filter(([key, value]) => /^attribute_\\d+$/.test(key) && value !== undefined)
+        .map(([key, value]) => [key, asStringArray(value)]),
+    ),
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ context, deps }) => {
