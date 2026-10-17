@@ -215,10 +215,9 @@ def create_category_product_attributes(sender, instance, action, **kwargs):
     """Create empty product attribute slots whenever categories are assigned."""
     if action != "post_add":
         return
-    attribute_ids = Attribute.objects.filter(
-        category__products=instance
-    ).values_list("id", flat=True).distinct()
-    # Category has no explicit reverse name, so use the default reverse relation.
+    attribute_ids = instance.category.values_list(
+        "attributes__id", flat=True
+    ).distinct()
     for attribute_id in attribute_ids:
         ProductAttribute.objects.get_or_create(
             product=instance,
