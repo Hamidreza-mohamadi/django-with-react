@@ -31,6 +31,7 @@ const SORT_OPTIONS: { value: ProductOrdering; label: string }[] = [
   { value: "-created_date", label: "جدیدترین" },
   { value: "-sales_count", label: "پرفروش‌ترین" },
   { value: "-views", label: "پربازدیدترین" },
+  { value: "-rating_sort", label: "محبوب‌ترین (بر اساس امتیاز)" },
   { value: "-current_price", label: "گران‌ترین" },
   { value: "current_price", label: "ارزان‌ترین" },
 ];
