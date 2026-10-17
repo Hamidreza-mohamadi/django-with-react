@@ -8,7 +8,6 @@ from . import models
 class ProductAttributeInline(admin.TabularInline):
     model = models.ProductAttribute
     extra = 0
-    autocomplete_fields = ("attribute",)
 
 
 class ProductAdmin(admin.ModelAdmin):
