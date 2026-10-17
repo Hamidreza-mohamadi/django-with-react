@@ -4,7 +4,7 @@ from django.db import migrations
 def backfill_product_attributes(apps, schema_editor):
     Product = apps.get_model("product_module", "Product")
     ProductAttribute = apps.get_model("product_module", "ProductAttribute")
-    for product in Product.objects.prefetch_related("category__attributes", "attributes__attribute").iterator():
+    for product in Product.objects.prefetch_related("category__attributes", "attributes__attribute").iterator(chunk_size=200):
         values_by_attribute = {}
         for old_value in product.attributes.all():
             values_by_attribute.setdefault(old_value.attribute_id, old_value.value)
