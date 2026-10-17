@@ -179,3 +179,30 @@ class ProductComment(models.Model):
     class Meta:
         verbose_name = "کامنت"
         verbose_name_plural = "کامنت ها"
+
+class ProductAttribute(models.Model):
+    """A product-specific value for an attribute defined by its category."""
+
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="attribute_values"
+    )
+    attribute = models.ForeignKey(
+        Attribute, on_delete=models.CASCADE, related_name="product_values"
+    )
+    value = models.CharField(
+        max_length=300, blank=True, default="", verbose_name="مقدار ویژگی"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "attribute"],
+                name="unique_product_attribute_value",
+            )
+        ]
+        verbose_name = "ویژگی محصول"
+        verbose_name_plural = "ویژگی‌های محصولات"
+
+    def __str__(self):
+        return f"{self.product.title} - {self.attribute.title}: {self.value}"
+
