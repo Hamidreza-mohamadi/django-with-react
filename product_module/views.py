@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from product_module.filters import ProductFilter
-from product_module.models import AttributeValue, Category, Product, ProductVisit
+from product_module.models import Attribute, AttributeValue, Category, Product, ProductAttribute, ProductVisit
 from product_module.serializers import CategorySerializer, ProductSerializer
 from order_module.models import OrderItem
 
@@ -46,6 +46,27 @@ class ProductFilterOptionsView(APIView):
             .distinct()
             .order_by("value")
         )
+        if category:
+            category_attributes = Category.objects.filter(
+                slug=category, is_active=True
+            ).values_list("attributes__id", flat=True)
+            attribute_ids = [attribute_id for attribute_id in category_attributes if attribute_id]
+        else:
+            attribute_ids = ProductAttribute.objects.filter(
+                product__in=products
+            ).values_list("attribute_id", flat=True).distinct()
+        attributes = []
+        for attribute in Attribute.objects.filter(id__in=attribute_ids).order_by("title"):
+            values = list(
+                ProductAttribute.objects.filter(
+                    product__in=products,
+                    attribute=attribute,
+                ).exclude(value="")
+                .values_list("value", flat=True)
+                .distinct()
+                .order_by("value")
+            )
+            attributes.append({"id": attribute.id, "title": attribute.title, "values": values})
         max_price = (
             products.annotate(
                 effective_price=Coalesce(
@@ -55,7 +76,7 @@ class ProductFilterOptionsView(APIView):
             or 0
         )
         return Response(
-            {"brands": brands, "colors": colors, "max_price": max_price}
+            {"brands": brands, "colors": colors, "attributes": attributes, "max_price": max_price}
         )
 
 
@@ -71,7 +92,7 @@ class ProductListView(generics.ListAPIView):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ProductFilter
     search_fields = ["title", "description"]
-    ordering_fields = ["created_date", "current_price", "sales_count", "views"]
+    ordering_fields = ["created_date", "current_price", "sales_count", "views", "rating_sort"]
     ordering = ["-created_date"]
     pagination_class = ProductListPagination
 
@@ -98,6 +119,7 @@ class ProductListView(generics.ListAPIView):
                     output_field=IntegerField(),
                 ),
                 views=Count("productvisit__id", distinct=True),
+                rating_sort=Coalesce("rating", Value(0), output_field=IntegerField()),
             )
             .distinct()
         )
