@@ -32,6 +32,7 @@ export interface Product {
   views?: number;
   reviews_count?: number;
   specs?: { label: string; value: string }[];
+  attribute_values?: { id: number; attribute_id: number; title: string; value: string }[];
   updated_at?: string;
 }
 
