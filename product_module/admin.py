@@ -5,7 +5,14 @@ from . import models
 # Register your models here.
 
 
+class ProductAttributeInline(admin.TabularInline):
+    model = models.ProductAttribute
+    extra = 0
+    autocomplete_fields = ("attribute",)
+
+
 class ProductAdmin(admin.ModelAdmin):
+    inlines = [ProductAttributeInline]
     # readonly_fields = ['slug']
     # prepopulated_fields = {'slug' :['title']}
     list_display = ['title', 'current_price', 'is_active']
