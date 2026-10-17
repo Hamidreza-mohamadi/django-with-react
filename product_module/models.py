@@ -197,26 +197,38 @@ class ProductAttribute(models.Model):
 
 
 
-@receiver(m2m_changed, sender=Product.category.through)
-def sync_category_product_attributes(sender, instance, action, **kwargs):
-    """Keep product attribute slots in sync with its selected categories."""
-    if action not in {"post_add", "post_remove", "post_clear"}:
-        return
-
+def sync_product_attributes(product):
+    """Keep only attributes provided by the product's selected categories."""
     attribute_ids = set(
-        instance.category.filter(attributes__isnull=False)
+        product.category.filter(attributes__isnull=False)
         .values_list("attributes__id", flat=True)
         .distinct()
     )
 
-    # Preserve values for attributes that still belong to at least one selected category.
-    ProductAttribute.objects.filter(product=instance).exclude(
+    ProductAttribute.objects.filter(product=product).exclude(
         attribute_id__in=attribute_ids
     ).delete()
 
     for attribute_id in attribute_ids:
         ProductAttribute.objects.get_or_create(
-            product=instance,
+            product=product,
             attribute_id=attribute_id,
             defaults={"value": ""},
         )
+
+
+@receiver(m2m_changed, sender=Product.category.through)
+def create_category_product_attributes(sender, instance, action, **kwargs):
+    """Create missing product attribute slots when categories are added."""
+    if action != "post_add":
+        return
+    attribute_ids = instance.category.values_list(
+        "attributes__id", flat=True
+    ).distinct()
+    for attribute_id in attribute_ids:
+        if attribute_id is not None:
+            ProductAttribute.objects.get_or_create(
+                product=instance,
+                attribute_id=attribute_id,
+                defaults={"value": ""},
+            )
