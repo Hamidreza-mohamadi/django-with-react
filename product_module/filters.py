@@ -43,3 +43,21 @@ class ProductFilter(filters.FilterSet):
         if value is False:
             return queryset.filter(inventory=0)
         return queryset
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        # Dynamic category attributes use query params such as ?attribute_3=8GB,16GB.
+        for key, raw_value in self.data.items():
+            if not key.startswith("attribute_") or not raw_value:
+                continue
+            try:
+                attribute_id = int(key.removeprefix("attribute_"))
+            except ValueError:
+                continue
+            values = [value.strip() for value in str(raw_value).split(",") if value.strip()]
+            if values:
+                queryset = queryset.filter(
+                    attribute_values__attribute_id=attribute_id,
+                    attribute_values__value__in=values,
+                )
+        return queryset.distinct()
