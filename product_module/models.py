@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import m2m_changed
+from django.dispatch import receiver
 from django.utils import timezone
 
 from account_module.models import User
@@ -206,3 +208,20 @@ class ProductAttribute(models.Model):
     def __str__(self):
         return f"{self.product.title} - {self.attribute.title}: {self.value}"
 
+
+
+@receiver(m2m_changed, sender=Product.category.through)
+def create_category_product_attributes(sender, instance, action, **kwargs):
+    """Create empty product attribute slots whenever categories are assigned."""
+    if action != "post_add":
+        return
+    attribute_ids = Attribute.objects.filter(
+        category__products=instance
+    ).values_list("id", flat=True).distinct()
+    # Category has no explicit reverse name, so use the default reverse relation.
+    for attribute_id in attribute_ids:
+        ProductAttribute.objects.get_or_create(
+            product=instance,
+            attribute_id=attribute_id,
+            defaults={"value": ""},
+        )
