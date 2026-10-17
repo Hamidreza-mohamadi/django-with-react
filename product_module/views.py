@@ -38,7 +38,7 @@ class ProductFilterOptionsView(APIView):
             .order_by("brand__title")
         )
         colors = list(
-            AttributeValue.objects.filter(
+            ProductAttribute.objects.filter(
                 product__in=products,
                 attribute__title__iregex=r"(رنگ|color)",
             )
