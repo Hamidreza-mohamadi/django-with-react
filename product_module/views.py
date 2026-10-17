@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from product_module.filters import ProductFilter
-from product_module.models import Attribute, AttributeValue, Category, Product, ProductAttribute, ProductVisit
+from product_module.models import Attribute, Category, Product, ProductAttribute, ProductVisit
 from product_module.serializers import CategorySerializer, ProductSerializer
 from order_module.models import OrderItem
 
