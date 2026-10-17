@@ -32,8 +32,10 @@ const relatedQueryOptions = () =>
 export const Route = createFileRoute("/products/$productId")({
   loader: async ({ context, params }) => {
     const product = await context.queryClient.ensureQueryData(productQueryOptions(params.productId));
-    context.queryClient.ensureQueryData(productCommentsQueryOptions(product.id));
-    context.queryClient.ensureQueryData(relatedQueryOptions());
+    await Promise.all([
+      context.queryClient.ensureQueryData(productCommentsQueryOptions(product.id)),
+      context.queryClient.ensureQueryData(relatedQueryOptions()),
+    ]);
   },
   component: ProductDetailPage,
   head: () => ({
@@ -61,7 +63,8 @@ function ProductDetailPage() {
   const { productId } = Route.useParams();
   const { data: product } = useSuspenseQuery(productQueryOptions(productId));
   const { data: comments } = useSuspenseQuery(productCommentsQueryOptions(product.id));
-  const { data: related } = useSuspenseQuery(relatedQueryOptions());
+  const { data: relatedPage } = useSuspenseQuery(relatedQueryOptions());
+  const related = relatedPage?.results ?? [];
   const { addItem } = useCart();
   const { isAuthenticated, isLoading } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -89,8 +92,6 @@ function ProductDetailPage() {
   const scrollToComments = () => {
     document.getElementById("comments")?.scrollIntoView({ behavior: "smooth" });
   }; 
-  console.log("alliiiiiiiiiiii" , product.stock);
-  console.log("related: ",related);
 
   return (
     <div className="container-shop py-5" dir="rtl">

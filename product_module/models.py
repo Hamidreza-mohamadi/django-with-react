@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import m2m_changed
+from django.dispatch import receiver
 from django.utils import timezone
 
 from account_module.models import User
@@ -140,6 +142,8 @@ class Product(models.Model):
 
 
 class ProductVisit(models.Model):
+    visitor_key = models.CharField(max_length=64, blank=True, default="", db_index=True, verbose_name="شناسه بازدیدکننده")
+    viewed_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='زمان بازدید')
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name='کاربر')
     ip_address = models.CharField(verbose_name='ip', max_length=100)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='محصول')
@@ -177,3 +181,46 @@ class ProductComment(models.Model):
     class Meta:
         verbose_name = "کامنت"
         verbose_name_plural = "کامنت ها"
+
+class ProductAttribute(models.Model):
+    """A product-specific value for an attribute defined by its category."""
+
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="attribute_values"
+    )
+    attribute = models.ForeignKey(
+        Attribute, on_delete=models.CASCADE, related_name="product_values"
+    )
+    value = models.CharField(
+        max_length=300, blank=True, default="", verbose_name="مقدار ویژگی"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "attribute"],
+                name="unique_product_attribute_value",
+            )
+        ]
+        verbose_name = "ویژگی محصول"
+        verbose_name_plural = "ویژگی‌های محصولات"
+
+    def __str__(self):
+        return f"{self.product.title} - {self.attribute.title}: {self.value}"
+
+
+
+@receiver(m2m_changed, sender=Product.category.through)
+def create_category_product_attributes(sender, instance, action, **kwargs):
+    """Create empty product attribute slots whenever categories are assigned."""
+    if action != "post_add":
+        return
+    attribute_ids = instance.category.values_list(
+        "attributes__id", flat=True
+    ).distinct()
+    for attribute_id in attribute_ids:
+        ProductAttribute.objects.get_or_create(
+            product=instance,
+            attribute_id=attribute_id,
+            defaults={"value": ""},
+        )

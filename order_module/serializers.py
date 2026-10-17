@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -70,12 +71,16 @@ class OrderSerializer(serializers.ModelSerializer):
     address = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
     shipping_cost = serializers.SerializerMethodField()
+    can_simulate_payment = serializers.SerializerMethodField()
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Order
-        fields = ["id", "user", "pay_date", "is_paid", "status", "created_at", "updated_at", "expires_at", "shipping_cost", "total", "items", "address"]
+        fields = ["id", "user", "pay_date", "is_paid", "status", "created_at", "updated_at", "expires_at", "shipping_cost", "total", "items", "address", "can_simulate_payment"]
         read_only_fields = fields
+
+    def get_can_simulate_payment(self, obj):
+        return bool(settings.DEBUG and not obj.is_paid and obj.status == Order.Status.PENDING)
 
     def get_shipping_cost(self, obj):
         try:
