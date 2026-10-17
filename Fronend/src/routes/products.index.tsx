@@ -133,6 +133,7 @@ function ProductsPage() {
 
   const brands = filterOptions?.brands ?? [];
   const colorOptions = filterOptions?.colors ?? [];
+  const attributeOptions = filterOptions?.attributes ?? [];
   const maxPrice = filterOptions?.max_price ?? 0;
 
   const selectedBrands = search.brand ?? [];
@@ -362,6 +363,30 @@ function ProductsPage() {
                 ))}
               </div>
             </FilterSection>
+
+            {attributeOptions.map((attribute) => {
+              const key = "attribute_" + attribute.id;
+              const selectedValues = asStringArray(search[key]) ?? [];
+              if (attribute.values.length === 0) return null;
+              return (
+                <FilterSection key={attribute.id} title={attribute.title}>
+                  <div className="max-h-56 space-y-3 overflow-y-auto pl-1">
+                    {attribute.values.map((value) => (
+                      <label key={value} className="flex items-center gap-3 text-[15px]">
+                        <Checkbox
+                          checked={selectedValues.includes(value)}
+                          onCheckedChange={() => {
+                            const next = toggleValue(selectedValues, value);
+                            setSearch({ [key]: next.length ? next : undefined });
+                          }}
+                        />
+                        {value}
+                      </label>
+                    ))}
+                  </div>
+                </FilterSection>
+              );
+            })}
 
             <FilterSection title="موجودی">
               <label className="flex items-center gap-3 text-[15px]">
