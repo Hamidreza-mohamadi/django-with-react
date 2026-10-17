@@ -185,7 +185,11 @@ function ProductsPage() {
           <Button
             variant={!search.category ? "default" : "outline"}
             size="sm"
-            onClick={() => navigate({ search: (prev: ProductSearch) => ({ ...prev, category: undefined, page: 1 }) })}
+            onClick={() => navigate({ search: (prev: ProductSearch) => ({
+              ...Object.fromEntries(Object.entries(prev).filter(([key]) => !key.startsWith("attribute_"))),
+              category: undefined,
+              page: 1,
+            }) as ProductSearch })}
           >
             همه
           </Button>
@@ -195,7 +199,11 @@ function ProductsPage() {
               variant={search.category === category.slug ? "default" : "outline"}
               size="sm"
               onClick={() =>
-                navigate({ search: (prev: ProductSearch) => ({ ...prev, category: category.slug, page: 1 }) })
+                navigate({ search: (prev: ProductSearch) => ({
+                  ...Object.fromEntries(Object.entries(prev).filter(([key]) => !key.startsWith("attribute_"))),
+                  category: category.slug,
+                  page: 1,
+                }) as ProductSearch })
               }
             >
               {category.title}
