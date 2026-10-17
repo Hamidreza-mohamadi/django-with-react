@@ -39,10 +39,12 @@ export type ProductOrdering =
   | "-created_date"
   | "-sales_count"
   | "-views"
+  | "-rating_sort"
   | "-current_price"
   | "current_price";
 
 export interface ProductFilters {
+  [key: string]: string | number | boolean | string[] | undefined;
   category?: string;
   search?: string;
   page?: number;
@@ -61,9 +63,16 @@ export interface ProductPage {
   results: Product[];
 }
 
+export interface DynamicProductAttribute {
+  id: number;
+  title: string;
+  values: string[];
+}
+
 export interface ProductFilterOptions {
   brands: string[];
   colors: string[];
+  attributes: DynamicProductAttribute[];
   max_price: number;
 }
 
