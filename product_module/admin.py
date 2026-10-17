@@ -12,7 +12,6 @@ class ProductAttributeInline(admin.TabularInline):
 
 class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductAttributeInline]
-    exclude = ("attributes",)  # legacy AttributeValue relation; use the category-aware inline below
     # readonly_fields = ['slug']
     # prepopulated_fields = {'slug' :['title']}
     list_display = ['title', 'current_price', 'is_active']
@@ -24,6 +23,12 @@ class ProductAdmin(admin.ModelAdmin):
         if not change:
             obj.admin = request.user
         return super().save_model(request, obj, form, change)
+
+    def save_related(self, request, form, formsets, change):
+        # Sync after inline formsets are saved so category changes do not
+        # delete rows that Django admin is still processing.
+        super().save_related(request, form, formsets, change)
+        models.sync_product_attributes(form.instance)
 
 
 admin.site.register(models.Product, ProductAdmin)
