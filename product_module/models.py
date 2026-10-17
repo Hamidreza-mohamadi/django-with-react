@@ -211,13 +211,22 @@ class ProductAttribute(models.Model):
 
 
 @receiver(m2m_changed, sender=Product.category.through)
-def create_category_product_attributes(sender, instance, action, **kwargs):
-    """Create empty product attribute slots whenever categories are assigned."""
-    if action != "post_add":
+def sync_category_product_attributes(sender, instance, action, **kwargs):
+    """Keep product attribute slots in sync with its selected categories."""
+    if action not in {"post_add", "post_remove", "post_clear"}:
         return
-    attribute_ids = instance.category.values_list(
-        "attributes__id", flat=True
-    ).distinct()
+
+    attribute_ids = set(
+        instance.category.filter(attributes__isnull=False)
+        .values_list("attributes__id", flat=True)
+        .distinct()
+    )
+
+    # Preserve values for attributes that still belong to at least one selected category.
+    ProductAttribute.objects.filter(product=instance).exclude(
+        attribute_id__in=attribute_ids
+    ).delete()
+
     for attribute_id in attribute_ids:
         ProductAttribute.objects.get_or_create(
             product=instance,
