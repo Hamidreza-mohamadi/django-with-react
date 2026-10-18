@@ -95,32 +95,3 @@ class AttributeValueAdmin(admin.ModelAdmin):
     list_filter = ("attribute",)
     search_fields = ("value", "attribute__title")
 
-
-class ProductVariantAdminForm(ProductVariantInlineForm):
-    def clean(self):
-        cleaned = super().clean()
-        values = list(cleaned.get("attributes") or [])
-        if self.instance.product_id:
-            allowed_attribute_ids = set(
-                self.instance.product.category.values_list("attributes__id", flat=True)
-            )
-            allowed_attribute_ids.discard(None)
-            if {value.attribute_id for value in values} - allowed_attribute_ids:
-                raise ValidationError(
-                    "ویژگی‌های انتخاب‌شده در دسته‌بندی‌های این محصول تعریف نشده‌اند."
-                )
-            combination = tuple(sorted(value.pk for value in values))
-            for other in self.instance.product.variants.exclude(pk=self.instance.pk).prefetch_related("attributes"):
-                if tuple(sorted(other.attributes.values_list("pk", flat=True))) == combination:
-                    raise ValidationError("ترکیب ویژگی‌های این محصول قبلاً تعریف شده است.")
-        return cleaned
-
-
-@admin.register(models.ProductVariant)
-class ProductVariantAdmin(admin.ModelAdmin):
-    form = ProductVariantAdminForm
-    list_display = ("sku", "product", "price", "inventory", "is_active")
-    list_filter = ("is_active",)
-    search_fields = ("sku", "product__title")
-    list_select_related = ("product",)
-    filter_horizontal = ("attributes",)
