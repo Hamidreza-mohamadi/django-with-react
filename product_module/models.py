@@ -201,7 +201,11 @@ class ProductComment(models.Model):
         verbose_name_plural = "کامنت ها"
 
 def sync_product_attributes(product):
-    """Attach one reusable blank value for each missing allowed product attribute."""
+    """Remove values that no longer belong to any selected product category.
+
+    Values are created and assigned by ProductAdmin when the manager fills in
+    the dynamic attribute inputs. Never create blank AttributeValue placeholders.
+    """
     if not product.pk:
         return
 
@@ -210,7 +214,6 @@ def sync_product_attributes(product):
     )
     allowed_attribute_ids.discard(None)
 
-    # Remove only this product's links to values whose attributes are no longer allowed.
     invalid_value_ids = list(
         product.attributes.exclude(
             attribute_id__in=allowed_attribute_ids
@@ -218,16 +221,6 @@ def sync_product_attributes(product):
     )
     if invalid_value_ids:
         product.attributes.remove(*invalid_value_ids)
-
-    # AttributeValue is shared by design. The empty value is a placeholder only;
-    # editing a product replaces its relation instead of modifying this shared row.
-    for attribute_id in allowed_attribute_ids:
-        if not product.attributes.filter(attribute_id=attribute_id).exists():
-            empty_value, _ = AttributeValue.objects.get_or_create(
-                attribute_id=attribute_id,
-                value="",
-            )
-            product.attributes.add(empty_value)
 
 
 @receiver(m2m_changed, sender=Product.category.through)
