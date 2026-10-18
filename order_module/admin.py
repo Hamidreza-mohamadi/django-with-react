@@ -2,14 +2,14 @@ from django.contrib import admin, messages
 from django.db import transaction
 from django.utils import timezone
 
-from product_module.models import Product
+from product_module.models import Product, ProductVariant
 from .models import Allowance, Order, OrderItem, PostalAddress
 
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ("product", "quantity", "unit_price", "final_price", "final_discount")
+    readonly_fields = ("product", "variant", "quantity", "unit_price", "final_price", "final_discount")
     can_delete = False
 
 
@@ -37,18 +37,31 @@ class OrderAdmin(admin.ModelAdmin):
                 status=Order.Status.PENDING, is_paid=False
             ):
                 items = list(order.orderitem_set.all())
-                product_ids = sorted({item.product_id for item in items})
+                variant_ids = sorted({item.variant_id for item in items if item.variant_id})
+                variants = {
+                    variant.pk: variant
+                    for variant in ProductVariant.objects.select_for_update()
+                    .filter(pk__in=variant_ids)
+                    .order_by("pk")
+                }
+                legacy_product_ids = sorted({item.product_id for item in items if not item.variant_id})
                 products = {
                     product.pk: product
                     for product in Product.objects.select_for_update()
-                    .filter(pk__in=product_ids)
+                    .filter(pk__in=legacy_product_ids)
                     .order_by("pk")
                 }
                 for item in items:
-                    product = products.get(item.product_id)
-                    if product:
-                        product.inventory += item.quantity
-                        product.save(update_fields=["inventory"])
+                    if item.variant_id:
+                        variant = variants.get(item.variant_id)
+                        if variant:
+                            variant.inventory += item.quantity
+                            variant.save(update_fields=["inventory"])
+                    else:
+                        product = products.get(item.product_id)
+                        if product:
+                            product.inventory += item.quantity
+                            product.save(update_fields=["inventory"])
                 order.status = Order.Status.CANCELLED
                 order.save(update_fields=["status", "updated_at"])
                 cancelled += 1
