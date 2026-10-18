@@ -122,7 +122,11 @@ class ProductAdmin(admin.ModelAdmin):
             product = models.Product.objects.filter(pk=product_id).first()
             if product:
                 for value in product.attributes.select_related("attribute").order_by("pk"):
-                    current_values.setdefault(value.attribute_id, value.value)
+                    previous = current_values.get(value.attribute_id, "")
+                    if value.value or value.attribute_id not in current_values:
+                        current_values[value.attribute_id] = value.value
+                    elif not previous:
+                        current_values[value.attribute_id] = value.value
 
         for attribute in attributes:
             attribute["value"] = current_values.get(attribute["id"], "")
