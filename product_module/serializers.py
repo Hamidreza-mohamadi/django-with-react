@@ -1,6 +1,6 @@
 from django.utils import timezone
 from rest_framework import serializers
-from .models import AttributeValue, Product, Category
+from .models import AttributeValue, Product, ProductVariant, Category
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -21,6 +21,16 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
         fields = ["id", "attribute_id", "title", "value"]
 
 
+class ProductVariantSerializer(serializers.ModelSerializer):
+    attribute_values = ProductAttributeSerializer(source="attributes", many=True, read_only=True)
+    variants = ProductVariantSerializer(many=True, read_only=True)
+    stock = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductVariant
+        fields = ["id", "sku", "price", "stock", "is_active", "attribute_values"]
+
+
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(many=True, read_only=True)
     name = serializers.CharField(source="title", read_only=True)
@@ -35,8 +45,17 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         exclude = ("favorited_by", "attributes")
+        fields = None
+
+    def get_stock(self, obj):
+        variants = getattr(obj, "variants", None)
+        if variants is not None:
+            return sum(variant.inventory for variant in variants.all() if variant.is_active)
+        return getattr(obj, "inventory", 0)
 
     def get_price(self, obj):
+        variants = list(obj.variants.filter(is_active=True).order_by("price", "id"))
+        base_price = variants[0].price if variants else (obj.price or 0)
         discount = getattr(obj, "discounted", None)
         now = timezone.now()
         if (
@@ -47,11 +66,13 @@ class ProductSerializer(serializers.ModelSerializer):
             and discount.valid_from <= now <= discount.valid_until
         ):
             return discount.amount
-        return obj.price or 0
+        return base_price
 
     def get_compare_price(self, obj):
         current = self.get_price(obj)
-        return obj.price if obj.price is not None and current < obj.price else None
+        variants = obj.variants.filter(is_active=True).order_by("price", "id")
+        regular_price = variants.first().price if variants.exists() else (obj.price or 0)
+        return regular_price if current < regular_price else None
 
     def get_is_available(self, obj):
-        return bool(obj.is_active and obj.inventory > 0)
+        return bool(obj.is_active and self.get_stock(obj) > 0)
