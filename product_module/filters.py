@@ -23,8 +23,8 @@ class ProductFilter(filters.FilterSet):
         if not value:
             return queryset
         return queryset.filter(
-            attribute_values__value__in=value,
-            attribute_values__attribute__title__iregex=r"(رنگ|color)",
+            attributes__value__in=value,
+            attributes__attribute__title__iregex=r"(رنگ|color)",
         ).distinct()
 
     def filter_min_price(self, queryset, name, value):
@@ -57,7 +57,7 @@ class ProductFilter(filters.FilterSet):
             values = [value.strip() for value in str(raw_value).split(",") if value.strip()]
             if values:
                 queryset = queryset.filter(
-                    attribute_values__attribute_id=attribute_id,
-                    attribute_values__value__in=values,
+                    attributes__attribute_id=attribute_id,
+                    attributes__value__in=values,
                 )
         return queryset.distinct()
