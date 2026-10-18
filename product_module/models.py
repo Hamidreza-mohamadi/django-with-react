@@ -250,11 +250,15 @@ def sync_product_attribute_slots(product):
     )
     allowed_attribute_ids.discard(None)
 
+    existing_values = {}
+    for attribute_value in product.attributes.select_related("attribute").all():
+        existing_values.setdefault(attribute_value.attribute_id, attribute_value.pk)
+
     for attribute_id in allowed_attribute_ids:
         ProductAttribute.objects.get_or_create(
             product=product,
             attribute_id=attribute_id,
-            defaults={"value": None},
+            defaults={"value_id": existing_values.get(attribute_id)},
         )
 
     product.attribute_slots.exclude(
