@@ -159,6 +159,47 @@ class Product(models.Model):
         verbose_name_plural = 'محصولات'
 
 
+class ProductAttribute(models.Model):
+    """One editable attribute slot per product and attribute."""
+
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="attribute_slots"
+    )
+    attribute = models.ForeignKey(
+        Attribute, on_delete=models.CASCADE, related_name="product_slots"
+    )
+    value = models.ForeignKey(
+        AttributeValue,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="product_slots",
+        verbose_name="مقدار ویژگی",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "attribute"],
+                name="unique_product_attribute_slot",
+            )
+        ]
+        verbose_name = "ویژگی محصول"
+        verbose_name_plural = "ویژگی‌های محصول"
+
+    def clean(self):
+        super().clean()
+        if self.value_id and self.attribute_id:
+            if self.value.attribute_id != self.attribute_id:
+                raise ValidationError(
+                    {"value": "مقدار انتخاب‌شده متعلق به این ویژگی نیست."}
+                )
+
+    def __str__(self):
+        value = self.value.value if self.value_id else "بدون مقدار"
+        return f"{self.product} - {self.attribute}: {value}"
+
+
 class ProductVisit(models.Model):
     visitor_key = models.CharField(max_length=64, blank=True, default="", db_index=True, verbose_name="شناسه بازدیدکننده")
     viewed_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='زمان بازدید')
@@ -200,24 +241,37 @@ class ProductComment(models.Model):
         verbose_name = "کامنت"
         verbose_name_plural = "کامنت ها"
 
-def sync_product_attributes(product):
-    """Remove product values that are not allowed by any selected category."""
+def sync_product_attribute_slots(product):
+    """Create empty slots for allowed attributes and remove disallowed slots."""
+    if not product.pk:
+        return
     allowed_attribute_ids = set(
         product.category.values_list("attributes__id", flat=True)
     )
-    invalid_value_ids = list(
-        product.attributes.exclude(attribute_id__in=allowed_attribute_ids)
-        .values_list("id", flat=True)
-    )
-    if invalid_value_ids:
-        # Remove only this product's relations; values may be shared by others.
-        product.attributes.remove(*invalid_value_ids)
+    allowed_attribute_ids.discard(None)
+
+    for attribute_id in allowed_attribute_ids:
+        ProductAttribute.objects.get_or_create(
+            product=product,
+            attribute_id=attribute_id,
+            defaults={"value": None},
+        )
+
+    product.attribute_slots.exclude(
+        attribute_id__in=allowed_attribute_ids
+    ).delete()
+
+    # Keep the legacy M2M used by existing API serializers and filters in sync.
+    allowed_value_ids = AttributeValue.objects.filter(
+        attribute_id__in=allowed_attribute_ids
+    ).values_list("pk", flat=True)
+    product.attributes.exclude(pk__in=allowed_value_ids).delete()
 
 
 @receiver(m2m_changed, sender=Product.category.through)
 def validate_product_category_attributes(sender, instance, action, **kwargs):
     if action in {"post_add", "post_remove", "post_clear"}:
-        sync_product_attributes(instance)
+        sync_product_attribute_slots(instance)
 
 
 @receiver(m2m_changed, sender=Product.attributes.through)
@@ -240,12 +294,14 @@ def validate_product_attribute_values(sender, instance, action, pk_set, **kwargs
 
 
 @receiver(m2m_changed, sender=Category.attributes.through)
-def sync_products_when_category_attributes_change(sender, instance, action, reverse, **kwargs):
+def sync_products_when_category_attributes_change(sender, instance, action, reverse, pk_set, **kwargs):
     if action not in {"post_add", "post_remove", "post_clear"}:
         return
     if reverse:
-        products = Product.objects.filter(category__attributes=instance).distinct()
+        # Attribute-side edits can only identify categories still related to it.
+        category_ids = Category.objects.filter(attributes=instance).values_list("pk", flat=True)
+        products = Product.objects.filter(category__in=category_ids).distinct()
     else:
-        products = instance.product_set.all()
+        products = Product.objects.filter(category=instance).distinct()
     for product in products.iterator():
-        sync_product_attributes(product)
+        sync_product_attribute_slots(product)
