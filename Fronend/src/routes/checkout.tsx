@@ -34,7 +34,7 @@ function CheckoutPage() {
     }
     let active = true;
     setQuoteLoading(true);
-    fetchQuote({ data: { items: items.map((item) => ({ product_id: item.product.id, quantity: item.quantity })) } })
+    fetchQuote({ data: { items: items.map((item) => ({ variant_id: item.variant.id, quantity: item.quantity })) } })
       .then((result) => { if (active) { setQuote(result); setError(""); } })
       .catch((err) => {
         if (active) {
@@ -157,7 +157,7 @@ function CheckoutPage() {
         <div className="mt-4 space-y-3 text-sm">
           {items.map((item) => {
             const quoted = quote?.items.find((line) => line.product_id === item.product.id);
-            return <div key={item.product.id} className="flex justify-between gap-3">
+            return <div key={item.variant.id} className="flex justify-between gap-3">
               <div className="min-w-0">
                 <span className="block">{quoted?.name ?? item.product.name} × {item.quantity}</span>
                 {quoted && quoted.line_discount > 0 && (
@@ -172,7 +172,7 @@ function CheckoutPage() {
                     {formatPrice(quoted.regular_unit_price * item.quantity)}
                   </span>
                 )}
-                <span>{formatPrice(quoted?.line_total ?? item.product.price * item.quantity)} تومان</span>
+                <span>{formatPrice(quoted?.line_total ?? item.variant.price * item.quantity)} تومان</span>
               </div>
             </div>;
           })}
