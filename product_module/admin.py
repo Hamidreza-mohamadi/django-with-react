@@ -44,6 +44,13 @@ class ProductAdmin(admin.ModelAdmin):
             obj.admin = request.user
         super().save_model(request, obj, form, change)
 
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        # Categories and variant M2M values are now saved, so validate the final
+        # combination rather than trusting the browser's selected options.
+        for variant in form.instance.variants.all():
+            variant.full_clean()
+
 
 admin.site.register(models.Category)
 admin.site.register(models.Brand)
