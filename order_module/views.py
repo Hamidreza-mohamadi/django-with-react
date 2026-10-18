@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from product_module.models import Product, ProductVariant
+from product_module.models import ProductVariant
 from .models import Order, OrderItem, PostalAddress
 from .serializers import OrderQuoteSerializer, OrderSerializer, CheckoutSerializer
 
@@ -230,11 +230,6 @@ class CancelOrderView(APIView):
                 if variant:
                     variant.inventory += item.quantity
                     variant.save(update_fields=["inventory"])
-            else:
-                product = Product.objects.select_for_update().filter(pk=item.product_id).first()
-                if product:
-                    product.inventory += item.quantity
-                    product.save(update_fields=["inventory"])
 
         order.status = Order.Status.CANCELLED
         order.save(update_fields=["status", "updated_at"])
