@@ -55,7 +55,7 @@ function CheckoutPage() {
     try {
       const order = await submitOrder({
         data: {
-          items: items.map((item) => ({ product_id: item.product.id, quantity: item.quantity })),
+          items: items.map((item) => ({ variant_id: item.variant.id, quantity: item.quantity })),
           shipping_address: {
             province: String(form.get("province") || ""),
             city: String(form.get("city") || ""),
@@ -156,7 +156,7 @@ function CheckoutPage() {
         {quoteLoading && <p className="mt-3 text-sm text-muted-foreground">در حال محاسبه قیمت روز محصولات...</p>}
         <div className="mt-4 space-y-3 text-sm">
           {items.map((item) => {
-            const quoted = quote?.items.find((line) => line.product_id === item.product.id);
+            const quoted = quote?.items.find((line) => line.variant_id === item.variant.id);
             return <div key={item.variant.id} className="flex justify-between gap-3">
               <div className="min-w-0">
                 <span className="block">{quoted?.name ?? item.product.name} × {item.quantity}</span>
