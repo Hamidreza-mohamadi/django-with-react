@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
-from .models import AttributeValue, Product, ProductVariant, Category
+
+from .models import AttributeValue, Category, Product, ProductVariant
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -23,8 +24,7 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     attribute_values = ProductAttributeSerializer(source="attributes", many=True, read_only=True)
-    variants = ProductVariantSerializer(many=True, read_only=True)
-    stock = serializers.SerializerMethodField()
+    stock = serializers.IntegerField(source="inventory", read_only=True)
 
     class Meta:
         model = ProductVariant
@@ -34,28 +34,29 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(many=True, read_only=True)
     name = serializers.CharField(source="title", read_only=True)
-    stock = serializers.IntegerField(source="inventory", read_only=True)
+    stock = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
     compare_price = serializers.SerializerMethodField()
     is_available = serializers.SerializerMethodField()
     views = serializers.IntegerField(read_only=True)
     sales_count = serializers.IntegerField(read_only=True)
     attribute_values = ProductAttributeSerializer(source="attributes", many=True, read_only=True)
+    variants = ProductVariantSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
         exclude = ("favorited_by", "attributes")
-        fields = None
 
     def get_stock(self, obj):
-        variants = getattr(obj, "variants", None)
-        if variants is not None:
-            return sum(variant.inventory for variant in variants.all() if variant.is_active)
-        return getattr(obj, "inventory", 0)
+        return sum(
+            variant.inventory
+            for variant in obj.variants.all()
+            if variant.is_active
+        )
 
     def get_price(self, obj):
-        variants = list(obj.variants.filter(is_active=True).order_by("price", "id"))
-        base_price = variants[0].price if variants else (obj.price or 0)
+        variant = obj.variants.filter(is_active=True).order_by("price", "id").first()
+        base_price = variant.price if variant else (obj.price or 0)
         discount = getattr(obj, "discounted", None)
         now = timezone.now()
         if (
@@ -69,9 +70,9 @@ class ProductSerializer(serializers.ModelSerializer):
         return base_price
 
     def get_compare_price(self, obj):
+        regular_variant = obj.variants.filter(is_active=True).order_by("price", "id").first()
+        regular_price = regular_variant.price if regular_variant else (obj.price or 0)
         current = self.get_price(obj)
-        variants = obj.variants.filter(is_active=True).order_by("price", "id")
-        regular_price = variants.first().price if variants.exists() else (obj.price or 0)
         return regular_price if current < regular_price else None
 
     def get_is_available(self, obj):
