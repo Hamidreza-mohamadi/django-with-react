@@ -56,7 +56,6 @@ class ProductSerializer(serializers.ModelSerializer):
     is_available = serializers.SerializerMethodField()
     views = serializers.IntegerField(read_only=True)
     sales_count = serializers.IntegerField(read_only=True)
-    attribute_values = ProductAttributeSerializer(source="attributes", many=True, read_only=True)
     variants = ProductVariantSerializer(many=True, read_only=True)
 
     class Meta:
