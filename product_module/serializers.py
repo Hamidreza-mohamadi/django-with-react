@@ -1,6 +1,6 @@
 from django.utils import timezone
 from rest_framework import serializers
-from .models import Product, Category, ProductAttribute
+from .models import AttributeValue, Product, Category
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -17,7 +17,7 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
     title = serializers.CharField(source="attribute.title", read_only=True)
 
     class Meta:
-        model = ProductAttribute
+        model = AttributeValue
         fields = ["id", "attribute_id", "title", "value"]
 
 
@@ -30,7 +30,7 @@ class ProductSerializer(serializers.ModelSerializer):
     is_available = serializers.SerializerMethodField()
     views = serializers.IntegerField(read_only=True)
     sales_count = serializers.IntegerField(read_only=True)
-    attribute_values = ProductAttributeSerializer(many=True, read_only=True)
+    attribute_values = ProductAttributeSerializer(source="attributes", many=True, read_only=True)
 
     class Meta:
         model = Product
