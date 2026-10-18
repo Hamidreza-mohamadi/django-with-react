@@ -35,7 +35,7 @@ function CheckoutPage() {
       await createOrderFn({
         data: {
           items: items.map((item) => ({
-            product_id: item.product.id,
+            variant_id: item.variant.id,
             quantity: item.quantity,
           })),
           shipping_address: shippingAddress,
