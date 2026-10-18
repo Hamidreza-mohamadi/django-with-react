@@ -438,7 +438,7 @@ export const getOrders = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const getOrderQuote = createServerFn({ method: "POST" })
-  .validator((data: { items: { product_id: number; quantity: number }[] }) => data)
+  .validator((data: { items: { variant_id: number; quantity: number }[] }) => data)
   .handler(async ({ data }) =>
     djangoFetch<OrderQuote>("/orders/quote/", {
       method: "POST",
@@ -461,7 +461,7 @@ export const simulateOrderPayment = createServerFn({ method: "POST" })
 export const createOrder = createServerFn({ method: "POST" })
   .validator(
     (data: {
-      items: { product_id: number; quantity: number }[];
+      items: { variant_id: number; quantity: number }[];
       shipping_address: { province?: string; city: string; postal_code: string; exact_address: string; phone: string };
     }) => data,
   )
