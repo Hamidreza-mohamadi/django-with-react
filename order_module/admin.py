@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django.db import transaction
 from django.utils import timezone
 
-from product_module.models import Product, ProductVariant
+from product_module.models import ProductVariant
 from .models import Allowance, Order, OrderItem, PostalAddress
 
 
@@ -44,24 +44,12 @@ class OrderAdmin(admin.ModelAdmin):
                     .filter(pk__in=variant_ids)
                     .order_by("pk")
                 }
-                legacy_product_ids = sorted({item.product_id for item in items if not item.variant_id})
-                products = {
-                    product.pk: product
-                    for product in Product.objects.select_for_update()
-                    .filter(pk__in=legacy_product_ids)
-                    .order_by("pk")
-                }
                 for item in items:
                     if item.variant_id:
                         variant = variants.get(item.variant_id)
                         if variant:
                             variant.inventory += item.quantity
                             variant.save(update_fields=["inventory"])
-                    else:
-                        product = products.get(item.product_id)
-                        if product:
-                            product.inventory += item.quantity
-                            product.save(update_fields=["inventory"])
                 order.status = Order.Status.CANCELLED
                 order.save(update_fields=["status", "updated_at"])
                 cancelled += 1
