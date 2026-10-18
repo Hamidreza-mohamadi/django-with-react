@@ -3,13 +3,36 @@ from django.contrib import admin
 from . import models
 
 
-# Register your models here.
-
-
 class ProductAdminForm(forms.ModelForm):
     class Meta:
         model = models.Product
         fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Product.attributes points to AttributeValue, while Category.attributes
+        # points to Attribute. Only offer values for attributes allowed by the
+        # categories selected in this form.
+        category_field_name = self.add_prefix("category")
+        if self.is_bound:
+            if hasattr(self.data, "getlist"):
+                category_ids = self.data.getlist(category_field_name)
+            else:
+                category_id = self.data.get(category_field_name)
+                category_ids = [category_id] if category_id else []
+        elif self.instance and self.instance.pk:
+            category_ids = self.instance.category.values_list("pk", flat=True)
+        else:
+            category_ids = []
+
+        allowed_attribute_ids = models.Category.objects.filter(
+            pk__in=category_ids
+        ).values_list("attributes__id", flat=True)
+
+        self.fields["attributes"].queryset = models.AttributeValue.objects.filter(
+            attribute_id__in=allowed_attribute_ids
+        ).select_related("attribute").order_by("attribute__title", "value")
 
     def clean(self):
         cleaned_data = super().clean()
@@ -18,10 +41,10 @@ class ProductAdminForm(forms.ModelForm):
         if categories is None or values is None:
             return cleaned_data
 
-        allowed_attribute_ids = set(
-            models.Attribute.objects.filter(category__in=categories)
-            .values_list("id", flat=True)
-        )
+        allowed_attribute_ids = models.Category.objects.filter(
+            pk__in=categories
+        ).values_list("attributes__id", flat=True)
+
         invalid_values = values.exclude(attribute_id__in=allowed_attribute_ids)
         if invalid_values.exists():
             titles = ", ".join(
@@ -36,12 +59,9 @@ class ProductAdminForm(forms.ModelForm):
 
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
-    # readonly_fields = ['slug']
-    # prepopulated_fields = {'slug' :['title']}
-    list_display = ['title', 'current_price', 'is_active']
-    list_filter = ['is_active']
-    list_editable = ['is_active']
-    
+    list_display = ["title", "current_price", "is_active"]
+    list_filter = ["is_active"]
+    list_editable = ["is_active"]
 
     def save_model(self, request, obj: models.Product, form, change):
         if not change:
