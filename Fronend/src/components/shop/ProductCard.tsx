@@ -19,6 +19,7 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
   const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavorites();
   const favorite = isFavorite(product.id);
+  const defaultVariant = product.variants?.find((variant) => variant.is_active && variant.stock > 0);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("fa-IR").format(price);
@@ -119,9 +120,13 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
                   router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` } });
                   return;
                 }
-                addItem(product);
+                if (!defaultVariant) {
+                  router.navigate({ to: "/products/$productId", params: { productId: product.slug } });
+                  return;
+                }
+                addItem(product, defaultVariant);
               }}
-              disabled={isLoading}
+              disabled={isLoading || !defaultVariant}
               aria-label={`افزودن ${product.name} به سبد خرید`}
             >
               <ShoppingCart className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
