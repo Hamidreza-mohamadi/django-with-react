@@ -38,7 +38,13 @@ function CheckoutPage() {
             variant_id: item.variant.id,
             quantity: item.quantity,
           })),
-          shipping_address: shippingAddress,
+          shipping_address: {
+            province: "",
+            city: "نامشخص",
+            postal_code: String(formData.get("postal") || ""),
+            exact_address: shippingAddress,
+            phone: String(formData.get("phone") || ""),
+          },
         },
       });
       clearCart();
@@ -97,7 +103,7 @@ function CheckoutPage() {
                 </label>
                 <input
                   id="postal"
-                  name="postal"
+                  name="postal" required
                   type="text"
                   className="w-full rounded-md border border-input bg-background px-4 py-2 text-sm outline-none ring-ring focus-visible:ring-1"
                 />
@@ -108,7 +114,7 @@ function CheckoutPage() {
                 </label>
                 <input
                   id="phone"
-                  name="phone"
+                  name="phone" required
                   type="tel"
                   className="w-full rounded-md border border-input bg-background px-4 py-2 text-sm outline-none ring-ring focus-visible:ring-1"
                 />
