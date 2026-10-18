@@ -7,52 +7,70 @@ from . import models
 class ProductAdminForm(forms.ModelForm):
     class Meta:
         model = models.Product
-        exclude = ("attributes",)
-
-
-class ProductAttributeInlineForm(forms.ModelForm):
-    class Meta:
-        model = models.ProductAttribute
-        fields = ("attribute", "value")
+        fields = "__all__"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        attribute_id = None
-        if self.instance and self.instance.pk:
-            attribute_id = self.instance.attribute_id
-        elif self.is_bound:
-            attribute_id = self.data.get(self.add_prefix("attribute"))
 
-        values = models.AttributeValue.objects.none()
-        if attribute_id:
-            values = models.AttributeValue.objects.filter(
-                attribute_id=attribute_id
-            ).select_related("attribute").order_by("value")
-        self.fields["value"].queryset = values
+        category_field_name = self.add_prefix("category")
+        if self.is_bound:
+            if hasattr(self.data, "getlist"):
+                category_ids = self.data.getlist(category_field_name)
+            else:
+                category_id = self.data.get(category_field_name)
+                category_ids = [category_id] if category_id else []
+        elif self.instance and self.instance.pk:
+            category_ids = self.instance.category.values_list("pk", flat=True)
+        else:
+            category_ids = []
+
+        allowed_attribute_ids = models.Category.objects.filter(
+            pk__in=category_ids
+        ).values_list("attributes__id", flat=True)
+
+        self.fields["attributes"].queryset = models.AttributeValue.objects.filter(
+            attribute_id__in=allowed_attribute_ids
+        ).select_related("attribute").order_by("attribute__title", "value")
 
     def clean(self):
         cleaned_data = super().clean()
-        attribute = cleaned_data.get("attribute")
-        value = cleaned_data.get("value")
-        if attribute and value and value.attribute_id != attribute.pk:
-            self.add_error("value", "مقدار انتخاب‌شده متعلق به این ویژگی نیست.")
+        categories = cleaned_data.get("category")
+        values = cleaned_data.get("attributes")
+        if categories is None or values is None:
+            return cleaned_data
+
+        allowed_attribute_ids = set(
+            models.Category.objects.filter(
+                pk__in=categories
+            ).values_list("attributes__id", flat=True)
+        )
+        selected = list(values)
+        invalid_values = [
+            value for value in selected
+            if value.attribute_id not in allowed_attribute_ids
+        ]
+        if invalid_values:
+            titles = ", ".join(
+                sorted({value.attribute.title for value in invalid_values})
+            )
+            self.add_error(
+                "attributes",
+                f"این ویژگی‌ها برای دسته‌بندی‌های انتخاب‌شده مجاز نیستند: {titles}",
+            )
+
+        # A product should have at most one value (including the empty placeholder)
+        # for each attribute.
+        attribute_ids = [value.attribute_id for value in selected]
+        if len(attribute_ids) != len(set(attribute_ids)):
+            self.add_error(
+                "attributes",
+                "برای هر ویژگی فقط یک مقدار انتخاب کنید.",
+            )
         return cleaned_data
-
-
-class ProductAttributeInline(admin.TabularInline):
-    model = models.ProductAttribute
-    form = ProductAttributeInlineForm
-    fields = ("attribute", "value")
-    readonly_fields = ("attribute",)
-    extra = 0
-    can_delete = False
-    verbose_name = "ویژگی محصول"
-    verbose_name_plural = "ویژگی‌های محصول"
 
 
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
-    inlines = (ProductAttributeInline,)
     list_display = ["title", "current_price", "is_active"]
     list_filter = ["is_active"]
     list_editable = ["is_active"]
@@ -64,16 +82,8 @@ class ProductAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
-        product = form.instance
-        models.sync_product_attribute_slots(product)
-
-        # Keep the existing API serializers and filters compatible while the
-        # admin edits the normalized, per-product attribute slots.
-        product.attributes.clear()
-        selected_value_ids = product.attribute_slots.exclude(
-            value__isnull=True
-        ).values_list("value_id", flat=True)
-        product.attributes.add(*selected_value_ids)
+        # Fill any allowed attributes omitted from the submitted M2M form.
+        models.sync_product_attributes(form.instance)
 
 
 admin.site.register(models.Product, ProductAdmin)
@@ -90,10 +100,3 @@ class AttributeValueAdmin(admin.ModelAdmin):
     list_display = ("value", "attribute")
     list_filter = ("attribute",)
     search_fields = ("value", "attribute__title")
-
-
-@admin.register(models.ProductAttribute)
-class ProductAttributeAdmin(admin.ModelAdmin):
-    list_display = ("product", "attribute", "value")
-    list_filter = ("attribute",)
-    search_fields = ("product__title", "attribute__title", "value__value")
