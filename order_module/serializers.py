@@ -26,7 +26,8 @@ class OrderProductSerializer(serializers.ModelSerializer):
             and discount.valid_from <= now <= discount.valid_until
         ):
             return discount.amount
-        return obj.price or 0
+        variant = obj.variants.filter(is_active=True).order_by("price", "id").first()
+        return variant.price if variant else 0
 
     def get_image(self, obj):
         request = self.context.get("request")
