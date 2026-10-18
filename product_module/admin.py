@@ -18,9 +18,6 @@ class ProductAdmin(admin.ModelAdmin):
             obj.admin = request.user
         return super().save_model(request, obj, form, change)
 
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
-
 
 admin.site.register(models.Product, ProductAdmin)
 admin.site.register(models.Category)
