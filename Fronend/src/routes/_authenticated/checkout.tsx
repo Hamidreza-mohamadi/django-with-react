@@ -136,12 +136,12 @@ function CheckoutPage() {
           <h2 className="text-lg font-semibold text-foreground">خلاصه سفارش</h2>
           <div className="mt-4 space-y-3">
             {items.map((item) => (
-              <div key={item.product.id} className="flex justify-between text-sm">
+              <div key={item.variant.id} className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
-                  {item.product.name} × {item.quantity}
+                  {item.product.name}{item.variant.attribute_values.length ? ` (${item.variant.attribute_values.map((value) => `${value.title}: ${value.value}`).join("، ")})` : ""} × {item.quantity}
                 </span>
                 <span className="font-medium">
-                  {formatPrice(item.product.price * item.quantity)} تومان
+                  {formatPrice(item.variant.price * item.quantity)} تومان
                 </span>
               </div>
             ))}
