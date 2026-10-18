@@ -240,8 +240,12 @@ def validate_product_attribute_values(sender, instance, action, pk_set, **kwargs
 
 
 @receiver(m2m_changed, sender=Category.attributes.through)
-def sync_products_when_category_attributes_change(sender, instance, action, **kwargs):
+def sync_products_when_category_attributes_change(sender, instance, action, reverse, **kwargs):
     if action not in {"post_add", "post_remove", "post_clear"}:
         return
-    for product in instance.product_set.all().iterator():
+    if reverse:
+        products = Product.objects.filter(category__attributes=instance).distinct()
+    else:
+        products = instance.product_set.all()
+    for product in products.iterator():
         sync_product_attributes(product)
