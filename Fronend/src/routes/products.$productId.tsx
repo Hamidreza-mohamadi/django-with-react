@@ -72,15 +72,22 @@ function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const gallery = product.images?.length ? product.images : [product.image || "/placeholder.svg"];
   const [activeImage, setActiveImage] = useState(gallery[0]);
-  const [selectedColor, setSelectedColor] = useState(product.colors?.[0]);
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
+  const availableVariants = (product.variants ?? []).filter((variant) => variant.is_active);
+  const selectedVariant = availableVariants.find((variant) => variant.id === selectedVariantId) ?? availableVariants[0];
+  const displayPrice = selectedVariant?.price ?? product.price;
+  const comparePrice = selectedVariant && selectedVariant.regular_price > displayPrice
+    ? selectedVariant.regular_price
+    : product.compare_price;
+
 
   if (!product) throw notFound();
 
   const rating = product.rating ?? 0;
   const reviewsCount = comments.length || product.reviews_count || 0;
   const discountPercent =
-    product.compare_price && product.compare_price > product.price
-      ? Math.round(((product.compare_price - product.price) / product.compare_price) * 100)
+    comparePrice && comparePrice > displayPrice
+      ? Math.round(((comparePrice - displayPrice) / comparePrice) * 100)
       : 0;
   const others = related.filter((p) => p.id !== product.id);
   const sameCategory = others.filter((p) => p.category?.slug === product.category?.slug);
@@ -185,27 +192,28 @@ function ProductDetailPage() {
           </div>
 
 
-          {!!product.colors?.length && (
+          {availableVariants.length > 0 && (
             <div className="mt-8">
-              <h2 className="text-sm font-bold text-foreground">رنگ‌های موجود</h2>
+              <h2 className="text-sm font-bold text-foreground">انتخاب تنوع محصول</h2>
               <div className="mt-2 flex flex-wrap gap-2">
-                {product.colors.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setSelectedColor(color)}
-                    className={`rounded-md border px-3 py-1.5 text-sm transition ${
-                      selectedColor === color
-                        ? "border-primary font-medium text-primary"
-                        : "border-border text-muted-foreground hover:border-primary/50"
-                    }`}
-                  >
-                    {color}
-                  </button>
-                ))}
+                {availableVariants.map((variant) => {
+                  const label = variant.attribute_values.map((item) => `${item.title}: ${item.value}`).join("، ") || variant.sku;
+                  return (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      disabled={variant.stock <= 0}
+                      onClick={() => { setSelectedVariantId(variant.id); setQuantity((q) => Math.min(q, Math.max(1, variant.stock))); }}
+                      className={`rounded-md border px-3 py-1.5 text-sm transition ${selectedVariant?.id === variant.id ? "border-primary font-medium text-primary" : "border-border text-muted-foreground hover:border-primary/50"} disabled:cursor-not-allowed disabled:opacity-40`}
+                    >
+                      {label}{variant.stock <= 0 ? " (ناموجود)" : ""}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
+
 
           <div className="mt-8">
             <h2 className="text-sm font-bold text-foreground">توضیحات محصول</h2>
@@ -280,7 +288,7 @@ function ProductDetailPage() {
 
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl font-bold text-foreground">
-                {formatPrice(product.price)}
+                {formatPrice(displayPrice)
               </span>
               <span className="text-sm text-muted-foreground">تومان</span>
               {discountPercent > 0 && (
@@ -289,24 +297,24 @@ function ProductDetailPage() {
                 </span>
               )}
             </div>
-            {product.compare_price && product.compare_price > product.price && (
+            {comparePrice && comparePrice > displayPrice && (
               <div className="mt-1 flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground line-through">
-                  {formatPrice(product.compare_price)}
+                  {formatPrice(comparePrice)
                 </span>
                 <span className="font-medium text-green-600">
-                  {formatPrice(product.compare_price - product.price)} تومان سود شما
+                  {formatPrice(comparePrice - displayPrice)} تومان سود شما
                 </span>
               </div>
             )}
 
             <p className="mt-2 flex items-center gap-2 text-sm font-medium">
-              {product.stock > 0 && product.is_available ? (
+              {Boolean(selectedVariant && selectedVariant.stock > 0 && product.is_available) ? (
                 <>
-                  <Package className={`h-4 w-4 ${product.stock < 4 ? "text-destructive" : "text-green-600"}`} />
+                  <Package className={`h-4 w-4 ${selectedVariant!.stock < 4 ? "text-destructive" : "text-green-600"}`} />
                   <span className={product.stock < 4 ? "text-destructive" : "text-foreground"}>
                     {product.stock < 4
-                      ? `فقط ${formatPrice(product.stock)} عدد در انبار`
+                      ? `فقط ${formatPrice(selectedVariant!.stock)} عدد در انبار`
                       : "موجود در انبار"}
                   </span>
                 </>
@@ -344,7 +352,7 @@ function ProductDetailPage() {
             <div className="mt-3 flex items-center justify-between rounded-md bg-secondary px-3 py-2 text-sm">
               <span className="text-muted-foreground">مبلغ قابل پرداخت</span>
               <span className="font-bold text-foreground">
-                {formatPrice(product.price * quantity)} تومان
+                {formatPrice(displayPrice * quantity)} تومان
               </span>
             </div>
 
@@ -357,9 +365,10 @@ function ProductDetailPage() {
                   router.navigate({ to: "/login", search: { redirect: `/products/${product.slug}` }, replace: true });
                   return;
                 }
-                addItem(product, quantity);
+                if (!selectedVariant) return;
+                addItem(product, selectedVariant, quantity);
               }}
-              disabled={isLoading}
+              disabled={isLoading || !selectedVariant || selectedVariant.stock <= 0}
             >
               <ShoppingCart className="ml-2 h-5 w-5" />
               افزودن به سبد خرید
