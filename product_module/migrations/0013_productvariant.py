@@ -17,7 +17,7 @@ def create_default_variants(apps, schema_editor):
             inventory=max(0, product.inventory or 0),
             is_active=product.is_active,
         )
-        old_values = product.attributes.using(db_alias).values_list("pk", flat=True)
+        old_values = product.attributes.using(db_alias).exclude(value="").values_list("pk", flat=True)
         variant.attributes.add(*list(old_values))
 
 
