@@ -34,7 +34,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        exclude = ("favorited_by",)
+        exclude = ("favorited_by", "attributes")
 
     def get_price(self, obj):
         discount = getattr(obj, "discounted", None)
