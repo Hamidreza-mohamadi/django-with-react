@@ -61,7 +61,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        exclude = ("favorited_by", "attributes")
+        exclude = ("favorited_by",)
 
     def get_stock(self, obj):
         return sum(
@@ -72,7 +72,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_price(self, obj):
         variant = obj.variants.filter(is_active=True).order_by("price", "id").first()
-        base_price = variant.price if variant else (obj.price or 0)
+        base_price = variant.price if variant else 0
         discount = getattr(obj, "discounted", None)
         now = timezone.now()
         if (
@@ -87,7 +87,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_compare_price(self, obj):
         regular_variant = obj.variants.filter(is_active=True).order_by("price", "id").first()
-        regular_price = regular_variant.price if regular_variant else (obj.price or 0)
+        regular_price = regular_variant.price if regular_variant else 0
         current = self.get_price(obj)
         return regular_price if current < regular_price else None
 
