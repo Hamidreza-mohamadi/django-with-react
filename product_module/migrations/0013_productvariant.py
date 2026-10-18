@@ -17,8 +17,19 @@ def create_default_variants(apps, schema_editor):
             inventory=max(0, product.inventory or 0),
             is_active=product.is_active,
         )
-        old_values = product.attributes.using(db_alias).exclude(value="").values_list("pk", flat=True)
-        variant.attributes.add(*list(old_values))
+        old_values = (
+            product.attributes.using(db_alias)
+            .exclude(value="")
+            .order_by("attribute_id", "pk")
+            .values_list("pk", "attribute_id")
+        )
+        selected_value_ids = []
+        seen_attribute_ids = set()
+        for value_id, attribute_id in old_values:
+            if attribute_id not in seen_attribute_ids:
+                selected_value_ids.append(value_id)
+                seen_attribute_ids.add(attribute_id)
+        variant.attributes.add(*selected_value_ids)
 
 
 class Migration(migrations.Migration):
