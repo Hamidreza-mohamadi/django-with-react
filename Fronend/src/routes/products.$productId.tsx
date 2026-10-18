@@ -340,9 +340,10 @@ function ProductDetailPage() {
                 </button>
                 <span className="flex-1 text-center text-base font-bold">{quantity}</span>
                 <button
-                  onClick={() => setQuantity((q) => q + 1)}
+                  onClick={() => setQuantity((q) => Math.min(selectedVariant?.stock ?? 1, q + 1))}
                   className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                   aria-label="افزایش تعداد"
+                  disabled={quantity >= (selectedVariant?.stock ?? 1)}
                 >
                   <Plus className="h-4 w-4" />
                 </button>
