@@ -9,6 +9,16 @@ export interface Category {
   description?: string;
 }
 
+export interface ProductVariant {
+  id: number;
+  sku: string;
+  price: number;
+  regular_price: number;
+  stock: number;
+  is_active: boolean;
+  attribute_values: { id: number; attribute_id: number; title: string; value: string }[];
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -33,6 +43,7 @@ export interface Product {
   reviews_count?: number;
   specs?: { label: string; value: string }[];
   attribute_values?: { id: number; attribute_id: number; title: string; value: string }[];
+  variants?: ProductVariant[];
   updated_at?: string;
 }
 
@@ -78,7 +89,7 @@ export interface ProductFilterOptions {
 }
 
 export interface CartItem {
-  id: number;
+  variant: ProductVariant;
   product: Product;
   quantity: number;
 }
@@ -93,6 +104,7 @@ export interface Cart {
 export interface OrderItem {
   id: number;
   product: Product;
+  variant?: { id: number; sku: string; attributes: { title: string; value: string }[] } | null;
   quantity: number;
   unit_price?: number;
   line_total?: number;
@@ -100,7 +112,7 @@ export interface OrderItem {
 }
 
 export interface OrderQuote {
-  items: { product_id: number; name: string; quantity: number; regular_unit_price: number; unit_price: number; line_discount: number; line_total: number }[];
+  items: { product_id: number; variant_id: number; name: string; quantity: number; regular_unit_price: number; unit_price: number; line_discount: number; line_total: number }[];
   original_subtotal: number;
   discount_total: number;
   subtotal: number;
