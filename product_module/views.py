@@ -39,7 +39,8 @@ class ProductFilterOptionsView(APIView):
         )
         colors = list(
             AttributeValue.objects.filter(
-                products__in=products,
+                product_variants__product__in=products,
+                product_variants__is_active=True,
                 attribute__title__iregex=r"(رنگ|color)",
             )
             .values_list("value", flat=True)
@@ -62,7 +63,8 @@ class ProductFilterOptionsView(APIView):
         for attribute in Attribute.objects.filter(id__in=attribute_ids).order_by("title"):
             values = list(
                 AttributeValue.objects.filter(
-                    products__in=products,
+                    product_variants__product__in=products,
+                    product_variants__is_active=True,
                     attribute=attribute,
                 ).exclude(value="")
                 .values_list("value", flat=True)
