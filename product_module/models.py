@@ -177,6 +177,15 @@ class ProductVariant(models.Model):
                     "ویژگی‌های انتخاب‌شده در دسته‌بندی‌های این محصول تعریف نشده‌اند."
                 )
 
+        if self.pk and self.product_id:
+            selected_value_ids = set(self.attributes.values_list("pk", flat=True))
+            for other in self.product.variants.exclude(pk=self.pk).prefetch_related("attributes"):
+                other_value_ids = set(other.attributes.values_list("pk", flat=True))
+                if selected_value_ids == other_value_ids:
+                    raise ValidationError(
+                        "این ترکیب ویژگی‌ها قبلاً برای همین محصول تعریف شده است."
+                    )
+
     def save(self, *args, **kwargs):
         if not self.sku:
             import uuid
