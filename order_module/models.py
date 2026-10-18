@@ -69,7 +69,8 @@ class OrderItem(models.Model):
         if self.final_price is not None:
             return max(0, self.final_price)
         else:
-            unit_price = self.product.current_price if self.product.current_price is not None else self.product.price
+            # Legacy order rows should have been linked to a variant by migration.
+            unit_price = self.variant.price if self.variant_id else 0
             return max(0, unit_price * self.quantity - self.allowance_applied())
 
     def __str__(self):
