@@ -46,15 +46,18 @@ class ProductFilterOptionsView(APIView):
             .distinct()
             .order_by("value")
         )
+        # Dynamic product attributes are category-specific. Do not show
+        # every attribute across the whole catalog when no category is selected.
         if category:
             category_attributes = Category.objects.filter(
                 slug=category, is_active=True
             ).values_list("attributes__id", flat=True)
-            attribute_ids = [attribute_id for attribute_id in category_attributes if attribute_id]
+            attribute_ids = [
+                attribute_id for attribute_id in category_attributes
+                if attribute_id is not None
+            ]
         else:
-            attribute_ids = ProductAttribute.objects.filter(
-                product__in=products
-            ).values_list("attribute_id", flat=True).distinct()
+            attribute_ids = []
         attributes = []
         for attribute in Attribute.objects.filter(id__in=attribute_ids).order_by("title"):
             values = list(
