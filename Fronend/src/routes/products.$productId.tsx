@@ -74,7 +74,7 @@ function ProductDetailPage() {
   const [activeImage, setActiveImage] = useState(gallery[0]);
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const availableVariants = (product.variants ?? []).filter((variant) => variant.is_active);
-  const selectedVariant = availableVariants.find((variant) => variant.id === selectedVariantId) ?? availableVariants[0];
+  const selectedVariant = availableVariants.find((variant) => variant.id === selectedVariantId) ?? availableVariants.find((variant) => variant.stock > 0) ?? availableVariants[0];
   const displayPrice = selectedVariant?.price ?? product.price;
   const comparePrice = selectedVariant && selectedVariant.regular_price > displayPrice
     ? selectedVariant.regular_price
