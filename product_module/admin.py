@@ -38,3 +38,10 @@ admin.site.register(models.ProductVisit)
 admin.site.register(models.ProductGallery)
 admin.site.register(models.Discount)
 admin.site.register(models.Attribute)
+
+
+@admin.register(models.ProductAttribute)
+class ProductAttributeAdmin(admin.ModelAdmin):
+    list_display = ("product", "attribute", "value")
+    list_filter = ("attribute",)
+    search_fields = ("product__title", "attribute__title", "value")
