@@ -1,13 +1,10 @@
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.signals import m2m_changed
-from django.dispatch import receiver
 from django.utils import timezone
 
 from account_module.models import User
 
 from django.urls import reverse
-from django.utils.text import slugify
 
 
 # Create your models here.
@@ -168,6 +165,17 @@ class ProductVariant(models.Model):
         attribute_ids = [value.attribute_id for value in values]
         if len(attribute_ids) != len(set(attribute_ids)):
             raise ValidationError("برای هر ویژگی در یک تنوع فقط یک مقدار انتخاب کنید.")
+
+        if self.product_id and values:
+            allowed_attribute_ids = set(
+                self.product.category.values_list("attributes__id", flat=True)
+            )
+            allowed_attribute_ids.discard(None)
+            invalid_attribute_ids = set(attribute_ids) - allowed_attribute_ids
+            if invalid_attribute_ids:
+                raise ValidationError(
+                    "ویژگی‌های انتخاب‌شده در دسته‌بندی‌های این محصول تعریف نشده‌اند."
+                )
 
     def save(self, *args, **kwargs):
         if not self.sku:
