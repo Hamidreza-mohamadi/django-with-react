@@ -71,7 +71,7 @@ function CartPage() {
                     </button>
                     <span className="w-8 text-center text-sm">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.variant.id, item.quantity + 1)}
                       className="flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-foreground"
                       aria-label="افزایش"
                     >
