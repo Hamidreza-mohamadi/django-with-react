@@ -75,7 +75,7 @@ class ProductFilterOptionsView(APIView):
         max_price = (
             products.annotate(
                 effective_price=Coalesce(
-                    Min("variants__price"), Value(0), output_field=IntegerField()
+                    Min("variants__price", filter=Q(variants__is_active=True)), Value(0), output_field=IntegerField()
                 )
             ).aggregate(max_price=Max("effective_price"))["max_price"]
             or 0
@@ -115,9 +115,9 @@ class ProductListView(generics.ListAPIView):
         return (
             Product.objects.filter(is_active=True)
             .annotate(
-                current_price=Min("variants__price"),
+                current_price=Min("variants__price", filter=Q(variants__is_active=True)),
                 effective_price=Coalesce(
-                    Min("variants__price"), Value(0), output_field=IntegerField()
+                    Min("variants__price", filter=Q(variants__is_active=True)), Value(0), output_field=IntegerField()
                 ),
                 sales_count=Coalesce(
                     Subquery(paid_units, output_field=IntegerField()),
