@@ -37,7 +37,7 @@ class ProductAdmin(admin.ModelAdmin):
     filter_horizontal = ("category", "favorited_by")
     inlines = (ProductVariantInline,)
     # Price and inventory now belong to variants, not the catalog product.
-    exclude = ("attributes", "price", "current_price", "inventory")
+
 
     def save_model(self, request, obj, form, change):
         if not change:
