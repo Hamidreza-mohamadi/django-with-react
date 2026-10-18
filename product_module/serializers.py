@@ -25,10 +25,26 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
 class ProductVariantSerializer(serializers.ModelSerializer):
     attribute_values = ProductAttributeSerializer(source="attributes", many=True, read_only=True)
     stock = serializers.IntegerField(source="inventory", read_only=True)
+    regular_price = serializers.IntegerField(source="price", read_only=True)
+    price = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductVariant
-        fields = ["id", "sku", "price", "stock", "is_active", "attribute_values"]
+        fields = ["id", "sku", "price", "regular_price", "stock", "is_active", "attribute_values"]
+
+    def get_price(self, obj):
+        product = obj.product
+        discount = getattr(product, "discounted", None)
+        now = timezone.now()
+        if (
+            discount
+            and discount.is_active
+            and discount.amount is not None
+            and discount.amount >= 0
+            and discount.valid_from <= now <= discount.valid_until
+        ):
+            return discount.amount
+        return obj.price
 
 
 class ProductSerializer(serializers.ModelSerializer):
