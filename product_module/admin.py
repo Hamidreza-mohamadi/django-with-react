@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
+from django.forms.models import BaseInlineFormSet
 
 from . import models
 
@@ -20,9 +21,46 @@ class ProductVariantInlineForm(forms.ModelForm):
         return cleaned
 
 
+class ProductVariantInlineFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(form.errors for form in self.forms):
+            return
+
+        category_ids = self.data.getlist("category")
+        if not category_ids and self.instance.pk:
+            category_ids = list(self.instance.category.values_list("pk", flat=True))
+
+        allowed_attribute_ids = set(
+            models.Category.objects.filter(pk__in=category_ids)
+            .values_list("attributes__id", flat=True)
+        )
+        allowed_attribute_ids.discard(None)
+        seen_combinations = set()
+
+        for form in self.forms:
+            if not getattr(form, "cleaned_data", None) or form.cleaned_data.get("DELETE"):
+                continue
+            if not form.has_changed() and not form.instance.pk:
+                continue
+
+            values = list(form.cleaned_data.get("attributes") or [])
+            invalid_ids = {value.attribute_id for value in values} - allowed_attribute_ids
+            if invalid_ids:
+                raise ValidationError(
+                    "هر ویژگی از تنوع باید در ویژگی‌های دسته‌بندی‌های محصول تعریف شده باشد."
+                )
+
+            combination = tuple(sorted(value.pk for value in values))
+            if combination in seen_combinations:
+                raise ValidationError("ترکیب ویژگی‌های دو تنوع نباید تکراری باشد.")
+            seen_combinations.add(combination)
+
+
 class ProductVariantInline(admin.TabularInline):
     model = models.ProductVariant
     form = ProductVariantInlineForm
+    formset = ProductVariantInlineFormSet
     extra = 1
     fields = ("sku", "price", "inventory", "attributes", "is_active")
     filter_horizontal = ("attributes",)
@@ -36,20 +74,11 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ("title", "slug")
     filter_horizontal = ("category", "favorited_by")
     inlines = (ProductVariantInline,)
-    # Price and inventory now belong to variants, not the catalog product.
-
 
     def save_model(self, request, obj, form, change):
         if not change:
             obj.admin = request.user
         super().save_model(request, obj, form, change)
-
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
-        # Categories and variant M2M values are now saved, so validate the final
-        # combination rather than trusting the browser's selected options.
-        for variant in form.instance.variants.all():
-            variant.full_clean()
 
 
 admin.site.register(models.Category)
@@ -74,7 +103,3 @@ class ProductVariantAdmin(admin.ModelAdmin):
     search_fields = ("sku", "product__title")
     list_select_related = ("product",)
     filter_horizontal = ("attributes",)
-
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
-        form.instance.full_clean()
