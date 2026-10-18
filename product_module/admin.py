@@ -74,3 +74,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
     search_fields = ("sku", "product__title")
     list_select_related = ("product",)
     filter_horizontal = ("attributes",)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        form.instance.full_clean()
