@@ -3,7 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Order, OrderItem, PostalAddress
-from product_module.models import Product
+from product_module.models import Product, ProductVariant
 
 
 class OrderProductSerializer(serializers.ModelSerializer):
@@ -45,13 +45,26 @@ class PostalAddressSerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = OrderProductSerializer(read_only=True)
+    variant = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
     unit_price = serializers.SerializerMethodField()
     line_total = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "quantity", "unit_price", "price", "line_total", "final_discount"]
+        fields = ["id", "product", "variant", "quantity", "unit_price", "price", "line_total", "final_discount"]
+
+    def get_variant(self, obj):
+        if not obj.variant_id:
+            return None
+        return {
+            "id": obj.variant_id,
+            "sku": obj.variant.sku,
+            "attributes": [
+                {"title": value.attribute.title, "value": value.value}
+                for value in obj.variant.attributes.select_related("attribute").all()
+            ],
+        }
 
     def get_unit_price(self, obj):
         if obj.unit_price is not None:
@@ -100,18 +113,25 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class CheckoutItemSerializer(serializers.Serializer):
-    product_id = serializers.IntegerField(min_value=1)
+    variant_id = serializers.IntegerField(min_value=1, required=False)
+    # Backwards compatibility for older clients; accepted only if the product
+    # has exactly one active variant.
+    product_id = serializers.IntegerField(min_value=1, required=False)
     quantity = serializers.IntegerField(min_value=1, max_value=100)
 
+    def validate(self, attrs):
+        if not attrs.get("variant_id") and not attrs.get("product_id"):
+            raise serializers.ValidationError("شناسه تنوع محصول الزامی است.")
+        return attrs
 
 class CheckoutSerializer(serializers.Serializer):
     items = CheckoutItemSerializer(many=True, allow_empty=False)
     shipping_address = PostalAddressSerializer()
 
     def validate_items(self, items):
-        product_ids = [item["product_id"] for item in items]
-        if len(product_ids) != len(set(product_ids)):
-            raise serializers.ValidationError("هر محصول باید فقط یک بار در سفارش ارسال شود.")
+        keys = [(item.get("variant_id"), item.get("product_id")) for item in items]
+        if len(keys) != len(set(keys)):
+            raise serializers.ValidationError("هر تنوع محصول باید فقط یک بار در سفارش ارسال شود.")
         return items
 
     def validate_shipping_address(self, value):
