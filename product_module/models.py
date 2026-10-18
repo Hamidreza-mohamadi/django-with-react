@@ -97,37 +97,18 @@ class Discount(models.Model):
 
 class Product(models.Model):
     title = models.CharField(max_length=80, verbose_name='نام محصول')
-    price = models.IntegerField(blank=True, verbose_name='قیمت محصول')
-    current_price = models.IntegerField(verbose_name="قیمت نهایی", blank=True, null=True)
     discounted = models.OneToOneField(Discount, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='قیمت آف خورده')
     admin = models.ForeignKey(User, verbose_name='ادمین', on_delete=models.PROTECT,blank=True, null=True)
     description = models.TextField(max_length=300, blank=True, verbose_name='توضیحات محصول')
     category = models.ManyToManyField(Category, max_length=80, blank=True, verbose_name='دسته بندی')
-    attributes = models.ManyToManyField(
-        AttributeValue, blank=True, related_name="products", verbose_name="ویژگی‌ها"
-    )
     brand = models.ForeignKey(Brand, on_delete=models.PROTECT, max_length=80, blank=True, null=True, verbose_name='برند')  #
     image = models.ImageField(blank=True, verbose_name='تصاویر محصول', upload_to='images/products')
-    inventory = models.IntegerField(verbose_name='موجودی در انبار', default=0)  # فیلد موجودی انبار
     slug = models.SlugField(max_length=150, default="", unique=True, null=False, blank=True, db_index=True, verbose_name='عنوان در url')
     is_active = models.BooleanField(default=True, verbose_name='فعال یا غیرفعال')
     created_date = models.DateTimeField(auto_now_add=True)
     rating = models.IntegerField(verbose_name='امتیاز محصول', blank=True, null=True)
     favorited_by = models.ManyToManyField(User, related_name="favorite_products", blank=True, verbose_name="علاقه‌مندان")
 
-    def save(self, *args, **kwargs):
-        discount = getattr(self, "discounted", None)
-        now = timezone.now()
-        if (
-            discount
-            and discount.amount is not None
-            and discount.is_active
-            and discount.valid_from <= now <= discount.valid_until
-        ):
-            self.current_price = discount.amount
-        else:
-            self.current_price = self.price
-        super().save(*args, **kwargs)
 
     # @property
     # def current_price(self):
@@ -243,65 +224,3 @@ class ProductComment(models.Model):
         verbose_name = "کامنت"
         verbose_name_plural = "کامنت ها"
 
-def sync_product_attributes(product):
-    """Remove values that no longer belong to any selected product category.
-
-    Values are created and assigned by ProductAdmin when the manager fills in
-    the dynamic attribute inputs. Never create blank AttributeValue placeholders.
-    """
-    if not product.pk:
-        return
-
-    allowed_attribute_ids = set(
-        product.category.values_list("attributes__id", flat=True)
-    )
-    allowed_attribute_ids.discard(None)
-
-    invalid_value_ids = list(
-        product.attributes.exclude(
-            attribute_id__in=allowed_attribute_ids
-        ).values_list("pk", flat=True)
-    )
-    if invalid_value_ids:
-        product.attributes.remove(*invalid_value_ids)
-
-
-@receiver(m2m_changed, sender=Product.category.through)
-def validate_product_category_attributes(sender, instance, action, **kwargs):
-    if action in {"post_add", "post_remove", "post_clear"}:
-        sync_product_attributes(instance)
-
-
-@receiver(m2m_changed, sender=Product.attributes.through)
-def validate_product_attribute_values(sender, instance, action, pk_set, **kwargs):
-    if action != "pre_add" or not pk_set:
-        return
-    allowed_attribute_ids = set(
-        instance.category.values_list("attributes__id", flat=True)
-    )
-    selected_values = AttributeValue.objects.filter(pk__in=pk_set)
-    invalid_values = selected_values.exclude(attribute_id__in=allowed_attribute_ids)
-    if invalid_values.exists():
-        invalid_titles = ", ".join(
-            invalid_values.values_list("attribute__title", flat=True).distinct()
-        )
-        raise ValidationError(
-            "این ویژگی برای دسته‌بندی‌های انتخاب‌شده مجاز نیست: "
-            f"{invalid_titles}"
-        )
-
-
-@receiver(m2m_changed, sender=Category.attributes.through)
-def sync_products_when_category_attributes_change(sender, instance, action, reverse, pk_set, **kwargs):
-    if action not in {"post_add", "post_remove", "post_clear"}:
-        return
-    if reverse:
-        # In reverse add/remove operations, pk_set contains the affected category IDs.
-        if pk_set:
-            products = Product.objects.filter(category__in=pk_set).distinct()
-        else:
-            return
-    else:
-        products = Product.objects.filter(category=instance).distinct()
-    for product in products.iterator():
-        sync_product_attributes(product)
