@@ -288,7 +288,7 @@ function ProductDetailPage() {
 
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl font-bold text-foreground">
-                {formatPrice(displayPrice)
+                {formatPrice(displayPrice)}
               </span>
               <span className="text-sm text-muted-foreground">تومان</span>
               {discountPercent > 0 && (
@@ -300,7 +300,7 @@ function ProductDetailPage() {
             {comparePrice && comparePrice > displayPrice && (
               <div className="mt-1 flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground line-through">
-                  {formatPrice(comparePrice)
+                  {formatPrice(comparePrice)}
                 </span>
                 <span className="font-medium text-green-600">
                   {formatPrice(comparePrice - displayPrice)} تومان سود شما
@@ -312,8 +312,8 @@ function ProductDetailPage() {
               {Boolean(selectedVariant && selectedVariant.stock > 0 && product.is_available) ? (
                 <>
                   <Package className={`h-4 w-4 ${selectedVariant!.stock < 4 ? "text-destructive" : "text-green-600"}`} />
-                  <span className={product.stock < 4 ? "text-destructive" : "text-foreground"}>
-                    {product.stock < 4
+                  <span className={selectedVariant!.stock < 4 ? "text-destructive" : "text-foreground"}>
+                    {selectedVariant!.stock < 4
                       ? `فقط ${formatPrice(selectedVariant!.stock)} عدد در انبار`
                       : "موجود در انبار"}
                   </span>
