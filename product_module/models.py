@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
@@ -21,6 +22,33 @@ class Attribute(models.Model):
     class Meta:
         verbose_name = 'ویژگی محصول'
         verbose_name_plural = 'ویژگیهای محصولات'
+
+
+class AttributeValue(models.Model):
+    """A reusable, normalized value belonging to a single attribute."""
+
+    attribute = models.ForeignKey(
+        Attribute, on_delete=models.CASCADE, related_name="values"
+    )
+    value = models.CharField(max_length=300, verbose_name="مقدار ویژگی")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attribute", "value"],
+                name="unique_attribute_value_text",
+            )
+        ]
+        ordering = ["attribute__title", "value"]
+        verbose_name = "مقدار ویژگی"
+        verbose_name_plural = "مقادیر ویژگی‌ها"
+
+    def save(self, *args, **kwargs):
+        self.value = self.value.strip()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.attribute.title}: {self.value}"
 
 
 class Category(models.Model):
@@ -75,6 +103,9 @@ class Product(models.Model):
     admin = models.ForeignKey(User, verbose_name='ادمین', on_delete=models.PROTECT,blank=True, null=True)
     description = models.TextField(max_length=300, blank=True, verbose_name='توضیحات محصول')
     category = models.ManyToManyField(Category, max_length=80, blank=True, verbose_name='دسته بندی')
+    attributes = models.ManyToManyField(
+        AttributeValue, blank=True, related_name="products", verbose_name="ویژگی‌ها"
+    )
     brand = models.ForeignKey(Brand, on_delete=models.PROTECT, max_length=80, blank=True, null=True, verbose_name='برند')  #
     image = models.ImageField(blank=True, verbose_name='تصاویر محصول', upload_to='images/products')
     inventory = models.IntegerField(verbose_name='موجودی در انبار', default=0)  # فیلد موجودی انبار
@@ -169,66 +200,48 @@ class ProductComment(models.Model):
         verbose_name = "کامنت"
         verbose_name_plural = "کامنت ها"
 
-class ProductAttribute(models.Model):
-    """A product-specific value for an attribute defined by its category."""
-
-    product = models.ForeignKey(
-        Product, on_delete=models.CASCADE, related_name="attribute_values"
-    )
-    attribute = models.ForeignKey(
-        Attribute, on_delete=models.CASCADE, related_name="product_values"
-    )
-    value = models.CharField(
-        max_length=300, blank=True, default="", verbose_name="مقدار ویژگی"
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["product", "attribute"],
-                name="unique_product_attribute_value",
-            )
-        ]
-        verbose_name = "ویژگی محصول"
-        verbose_name_plural = "ویژگی‌های محصولات"
-
-    def __str__(self):
-        return f"{self.product.title} - {self.attribute.title}: {self.value}"
-
-
-
 def sync_product_attributes(product):
-    """Keep only attributes provided by the product's selected categories."""
-    attribute_ids = set(
-        product.category.filter(attributes__isnull=False)
-        .values_list("attributes__id", flat=True)
-        .distinct()
+    """Remove product values that are not allowed by any selected category."""
+    allowed_attribute_ids = set(
+        product.category.values_list("attributes__id", flat=True)
     )
-
-    ProductAttribute.objects.filter(product=product).exclude(
-        attribute_id__in=attribute_ids
-    ).delete()
-
-    for attribute_id in attribute_ids:
-        ProductAttribute.objects.get_or_create(
-            product=product,
-            attribute_id=attribute_id,
-            defaults={"value": ""},
-        )
+    invalid_value_ids = list(
+        product.attributes.exclude(attribute_id__in=allowed_attribute_ids)
+        .values_list("id", flat=True)
+    )
+    if invalid_value_ids:
+        # Remove only this product's relations; values may be shared by others.
+        product.attributes.remove(*invalid_value_ids)
 
 
 @receiver(m2m_changed, sender=Product.category.through)
-def create_category_product_attributes(sender, instance, action, **kwargs):
-    """Create missing product attribute slots when categories are added."""
-    if action != "post_add":
+def validate_product_category_attributes(sender, instance, action, **kwargs):
+    if action in {"post_add", "post_remove", "post_clear"}:
+        sync_product_attributes(instance)
+
+
+@receiver(m2m_changed, sender=Product.attributes.through)
+def validate_product_attribute_values(sender, instance, action, pk_set, **kwargs):
+    if action != "pre_add" or not pk_set:
         return
-    attribute_ids = instance.category.values_list(
-        "attributes__id", flat=True
-    ).distinct()
-    for attribute_id in attribute_ids:
-        if attribute_id is not None:
-            ProductAttribute.objects.get_or_create(
-                product=instance,
-                attribute_id=attribute_id,
-                defaults={"value": ""},
-            )
+    allowed_attribute_ids = set(
+        instance.category.values_list("attributes__id", flat=True)
+    )
+    selected_values = AttributeValue.objects.filter(pk__in=pk_set)
+    invalid_values = selected_values.exclude(attribute_id__in=allowed_attribute_ids)
+    if invalid_values.exists():
+        invalid_titles = ", ".join(
+            invalid_values.values_list("attribute__title", flat=True).distinct()
+        )
+        raise ValidationError(
+            "این ویژگی برای دسته‌بندی‌های انتخاب‌شده مجاز نیست: "
+            f"{invalid_titles}"
+        )
+
+
+@receiver(m2m_changed, sender=Category.attributes.through)
+def sync_products_when_category_attributes_change(sender, instance, action, **kwargs):
+    if action not in {"post_add", "post_remove", "post_clear"}:
+        return
+    for product in instance.product_set.all().iterator():
+        sync_product_attributes(product)
