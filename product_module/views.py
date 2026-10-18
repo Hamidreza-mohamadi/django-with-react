@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
+from django.db.models import Count, IntegerField, Max, Min, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import generics, status
