@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from product_module.filters import ProductFilter
-from product_module.models import Attribute, Category, Product, ProductAttribute, ProductVisit
+from product_module.models import Attribute, AttributeValue, Category, Product, ProductVisit
 from product_module.serializers import CategorySerializer, ProductSerializer
 from order_module.models import OrderItem
 
@@ -38,8 +38,8 @@ class ProductFilterOptionsView(APIView):
             .order_by("brand__title")
         )
         colors = list(
-            ProductAttribute.objects.filter(
-                product__in=products,
+            AttributeValue.objects.filter(
+                products__in=products,
                 attribute__title__iregex=r"(رنگ|color)",
             )
             .values_list("value", flat=True)
@@ -61,8 +61,8 @@ class ProductFilterOptionsView(APIView):
         attributes = []
         for attribute in Attribute.objects.filter(id__in=attribute_ids).order_by("title"):
             values = list(
-                ProductAttribute.objects.filter(
-                    product__in=products,
+                AttributeValue.objects.filter(
+                    products__in=products,
                     attribute=attribute,
                 ).exclude(value="")
                 .values_list("value", flat=True)
