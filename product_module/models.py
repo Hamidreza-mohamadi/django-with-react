@@ -265,7 +265,11 @@ def sync_product_attribute_slots(product):
     allowed_value_ids = AttributeValue.objects.filter(
         attribute_id__in=allowed_attribute_ids
     ).values_list("pk", flat=True)
-    product.attributes.exclude(pk__in=allowed_value_ids).delete()
+    invalid_value_ids = list(
+        product.attributes.exclude(pk__in=allowed_value_ids).values_list("pk", flat=True)
+    )
+    if invalid_value_ids:
+        product.attributes.remove(*invalid_value_ids)
 
 
 @receiver(m2m_changed, sender=Product.category.through)
