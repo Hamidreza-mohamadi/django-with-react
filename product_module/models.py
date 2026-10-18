@@ -159,6 +159,49 @@ class Product(models.Model):
         verbose_name_plural = 'محصولات'
 
 
+class ProductVariant(models.Model):
+    """A sellable SKU for a catalog product, with its own price, stock and attributes."""
+
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="variants", verbose_name="محصول"
+    )
+    sku = models.CharField(max_length=64, unique=True, blank=True, verbose_name="شناسه کالا")
+    price = models.PositiveIntegerField(verbose_name="قیمت")
+    inventory = models.PositiveIntegerField(default=0, verbose_name="موجودی انبار")
+    attributes = models.ManyToManyField(
+        AttributeValue, blank=True, related_name="product_variants", verbose_name="ویژگی‌های ترکیب"
+    )
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "تنوع محصول"
+        verbose_name_plural = "تنوع‌های محصول"
+
+    def clean(self):
+        super().clean()
+        if self.pk:
+            values = list(self.attributes.select_related("attribute").all())
+        else:
+            values = list(getattr(self, "_pending_attribute_values", []))
+        attribute_ids = [value.attribute_id for value in values]
+        if len(attribute_ids) != len(set(attribute_ids)):
+            raise ValidationError("برای هر ویژگی در یک تنوع فقط یک مقدار انتخاب کنید.")
+
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            import uuid
+            self.sku = f"SKU-{uuid.uuid4().hex[:12].upper()}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        values = ", ".join(
+            f"{value.attribute.title}: {value.value}"
+            for value in self.attributes.select_related("attribute").all()
+        )
+        return f"{self.product.title} ({values or self.sku})"
+
+
 class ProductVisit(models.Model):
     visitor_key = models.CharField(max_length=64, blank=True, default="", db_index=True, verbose_name="شناسه بازدیدکننده")
     viewed_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='زمان بازدید')
