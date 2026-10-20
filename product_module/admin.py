@@ -87,7 +87,7 @@ class ProductAdmin(admin.ModelAdmin):
     @require_GET
     def category_attribute_values(self, request):
         category_ids = request.GET.getlist("category_ids")
-        attributes = models.Attribute.objects.filter(categories__id__in=category_ids).distinct().order_by("title")
+        attributes = models.Attribute.objects.filter(id__in=models.Category.objects.filter(pk__in=category_ids).values_list("attributes__id", flat=True)).distinct().order_by("title")
         values = models.AttributeValue.objects.filter(attribute__in=attributes).select_related("attribute").order_by("attribute__title", "value")
         return JsonResponse({
             "attributes": [{"id": item.pk, "title": item.title} for item in attributes],
