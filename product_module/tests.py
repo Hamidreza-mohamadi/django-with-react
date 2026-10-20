@@ -1,3 +1,70 @@
-from django.test import TestCase
+from django.core.exceptions import ValidationError
+from datetime import timedelta
 
-# Create your tests here.
+from django.test import TestCase
+from django.utils import timezone
+
+from .models import Attribute, AttributeValue, Category, Discount, Product, ProductVariant
+
+
+class ProductVariantTests(TestCase):
+    def setUp(self):
+        self.color = Attribute.objects.create(title="Color")
+        self.size = Attribute.objects.create(title="Size")
+        self.category = Category.objects.create(title="Clothing", slug="clothing")
+        self.category.attributes.add(self.color, self.size)
+        self.product = Product.objects.create(title="T-shirt", slug="t-shirt")
+        self.product.category.add(self.category)
+        self.black = AttributeValue.objects.create(attribute=self.color, value="Black")
+        self.blue = AttributeValue.objects.create(attribute=self.color, value="Blue")
+        self.large = AttributeValue.objects.create(attribute=self.size, value="L")
+
+    def test_variants_have_independent_prices_and_stock(self):
+        black = ProductVariant.objects.create(product=self.product, price=250, inventory=3)
+        black.attributes.add(self.black)
+        blue = ProductVariant.objects.create(product=self.product, price=275, inventory=7)
+        blue.attributes.add(self.blue)
+
+        self.assertNotEqual(black.sku, blue.sku)
+        self.assertEqual(black.inventory, 3)
+        self.assertEqual(blue.inventory, 7)
+        self.assertEqual(black.price, 250)
+        self.assertEqual(blue.price, 275)
+
+    def test_variant_rejects_attributes_not_defined_by_product_categories(self):
+        variant = ProductVariant.objects.create(product=self.product, price=250, inventory=1)
+        variant.attributes.add(self.large)
+
+        with self.assertRaises(ValidationError):
+            variant.full_clean()
+
+    def test_same_size_can_be_reused_when_another_attribute_differs(self):
+        red = AttributeValue.objects.create(attribute=self.color, value="Red")
+        green = AttributeValue.objects.create(attribute=self.color, value="Green")
+        red_large = ProductVariant.objects.create(product=self.product, price=250, inventory=2)
+        red_large.attributes.add(red, self.large)
+        green_large = ProductVariant.objects.create(product=self.product, price=250, inventory=3)
+        green_large.attributes.add(green, self.large)
+        red_large.full_clean()
+        green_large.full_clean()
+
+    def test_variant_uses_fixed_discounted_price(self):
+        now = timezone.now()
+        discount = Discount.objects.create(
+            title="Sale",
+            amount=400,
+            valid_from=now - timedelta(days=1),
+            valid_until=now + timedelta(days=1),
+            is_active=True,
+        )
+        variant = ProductVariant.objects.create(
+            product=self.product, price=500, discounted=discount
+        )
+        self.assertEqual(variant.effective_price, 400)
+
+    def test_variant_allows_only_one_value_per_attribute(self):
+        variant = ProductVariant.objects.create(product=self.product, price=250, inventory=1)
+        variant.attributes.add(self.black, self.blue)
+
+        with self.assertRaises(ValidationError):
+            variant.full_clean()

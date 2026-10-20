@@ -15,6 +15,7 @@ import type {
   ProductComment,
   ProductFilterOptions,
   ProductFilters,
+  ProductPage,
   PublicUser,
   RegisterCredentials,
   SiteSetting,
@@ -23,7 +24,6 @@ import type {
 import {
   mockArticles,
   mockArticleComments,
-  mockCategories,
   mockProductComments,
   mockProducts,
   mockSiteSetting,
@@ -35,6 +35,7 @@ const USE_MOCK = () => !process.env.DJANGO_API_BASE_URL;
 
 const ACCESS_COOKIE = "django_access_token";
 const REFRESH_COOKIE = "django_refresh_token";
+const VISITOR_COOKIE = "shop_visitor_id";
 const ACCESS_MAX_AGE = 60 * 15;
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -249,12 +250,12 @@ export const getProducts = createServerFn({ method: "GET" })
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(data)) {
       if (Array.isArray(value)) {
-        value.forEach((item) => params.append(key, String(item)));
+        if (value.length) params.set(key, value.map(String).join(","));
       } else if (value !== undefined) {
         params.set(key, String(value));
       }
     }
-    return djangoFetch<Product[]>(`/products/?${params.toString()}`);
+    return djangoFetch<ProductPage>(`/products/?${params.toString()}`);
   });
 
 export const getProductFilterOptions = createServerFn({ method: "GET" })
@@ -300,18 +301,19 @@ export const getProduct = createServerFn({ method: "GET" })
     //   if (!product) throw new Error("Product not found");
     //   return product;
     // }
+    let visitorId = getCookie(VISITOR_COOKIE);
+    if (!visitorId) {
+      visitorId = crypto.randomUUID();
+      setCookie(VISITOR_COOKIE, visitorId, cookieOptions(60 * 60 * 24 * 365));
+    }
     return djangoFetch<Product>(
       `/products/${encodeURIComponent(data.slug)}/`,
+      { headers: { "X-Visitor-ID": visitorId } },
     );
   });
 
 export const getCategories = createServerFn({ method: "GET" }).handler(
-  async () => {
-    // MOCK DATA — comment/remove this block when using Django.
-    return USE_MOCK()
-      ? mockCategories
-      : djangoFetch<Category[]>("/categories/");
-  },
+  async () => djangoFetch<Category[]>("/products/categories/"),
 );
 
 export const login = createServerFn({ method: "POST" })
@@ -436,7 +438,7 @@ export const getOrders = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const getOrderQuote = createServerFn({ method: "POST" })
-  .validator((data: { items: { product_id: number; quantity: number }[] }) => data)
+  .validator((data: { items: { variant_id: number; quantity: number }[] }) => data)
   .handler(async ({ data }) =>
     djangoFetch<OrderQuote>("/orders/quote/", {
       method: "POST",
@@ -450,10 +452,16 @@ export const cancelOrder = createServerFn({ method: "POST" })
     djangoFetch<Order>(`/orders/${data.orderId}/cancel/`, { method: "POST" }),
   );
 
+export const simulateOrderPayment = createServerFn({ method: "POST" })
+  .validator((data: { orderId: number }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<Order>(`/orders/${data.orderId}/simulate-payment/`, { method: "POST" }),
+  );
+
 export const createOrder = createServerFn({ method: "POST" })
   .validator(
     (data: {
-      items: { product_id: number; quantity: number }[];
+      items: { variant_id: number; quantity: number }[];
       shipping_address: { province?: string; city: string; postal_code: string; exact_address: string; phone: string };
     }) => data,
   )

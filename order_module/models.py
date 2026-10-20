@@ -1,6 +1,6 @@
 from django.db import models
 from account_module.models import User
-from product_module.models import Product
+from product_module.models import Product, ProductVariant
 
 
 # Create your models here.
@@ -52,6 +52,7 @@ class Order(models.Model):
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, verbose_name="سبد خرید")
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="محصول")
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT, null=True, blank=True, related_name="order_items", verbose_name="تنوع خریداری‌شده")
     quantity = models.PositiveIntegerField(verbose_name="تعداد", default=1)
     unit_price = models.PositiveIntegerField(verbose_name="قیمت واحد هنگام سفارش", null=True, blank=True)
     final_price = models.IntegerField(verbose_name="مبلغ کل ردیف سفارش", null=True, blank=True)
@@ -68,7 +69,8 @@ class OrderItem(models.Model):
         if self.final_price is not None:
             return max(0, self.final_price)
         else:
-            unit_price = self.product.current_price if self.product.current_price is not None else self.product.price
+            # Legacy order rows should have been linked to a variant by migration.
+            unit_price = self.variant.price if self.variant_id else 0
             return max(0, unit_price * self.quantity - self.allowance_applied())
 
     def __str__(self):
