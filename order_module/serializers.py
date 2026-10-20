@@ -16,18 +16,8 @@ class OrderProductSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug", "price", "image"]
 
     def get_price(self, obj):
-        discount = getattr(obj, "discounted", None)
-        now = timezone.now()
-        if (
-            discount
-            and discount.is_active
-            and discount.amount is not None
-            and discount.amount >= 0
-            and discount.valid_from <= now <= discount.valid_until
-        ):
-            return discount.amount
         variant = obj.variants.filter(is_active=True).order_by("price", "id").first()
-        return variant.price if variant else 0
+        return variant.effective_price if variant else 0
 
     def get_image(self, obj):
         request = self.context.get("request")
