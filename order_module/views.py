@@ -14,20 +14,8 @@ from .serializers import OrderQuoteSerializer, OrderSerializer, CheckoutSerializ
 
 
 def get_effective_variant_price(variant):
-    """Apply the existing product-level promotion to a variant's regular price."""
-    product = variant.product
-    discount = getattr(product, "discounted", None)
-    now = timezone.now()
-    if (
-        discount
-        and discount.is_active
-        and discount.amount is not None
-        and discount.amount >= 0
-        and discount.valid_from <= now <= discount.valid_until
-    ):
-        return discount.amount
-    return variant.price
-
+    """Use the sellable variant's effective price, including its discount."""
+    return variant.effective_price
 
 def resolve_variant(item, *, lock=False):
     """Resolve a requested SKU; product_id is supported only for single-variant products."""
