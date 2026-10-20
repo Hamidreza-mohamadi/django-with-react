@@ -143,7 +143,7 @@ class ProductVariant(models.Model):
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name="variants", verbose_name="محصول"
     )
-    sku = models.CharField(max_length=64, unique=True, blank=True, verbose_name="شناسه کالا")
+    sku = models.CharField(max_length=64, unique=True, blank=True, verbose_name="شناسه کالا", help_text="کد یکتای انبار؛ در صورت خالی‌بودن خودکار ساخته می‌شود.")
     price = models.PositiveIntegerField(verbose_name="قیمت")
     discount_percent = models.PositiveSmallIntegerField(default=0, verbose_name="تخفیف درصدی", help_text="عدد بین ۰ تا ۱۰۰")
     inventory = models.PositiveIntegerField(default=0, verbose_name="موجودی انبار")
