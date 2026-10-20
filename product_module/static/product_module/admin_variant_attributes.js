@@ -37,15 +37,15 @@
         const res = await fetch(createUrl, {
           method: "POST", credentials: "same-origin",
           headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-          body: JSON.stringify({ attribute_id: Number(chosen), value: value.trim() })
+          body: JSON.stringify({ attribute_id: Number(chosen), value: value.trim(), category_ids: Array.from(categorySelect.selectedOptions).map((o) => Number(o.value)) })
         });
         const result = await res.json();
         if (!res.ok) { window.alert(result.error || "ساخت مقدار ویژگی ناموفق بود."); return; }
-        document.querySelectorAll('select[id$="-attributes_from"]').forEach((select) => {
-          const option = new Option(result.label, result.id);
+        document.querySelectorAll('select[id$="-attributes_to"]').forEach((select) => {
+          const option = new Option(result.label, result.id, true, true);
           select.add(option);
         });
-        window.alert("مقدار ساخته شد. آن را از فهرست مقادیر موجود به انتخاب‌شده منتقل کنید.");
+        window.alert("مقدار ویژگی ساخته و برای انتخاب اضافه شد.");
         refreshValues();
       });
     }
