@@ -30,21 +30,10 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductVariant
-        fields = ["id", "sku", "price", "regular_price", "stock", "is_active", "attribute_values"]
+        fields = ["id", "sku", "price", "regular_price", "discount_percent", "stock", "is_active", "attribute_values"]
 
     def get_price(self, obj):
-        product = obj.product
-        discount = getattr(product, "discounted", None)
-        now = timezone.now()
-        if (
-            discount
-            and discount.is_active
-            and discount.amount is not None
-            and discount.amount >= 0
-            and discount.valid_from <= now <= discount.valid_until
-        ):
-            return discount.amount
-        return obj.price
+        return obj.effective_price
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -72,17 +61,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_price(self, obj):
         variant = obj.variants.filter(is_active=True).order_by("price", "id").first()
         base_price = variant.price if variant else 0
-        discount = getattr(obj, "discounted", None)
-        now = timezone.now()
-        if (
-            discount
-            and discount.is_active
-            and discount.amount is not None
-            and discount.amount >= 0
-            and discount.valid_from <= now <= discount.valid_until
-        ):
-            return discount.amount
-        return base_price
+        return variant.effective_price if variant else base_price
 
     def get_compare_price(self, obj):
         regular_variant = obj.variants.filter(is_active=True).order_by("price", "id").first()
