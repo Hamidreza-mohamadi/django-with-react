@@ -9,7 +9,7 @@ from . import models
 class ProductVariantInlineForm(forms.ModelForm):
     class Meta:
         model = models.ProductVariant
-        fields = ("sku", "price", "inventory", "attributes", "is_active")
+        fields = ("sku", "price", "discount_percent", "inventory", "attributes", "is_active")
 
     def clean(self):
         cleaned = super().clean()
@@ -62,7 +62,7 @@ class ProductVariantInline(admin.TabularInline):
     form = ProductVariantInlineForm
     formset = ProductVariantInlineFormSet
     extra = 1
-    fields = ("sku", "price", "inventory", "attributes", "is_active")
+    fields = ("sku", "price", "discount_percent", "inventory", "attributes", "is_active")
     filter_horizontal = ("attributes",)
     show_change_link = True
 
