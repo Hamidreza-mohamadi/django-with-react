@@ -145,7 +145,7 @@ class ProductVariant(models.Model):
     )
     sku = models.CharField(max_length=64, unique=True, blank=True, verbose_name="شناسه کالا", help_text="کد یکتای انبار؛ در صورت خالی‌بودن خودکار ساخته می‌شود.")
     price = models.PositiveIntegerField(verbose_name="قیمت")
-    discount_percent = models.PositiveSmallIntegerField(default=0, verbose_name="تخفیف درصدی", help_text="عدد بین ۰ تا ۱۰۰")
+    discounted = models.OneToOneField(Discount, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="قیمت آف خورده")
     inventory = models.PositiveIntegerField(default=0, verbose_name="موجودی انبار")
     attributes = models.ManyToManyField(
         AttributeValue, blank=True, related_name="product_variants", verbose_name="ویژگی‌های ترکیب"
@@ -160,18 +160,19 @@ class ProductVariant(models.Model):
     @property
     def effective_price(self):
         now = timezone.now()
-        if 0 < self.discount_percent <= 100:
-            return self.price * (100 - self.discount_percent) // 100
-        # Backward compatibility for legacy product-level fixed-price discounts.
-        discount = getattr(self.product, "discounted", None)
-        if discount and discount.is_active and discount.amount is not None and discount.valid_from <= now <= discount.valid_until and 0 <= discount.amount < self.price:
+        discount = self.discounted
+        if (
+            discount
+            and discount.is_active
+            and discount.amount is not None
+            and discount.valid_from <= now <= discount.valid_until
+            and 0 <= discount.amount < self.price
+        ):
             return discount.amount
         return self.price
 
     def clean(self):
         super().clean()
-        if self.discount_percent > 100:
-            raise ValidationError({"discount_percent": "درصد تخفیف باید بین ۰ تا ۱۰۰ باشد."})
         if self.pk:
             values = list(self.attributes.select_related("attribute").all())
         else:
