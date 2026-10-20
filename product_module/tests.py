@@ -1,7 +1,10 @@
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from datetime import timedelta
 
-from .models import Attribute, AttributeValue, Category, Product, ProductVariant
+from django.test import TestCase
+from django.utils import timezone
+
+from .models import Attribute, AttributeValue, Category, Discount, Product, ProductVariant
 
 
 class ProductVariantTests(TestCase):
@@ -45,14 +48,19 @@ class ProductVariantTests(TestCase):
         red_large.full_clean()
         green_large.full_clean()
 
-    def test_variant_discount_calculates_effective_price(self):
-        variant = ProductVariant.objects.create(product=self.product, price=500, discount_percent=20)
+    def test_variant_uses_fixed_discounted_price(self):
+        now = timezone.now()
+        discount = Discount.objects.create(
+            title="Sale",
+            amount=400,
+            valid_from=now - timedelta(days=1),
+            valid_until=now + timedelta(days=1),
+            is_active=True,
+        )
+        variant = ProductVariant.objects.create(
+            product=self.product, price=500, discounted=discount
+        )
         self.assertEqual(variant.effective_price, 400)
-
-    def test_variant_rejects_discount_over_100_percent(self):
-        variant = ProductVariant(product=self.product, price=500, discount_percent=101)
-        with self.assertRaises(ValidationError):
-            variant.full_clean()
 
     def test_variant_allows_only_one_value_per_attribute(self):
         variant = ProductVariant.objects.create(product=self.product, price=250, inventory=1)
