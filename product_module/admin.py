@@ -14,7 +14,7 @@ from . import models
 class ProductVariantInlineForm(forms.ModelForm):
     class Meta:
         model = models.ProductVariant
-        fields = ("sku", "price", "discount_percent", "inventory", "attributes", "is_active")
+        fields = ("sku", "is_active", "price", "discounted", "inventory", "attributes")
 
     def clean(self):
         cleaned = super().clean()
@@ -62,7 +62,7 @@ class ProductVariantInlineFormSet(BaseInlineFormSet):
             seen_combinations.add(combination)
 
 
-class ProductVariantInline(admin.TabularInline):
+class ProductVariantInline(admin.StackedInline):
     model = models.ProductVariant
     form = ProductVariantInlineForm
     formset = ProductVariantInlineFormSet
@@ -87,7 +87,7 @@ class ProductAdmin(admin.ModelAdmin):
     @require_GET
     def category_attribute_values(self, request):
         category_ids = request.GET.getlist("category_ids")
-        attributes = models.Attribute.objects.filter(category__id__in=category_ids).distinct().order_by("title")
+        attributes = models.Attribute.objects.filter(categories__id__in=category_ids).distinct().order_by("title")
         values = models.AttributeValue.objects.filter(attribute__in=attributes).select_related("attribute").order_by("attribute__title", "value")
         return JsonResponse({
             "attributes": [{"id": item.pk, "title": item.title} for item in attributes],
