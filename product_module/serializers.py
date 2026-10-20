@@ -30,7 +30,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductVariant
-        fields = ["id", "sku", "price", "regular_price", "discount_percent", "stock", "is_active", "attribute_values"]
+        fields = ["id", "sku", "price", "regular_price", "stock", "is_active", "attribute_values"]
 
     def get_price(self, obj):
         return obj.effective_price
