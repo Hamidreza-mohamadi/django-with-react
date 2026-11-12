@@ -35,7 +35,7 @@ class PostalAddressSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product = OrderProductSerializer(read_only=True)
+    product = serializers.SerializerMethodField()
     variant = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
     unit_price = serializers.SerializerMethodField()
@@ -45,13 +45,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ["id", "product", "variant", "quantity", "unit_price", "price", "line_total", "final_discount"]
 
+    def get_product(self, obj):
+        product = obj.product
+        request = self.context.get("request")
+        image = None
+        if product.image:
+            image = request.build_absolute_uri(product.image.url) if request else product.image.url
+        return {
+            "id": product.pk,
+            "name": obj.product_name_snapshot or product.title,
+            "slug": product.slug,
+            "price": self.get_unit_price(obj),
+            "image": image,
+        }
+
     def get_variant(self, obj):
         if not obj.variant_id:
             return None
         return {
             "id": obj.variant_id,
             "sku": obj.sku_snapshot or obj.variant.sku,
-            "attributes": [
+            "attributes": obj.variant_attributes_snapshot or [
                 {"title": value.attribute.title, "value": value.value}
                 for value in obj.variant.attributes.select_related("attribute").all()
             ],
