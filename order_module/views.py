@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from product_module.models import ProductVariant
-from .models import Order, OrderItem, PostalAddress
+from .models import Order, OrderItem, PostalAddress, OrderStatusHistory, PaymentEvent
 from .serializers import OrderQuoteSerializer, OrderSerializer, CheckoutSerializer
 
 
@@ -154,6 +154,10 @@ class OrderListCreateView(APIView):
             status=Order.Status.PENDING,
             expires_at=timezone.now() + timedelta(minutes=settings.ORDER_PAYMENT_WINDOW_MINUTES),
         )
+        OrderStatusHistory.objects.create(
+            order=order, from_status="", to_status=Order.Status.PENDING,
+            changed_by=request.user, note="سفارش ثبت شد.",
+        )
         address_data = dict(data["shipping_address"])
         PostalAddress.objects.create(
             order=order, shipping_cost=settings.ORDER_SHIPPING_COST, **address_data
@@ -169,6 +173,12 @@ class OrderListCreateView(APIView):
                 unit_price=unit_price,
                 final_price=unit_price * quantity,
                 final_discount=max(0, variant.price - unit_price) * quantity,
+                product_name_snapshot=variant.product.title,
+                sku_snapshot=variant.sku,
+                variant_attributes_snapshot=[
+                    {"title": value.attribute.title, "value": value.value}
+                    for value in variant.attributes.select_related("attribute").all()
+                ],
             )
             variant.inventory -= quantity
             variant.save(update_fields=["inventory"])
@@ -219,8 +229,13 @@ class CancelOrderView(APIView):
                     variant.inventory += item.quantity
                     variant.save(update_fields=["inventory"])
 
+        previous_status = order.status
         order.status = Order.Status.CANCELLED
         order.save(update_fields=["status", "updated_at"])
+        OrderStatusHistory.objects.create(
+            order=order, from_status=previous_status, to_status=Order.Status.CANCELLED,
+            changed_by=request.user, note="سفارش توسط مشتری لغو شد.",
+        )
         return Response(OrderSerializer(order, context={"request": request}).data)
 
 
@@ -255,8 +270,18 @@ class SimulateOrderPaymentView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        previous_status = order.status
         order.is_paid = True
         order.status = Order.Status.CONFIRMED
         order.pay_date = timezone.localdate()
         order.save(update_fields=["is_paid", "status", "pay_date", "updated_at"])
+        OrderStatusHistory.objects.create(
+            order=order, from_status=previous_status, to_status=Order.Status.CONFIRMED,
+            changed_by=request.user, note="پرداخت آزمایشی با موفقیت ثبت شد.",
+        )
+        PaymentEvent.objects.create(
+            order=order, status=PaymentEvent.Status.SUCCEEDED,
+            provider="development-simulator", amount=order.calculate_total_price(),
+            currency="TOMAN", raw_response={"simulated": True},
+        )
         return Response(OrderSerializer(order, context={"request": request}).data)
