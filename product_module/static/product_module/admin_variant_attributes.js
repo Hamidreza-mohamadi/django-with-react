@@ -55,7 +55,9 @@
 
   function renderVariantInputs(select) {
     const selector = select.closest(".selector");
-    if (!selector || !currentData.attributes.length) {
+    if (!selector) return;
+    if (!currentData.attributes.length) {
+      selector.style.display = "";
       const old = document.getElementById(select.id + "-dynamic-attributes");
       if (old) old.remove();
       return;
@@ -146,6 +148,9 @@
     const allowed = new Set(currentData.values.map((value) => String(value.id)));
     variantSelects().forEach((select) => {
       const from = document.getElementById(select.id.replace(/-to$/, "-from"));
+      const previous = selectedValueIds(select);
+      const validSelected = previous.filter((id) => allowed.has(id));
+      if (validSelected.length !== previous.length) syncVariantSelect(select, validSelected);
       [select, from].filter(Boolean).forEach((side) => {
         Array.from(side.options).forEach((option) => {
           if (option.value) option.hidden = !allowed.has(String(option.value)) && !option.selected;
