@@ -116,7 +116,8 @@ class OrderListCreateView(APIView):
             .select_related("postaladdress")
             .prefetch_related(
                 "orderitem_set__product",
-                "orderitem_set__variant__attributes__attribute",\n                "status_history__changed_by", "payment_events",
+                "orderitem_set__variant__attributes__attribute",
+                "status_history__changed_by", "payment_events",
             )
             .order_by("-created_at", "-id")
         )
