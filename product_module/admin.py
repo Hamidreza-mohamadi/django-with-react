@@ -67,7 +67,7 @@ class ProductVariantInline(admin.StackedInline):
     form = ProductVariantInlineForm
     formset = ProductVariantInlineFormSet
     extra = 1
-    fields = ("sku", "price", "discount_percent", "inventory", "attributes", "is_active")
+    fields = (("sku", "is_active"), ("price", "discounted"), ("inventory",), "attributes")
     filter_horizontal = ("attributes",)
     show_change_link = True
 
