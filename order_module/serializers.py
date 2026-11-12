@@ -2,7 +2,7 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Order, OrderItem, PostalAddress
+from .models import Order, OrderItem, PostalAddress, OrderStatusHistory, PaymentEvent
 from product_module.models import Product, ProductVariant
 
 
@@ -50,7 +50,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             return None
         return {
             "id": obj.variant_id,
-            "sku": obj.variant.sku,
+            "sku": obj.sku_snapshot or obj.variant.sku,
             "attributes": [
                 {"title": value.attribute.title, "value": value.value}
                 for value in obj.variant.attributes.select_related("attribute").all()
@@ -70,8 +70,25 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return obj.item_total_price()
 
 
+class OrderStatusHistorySerializer(serializers.ModelSerializer):
+    changed_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderStatusHistory
+        fields = ["from_status", "to_status", "changed_by", "note", "created_at"]
+
+    def get_changed_by(self, obj):
+        return obj.changed_by.get_username() if obj.changed_by_id else None
+
+
+class PaymentEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentEvent
+        fields = ["status", "provider", "reference", "amount", "currency", "created_at"]
+
+
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(source="orderitem_set", many=True, read_only=True)
+    items = OrderItemSerializer(source="orderitem_set", many=True, read_only=True)\n    status_history = OrderStatusHistorySerializer(many=True, read_only=True)\n    payment_events = PaymentEventSerializer(many=True, read_only=True)
     address = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
     shipping_cost = serializers.SerializerMethodField()
@@ -80,7 +97,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ["id", "user", "pay_date", "is_paid", "status", "created_at", "updated_at", "expires_at", "shipping_cost", "total", "items", "address", "can_simulate_payment"]
+        fields = ["id", "user", "pay_date", "is_paid", "status", "created_at", "updated_at", "expires_at", "shipping_cost", "total", "items", "address", "can_simulate_payment", "status_history", "payment_events"]
         read_only_fields = fields
 
     def get_can_simulate_payment(self, obj):
