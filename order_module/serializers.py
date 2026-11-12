@@ -99,7 +99,8 @@ class PaymentEventSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(source="orderitem_set", many=True, read_only=True)\n    status_history = OrderStatusHistorySerializer(many=True, read_only=True)\n    payment_events = PaymentEventSerializer(many=True, read_only=True)
+    items = OrderItemSerializer(source="orderitem_set", many=True, read_only=True)
+    status_history = OrderStatusHistorySerializer(many=True, read_only=True)\n    payment_events = PaymentEventSerializer(many=True, read_only=True)
     address = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
     shipping_cost = serializers.SerializerMethodField()
