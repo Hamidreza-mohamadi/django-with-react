@@ -57,6 +57,9 @@ class OrderItem(models.Model):
     unit_price = models.PositiveIntegerField(verbose_name="قیمت واحد هنگام سفارش", null=True, blank=True)
     final_price = models.IntegerField(verbose_name="مبلغ کل ردیف سفارش", null=True, blank=True)
     final_discount = models.IntegerField(verbose_name="مبلغ تخفیف نهایی", default=0)
+    product_name_snapshot = models.CharField(max_length=255, blank=True, verbose_name="نام محصول هنگام خرید")
+    sku_snapshot = models.CharField(max_length=64, blank=True, verbose_name="شناسه کالا هنگام خرید")
+    variant_attributes_snapshot = models.JSONField(default=list, blank=True, verbose_name="ویژگی‌های واریانت هنگام خرید")
 
     def allowance_applied(self):
         allowance_amount = 0
@@ -114,3 +117,51 @@ class Allowance(models.Model):
     class Meta:
         verbose_name = "بن خرید"
         verbose_name_plural = "بن های خرید"
+
+class OrderStatusHistory(models.Model):
+    """Append-only record of order status transitions."""
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="status_history", verbose_name="سفارش")
+    from_status = models.CharField(max_length=20, choices=Order.Status.choices, blank=True, verbose_name="وضعیت قبلی")
+    to_status = models.CharField(max_length=20, choices=Order.Status.choices, verbose_name="وضعیت جدید")
+    changed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="order_status_changes", verbose_name="تغییردهنده",
+    )
+    note = models.CharField(max_length=500, blank=True, verbose_name="توضیحات")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="زمان تغییر")
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        verbose_name = "تاریخچه وضعیت سفارش"
+        verbose_name_plural = "تاریخچه وضعیت سفارش‌ها"
+
+    def __str__(self):
+        return f"Order #{self.order_id}: {self.from_status or '—'} → {self.to_status}"
+
+
+class PaymentEvent(models.Model):
+    """Provider-neutral payment attempt/result log; does not process real payments."""
+
+    class Status(models.TextChoices):
+        INITIATED = "initiated", "آغاز شده"
+        SUCCEEDED = "succeeded", "موفق"
+        FAILED = "failed", "ناموفق"
+        REFUNDED = "refunded", "بازپرداخت شده"
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="payment_events", verbose_name="سفارش")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.INITIATED, verbose_name="وضعیت پرداخت")
+    provider = models.CharField(max_length=80, blank=True, verbose_name="درگاه پرداخت")
+    reference = models.CharField(max_length=150, blank=True, db_index=True, verbose_name="شناسه مرجع")
+    amount = models.PositiveBigIntegerField(verbose_name="مبلغ")
+    currency = models.CharField(max_length=12, default="TOMAN", verbose_name="واحد پول")
+    raw_response = models.JSONField(default=dict, blank=True, verbose_name="پاسخ خام درگاه")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="زمان ثبت")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "رویداد پرداخت"
+        verbose_name_plural = "رویدادهای پرداخت"
+
+    def __str__(self):
+        return f"Order #{self.order_id} - {self.get_status_display()}"
