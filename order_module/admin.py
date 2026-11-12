@@ -9,7 +9,7 @@ from .models import Allowance, Order, OrderItem, PostalAddress, OrderStatusHisto
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ("product", "variant", "quantity", "unit_price", "final_price", "final_discount")
+    readonly_fields = ("product", "variant", "quantity", "unit_price", "final_price", "final_discount", "product_name_snapshot", "sku_snapshot", "variant_attributes_snapshot")
     can_delete = False
 
 
@@ -64,8 +64,13 @@ class OrderAdmin(admin.ModelAdmin):
                         if variant:
                             variant.inventory += item.quantity
                             variant.save(update_fields=["inventory"])
+                previous_status = order.status
                 order.status = Order.Status.CANCELLED
                 order.save(update_fields=["status", "updated_at"])
+                OrderStatusHistory.objects.create(
+                    order=order, from_status=previous_status, to_status=Order.Status.CANCELLED,
+                    changed_by=request.user, note="لغو از پنل مدیریت و بازگشت موجودی.",
+                )
                 cancelled += 1
         self.message_user(request, f"{cancelled} سفارش لغو شد و موجودی بازگشت.", messages.SUCCESS)
 
