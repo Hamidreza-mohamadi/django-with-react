@@ -65,10 +65,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return {
             "id": obj.variant_id,
             "sku": obj.sku_snapshot or obj.variant.sku,
-            "attributes": obj.variant_attributes_snapshot or [
-                {"title": value.attribute.title, "value": value.value}
-                for value in obj.variant.attributes.select_related("attribute").all()
-            ],
+            "attributes": obj.variant_attributes_snapshot,
         }
 
     def get_unit_price(self, obj):
