@@ -5,7 +5,7 @@ from .models import Article, ArticleCategory, ArticleComment
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ("title", "author", "status", "published_at", "updated_at")
+    list_display = ("title", "author", "status", "scheduled_at", "published_at", "updated_at")
     list_filter = ("status", "category")
     search_fields = ("title", "content", "short_description", "author__username")
     prepopulated_fields = {"slug": ("title",)}
