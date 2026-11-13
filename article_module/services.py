@@ -5,11 +5,11 @@ from .models import Article
 
 
 def publish_scheduled_articles(*, now=None, batch_size=100):
-    """Publish due scheduled drafts; safe to run repeatedly from a scheduler."""
+    """Publish approved articles when their scheduled time arrives."""
     now = now or timezone.now()
     article_ids = list(
         Article.objects.filter(
-            status=Article.Status.DRAFT,
+            status=Article.Status.APPROVED,
             scheduled_at__isnull=False,
             scheduled_at__lte=now,
         )
@@ -21,7 +21,7 @@ def publish_scheduled_articles(*, now=None, batch_size=100):
         with transaction.atomic():
             article = Article.objects.select_for_update().filter(
                 pk=article_id,
-                status=Article.Status.DRAFT,
+                status=Article.Status.APPROVED,
                 scheduled_at__isnull=False,
                 scheduled_at__lte=now,
             ).first()
