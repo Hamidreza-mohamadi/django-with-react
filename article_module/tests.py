@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from account_module.models import User
 from .models import Article, ArticleCategory, ArticleComment
+from .services import publish_scheduled_articles
 
 
 class ArticleLifecycleTests(TestCase):
@@ -78,3 +79,17 @@ class ArticleLifecycleTests(TestCase):
             text="A comment",
         )
         self.assertEqual(comment.status, ArticleComment.Status.PENDING)
+
+    def test_due_scheduled_article_is_published_once(self):
+        article = Article.objects.create(
+            title="Scheduled for now",
+            author=self.author,
+            scheduled_at=timezone.now() - timedelta(minutes=1),
+        )
+        self.assertEqual(publish_scheduled_articles(), 1)
+        article.refresh_from_db()
+        self.assertEqual(article.status, Article.Status.PUBLISHED)
+        self.assertTrue(article.is_published)
+        self.assertIsNotNone(article.published_at)
+        self.assertIsNone(article.scheduled_at)
+        self.assertEqual(publish_scheduled_articles(), 0)
