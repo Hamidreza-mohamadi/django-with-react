@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 
 from .models import Article, ArticleCategory, ArticleComment
 
@@ -28,11 +29,21 @@ class ArticleAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if not change and obj.author_id is None:
             obj.author = request.user
-        if change and not request.user.has_perm("article_module.publish_article"):
+        if change:
             previous = Article.objects.get(pk=obj.pk)
-            obj.status = previous.status
-            obj.scheduled_at = previous.scheduled_at
-            obj.published_at = previous.published_at
+            if not request.user.has_perm("article_module.publish_article"):
+                obj.status = previous.status
+                obj.scheduled_at = previous.scheduled_at
+                obj.published_at = previous.published_at
+            else:
+                if obj.status == Article.Status.PUBLISHED and previous.status != Article.Status.APPROVED:
+                    raise ValidationError("فقط مقاله تأییدشده توسط ویراستار قابل انتشار است.")
+                if obj.scheduled_at and obj.status != Article.Status.APPROVED:
+                    raise ValidationError("فقط مقاله تأییدشده را می‌توان زمان‌بندی کرد.")
+        elif request.user.has_perm("article_module.publish_article") and (
+            obj.status == Article.Status.PUBLISHED or obj.scheduled_at
+        ):
+            raise ValidationError("مقاله جدید ابتدا باید از مسیر بررسی و تأیید عبور کند.")
         super().save_model(request, obj, form, change)
 
 
