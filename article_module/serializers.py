@@ -24,3 +24,24 @@ class ArticleSerializer(serializers.ModelSerializer):
             "meta_title", "meta_description",
         )
         read_only_fields = fields
+
+
+class ArticleManagementSerializer(serializers.ModelSerializer):
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=ArticleCategory.objects.filter(is_active=True),
+        many=True, required=False,
+    )
+    author = PublicUserSerializer(read_only=True)
+
+    class Meta:
+        model = Article
+        fields = (
+            "id", "title", "slug", "short_description", "content",
+            "image", "image_alt", "author", "category", "status",
+            "scheduled_at", "published_at", "created_at", "updated_at",
+            "meta_title", "meta_description",
+        )
+        read_only_fields = (
+            "id", "slug", "author", "status", "scheduled_at",
+            "published_at", "created_at", "updated_at",
+        )
