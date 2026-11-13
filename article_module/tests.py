@@ -124,6 +124,30 @@ class ArticleLifecycleTests(TestCase):
         self.assertEqual(article.status, Article.Status.PUBLISHED)
         self.assertTrue(article.is_published)
 
+    def test_reviewer_cannot_publish_and_publisher_cannot_skip_review(self):
+        editor = User.objects.create_user(username="reviewer-only", password="test-password")
+        publisher = User.objects.create_user(username="publisher-only", password="test-password")
+        self.grant(editor, "review_article")
+        self.grant(publisher, "publish_article")
+        article = Article.objects.create(title="Needs review", author=self.author)
+
+        self.client.force_authenticate(publisher)
+        response = self.client.post(f"/api/v1/articles/publish/{article.pk}/")
+        self.assertEqual(response.status_code, 404)
+
+        article.status = Article.Status.REVIEW
+        article.save()
+        self.client.force_authenticate(editor)
+        response = self.client.post(
+            f"/api/v1/articles/review/{article.pk}/decision/",
+            {"decision": "approve"}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        self.client.force_authenticate(editor)
+        response = self.client.post(f"/api/v1/articles/publish/{article.pk}/")
+        self.assertEqual(response.status_code, 403)
+
     def test_author_cannot_edit_after_submitting(self):
         self.grant(self.author, "add_article", "change_article")
         article = Article.objects.create(title="In review", author=self.author, status=Article.Status.REVIEW)
