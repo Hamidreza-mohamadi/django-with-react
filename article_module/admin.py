@@ -1,26 +1,55 @@
 from django.contrib import admin
-from django.utils.html import format_html
-from .models import Article, ArticleCategory
+
+from .models import Article, ArticleCategory, ArticleComment
 
 
-# Register your models here.
-
-
+@admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author', 'pub_date')
+    list_display = ("title", "author", "status", "published_at", "updated_at")
+    list_filter = ("status", "category")
+    search_fields = ("title", "content", "short_description", "author__username")
+    prepopulated_fields = {"slug": ("title",)}
+    autocomplete_fields = ("author",)
+    filter_horizontal = ("category",)
+    readonly_fields = ("pub_date", "created_at", "updated_at", "published_at", "is_published")
+    fieldsets = (
+        ("محتوا", {"fields": ("title", "slug", "author", "short_description", "content", "image", "image_alt", "category")}),
+        ("انتشار", {"fields": ("status", "scheduled_at", "published_at", "is_published")}),
+        ("بهینه‌سازی موتور جست‌وجو", {"fields": ("meta_title", "meta_description")}),
+        ("زمان‌ها", {"fields": ("pub_date", "created_at", "updated_at")}),
+    )
 
-    def save_model(self, request, obj: Article, form, change):
-        if not change:
+    def get_readonly_fields(self, request, obj=None):
+        fields = list(super().get_readonly_fields(request, obj))
+        if not request.user.has_perm("article_module.publish_article"):
+            fields.extend(("status", "scheduled_at"))
+        return tuple(fields)
+
+    def save_model(self, request, obj, form, change):
+        if not change and obj.author_id is None:
             obj.author = request.user
-        return super().save_model(request, obj, form, change)
+        if change and not request.user.has_perm("article_module.publish_article"):
+            previous = Article.objects.get(pk=obj.pk)
+            obj.status = previous.status
+            obj.scheduled_at = previous.scheduled_at
+            obj.published_at = previous.published_at
+        super().save_model(request, obj, form, change)
 
 
 class ArticleCategoryAdmin(admin.ModelAdmin):
-    list_display = ('title', 'is_active')
+    list_display = ("title", "slug", "parent", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("title", "slug")
+    prepopulated_fields = {"slug": ("title",)}
+    autocomplete_fields = ("parent",)
 
-    def save_model(self, request, obj: ArticleCategory, form, change):
-        return super().save_model(request, obj, form, change)
+
+class ArticleCommentAdmin(admin.ModelAdmin):
+    list_display = ("article", "user", "status", "create_date", "parent")
+    list_filter = ("status", "create_date")
+    search_fields = ("article__title", "user__username", "text")
+    readonly_fields = ("create_date",)
 
 
-admin.site.register(Article, ArticleAdmin)
 admin.site.register(ArticleCategory, ArticleCategoryAdmin)
+admin.site.register(ArticleComment, ArticleCommentAdmin)

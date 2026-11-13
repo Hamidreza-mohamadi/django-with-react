@@ -2,15 +2,29 @@ from django.contrib import admin, messages
 from django.db import transaction
 from django.utils import timezone
 
-from product_module.models import Product
-from .models import Allowance, Order, OrderItem, PostalAddress
+from product_module.models import ProductVariant
+from .models import Allowance, Order, OrderItem, PostalAddress, OrderStatusHistory, PaymentEvent
 
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ("product", "quantity", "unit_price", "final_price", "final_discount")
+    readonly_fields = ("product", "variant", "quantity", "unit_price", "final_price", "final_discount", "product_name_snapshot", "sku_snapshot", "variant_attributes_snapshot")
     can_delete = False
+
+
+class OrderStatusHistoryInline(admin.TabularInline):
+    model = OrderStatusHistory
+    extra = 0
+    can_delete = False
+    readonly_fields = ("from_status", "to_status", "changed_by", "note", "created_at")
+
+
+class PaymentEventInline(admin.TabularInline):
+    model = PaymentEvent
+    extra = 0
+    can_delete = False
+    readonly_fields = ("status", "provider", "reference", "amount", "currency", "raw_response", "created_at")
 
 
 class PostalAddressInline(admin.StackedInline):
@@ -25,7 +39,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ("status", "is_paid", "created_at")
     search_fields = ("id", "user__username", "user__email")
     readonly_fields = ("created_at", "updated_at", "pay_date", "expires_at", "status", "is_paid")
-    inlines = (OrderItemInline, PostalAddressInline)
+    inlines = (OrderItemInline, PostalAddressInline, OrderStatusHistoryInline, PaymentEventInline)
     ordering = ("-created_at",)
     actions = ("cancel_unpaid_orders", "mark_confirmed", "mark_processing", "mark_shipped", "mark_delivered")
 
@@ -37,27 +51,41 @@ class OrderAdmin(admin.ModelAdmin):
                 status=Order.Status.PENDING, is_paid=False
             ):
                 items = list(order.orderitem_set.all())
-                product_ids = sorted({item.product_id for item in items})
-                products = {
-                    product.pk: product
-                    for product in Product.objects.select_for_update()
-                    .filter(pk__in=product_ids)
+                variant_ids = sorted({item.variant_id for item in items if item.variant_id})
+                variants = {
+                    variant.pk: variant
+                    for variant in ProductVariant.objects.select_for_update()
+                    .filter(pk__in=variant_ids)
                     .order_by("pk")
                 }
                 for item in items:
-                    product = products.get(item.product_id)
-                    if product:
-                        product.inventory += item.quantity
-                        product.save(update_fields=["inventory"])
+                    if item.variant_id:
+                        variant = variants.get(item.variant_id)
+                        if variant:
+                            variant.inventory += item.quantity
+                            variant.save(update_fields=["inventory"])
+                previous_status = order.status
                 order.status = Order.Status.CANCELLED
                 order.save(update_fields=["status", "updated_at"])
+                OrderStatusHistory.objects.create(
+                    order=order, from_status=previous_status, to_status=Order.Status.CANCELLED,
+                    changed_by=request.user, note="لغو از پنل مدیریت و بازگشت موجودی.",
+                )
                 cancelled += 1
         self.message_user(request, f"{cancelled} سفارش لغو شد و موجودی بازگشت.", messages.SUCCESS)
 
     def _advance_paid_orders(self, request, queryset, old_status, new_status, label):
-        updated = queryset.filter(is_paid=True, status=old_status).update(
-            status=new_status, updated_at=timezone.now()
-        )
+        updated = 0
+        with transaction.atomic():
+            for order in queryset.select_for_update().filter(is_paid=True, status=old_status):
+                previous_status = order.status
+                order.status = new_status
+                order.save(update_fields=["status", "updated_at"])
+                OrderStatusHistory.objects.create(
+                    order=order, from_status=previous_status, to_status=new_status,
+                    changed_by=request.user, note=f"تغییر وضعیت از پنل مدیریت: {label}.",
+                )
+                updated += 1
         self.message_user(request, f"{updated} سفارش {label}.", messages.SUCCESS)
 
     @admin.action(description="تأیید سفارش‌های پرداخت‌شده")

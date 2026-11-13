@@ -1,0 +1,14 @@
+{% extends "admin/change_form.html" %}
+
+{% block after_field_sets %}
+  {{ block.super }}
+  <div id="product-attribute-fields"
+       class="module aligned"
+       data-url="{{ attribute_fields_url }}"
+       data-product-id="{{ original.pk|default:'' }}">
+    <h2>ویژگی‌های محصول</h2>
+    <div id="product-attribute-inputs">
+      <p class="help">برای نمایش ویژگی‌ها، ابتدا دسته‌بندی محصول را انتخاب کنید.</p>
+    </div>
+  </div>
+{% endblock %}

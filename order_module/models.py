@@ -1,6 +1,6 @@
 from django.db import models
 from account_module.models import User
-from product_module.models import Product
+from product_module.models import Product, ProductVariant
 
 
 # Create your models here.
@@ -14,6 +14,7 @@ class Order(models.Model):
         SHIPPED = "shipped", "ارسال شده"
         DELIVERED = "delivered", "تحویل شده"
         CANCELLED = "cancelled", "لغو شده"
+        EXPIRED = "expired", "منقضی شده"
 
     user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="کاربر")
     pay_date = models.DateField(verbose_name="تاریخ پرداخت", null=True, blank=True)
@@ -52,10 +53,14 @@ class Order(models.Model):
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, verbose_name="سبد خرید")
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="محصول")
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT, null=True, blank=True, related_name="order_items", verbose_name="تنوع خریداری‌شده")
     quantity = models.PositiveIntegerField(verbose_name="تعداد", default=1)
     unit_price = models.PositiveIntegerField(verbose_name="قیمت واحد هنگام سفارش", null=True, blank=True)
     final_price = models.IntegerField(verbose_name="مبلغ کل ردیف سفارش", null=True, blank=True)
     final_discount = models.IntegerField(verbose_name="مبلغ تخفیف نهایی", default=0)
+    product_name_snapshot = models.CharField(max_length=255, blank=True, verbose_name="نام محصول هنگام خرید")
+    sku_snapshot = models.CharField(max_length=64, blank=True, verbose_name="شناسه کالا هنگام خرید")
+    variant_attributes_snapshot = models.JSONField(default=list, blank=True, verbose_name="ویژگی‌های واریانت هنگام خرید")
 
     def allowance_applied(self):
         allowance_amount = 0
@@ -68,7 +73,8 @@ class OrderItem(models.Model):
         if self.final_price is not None:
             return max(0, self.final_price)
         else:
-            unit_price = self.product.current_price if self.product.current_price is not None else self.product.price
+            # Legacy order rows should have been linked to a variant by migration.
+            unit_price = self.variant.price if self.variant_id else 0
             return max(0, unit_price * self.quantity - self.allowance_applied())
 
     def __str__(self):
@@ -112,3 +118,51 @@ class Allowance(models.Model):
     class Meta:
         verbose_name = "بن خرید"
         verbose_name_plural = "بن های خرید"
+
+class OrderStatusHistory(models.Model):
+    """Append-only record of order status transitions."""
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="status_history", verbose_name="سفارش")
+    from_status = models.CharField(max_length=20, choices=Order.Status.choices, blank=True, verbose_name="وضعیت قبلی")
+    to_status = models.CharField(max_length=20, choices=Order.Status.choices, verbose_name="وضعیت جدید")
+    changed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="order_status_changes", verbose_name="تغییردهنده",
+    )
+    note = models.CharField(max_length=500, blank=True, verbose_name="توضیحات")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="زمان تغییر")
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        verbose_name = "تاریخچه وضعیت سفارش"
+        verbose_name_plural = "تاریخچه وضعیت سفارش‌ها"
+
+    def __str__(self):
+        return f"Order #{self.order_id}: {self.from_status or '—'} → {self.to_status}"
+
+
+class PaymentEvent(models.Model):
+    """Provider-neutral payment attempt/result log; does not process real payments."""
+
+    class Status(models.TextChoices):
+        INITIATED = "initiated", "آغاز شده"
+        SUCCEEDED = "succeeded", "موفق"
+        FAILED = "failed", "ناموفق"
+        REFUNDED = "refunded", "بازپرداخت شده"
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="payment_events", verbose_name="سفارش")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.INITIATED, verbose_name="وضعیت پرداخت")
+    provider = models.CharField(max_length=80, blank=True, verbose_name="درگاه پرداخت")
+    reference = models.CharField(max_length=150, blank=True, db_index=True, verbose_name="شناسه مرجع")
+    amount = models.PositiveBigIntegerField(verbose_name="مبلغ")
+    currency = models.CharField(max_length=12, default="TOMAN", verbose_name="واحد پول")
+    raw_response = models.JSONField(default=dict, blank=True, verbose_name="پاسخ خام درگاه")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="زمان ثبت")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "رویداد پرداخت"
+        verbose_name_plural = "رویدادهای پرداخت"
+
+    def __str__(self):
+        return f"Order #{self.order_id} - {self.get_status_display()}"

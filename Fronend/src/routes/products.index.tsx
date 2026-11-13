@@ -25,14 +25,16 @@ interface ProductSearch {
   max_price?: number;
   in_stock?: boolean;
   ordering?: ProductOrdering;
+  [key: string]: string | number | boolean | string[] | undefined;
 }
 
 const SORT_OPTIONS: { value: ProductOrdering; label: string }[] = [
-  { value: "-created_at", label: "جدیدترین" },
+  { value: "-created_date", label: "جدیدترین" },
   { value: "-sales_count", label: "پرفروش‌ترین" },
   { value: "-views", label: "پربازدیدترین" },
-  { value: "-price", label: "گران‌ترین" },
-  { value: "price", label: "ارزان‌ترین" },
+  { value: "-rating_sort", label: "محبوب‌ترین (بر اساس امتیاز)" },
+  { value: "-current_price", label: "گران‌ترین" },
+  { value: "current_price", label: "ارزان‌ترین" },
 ];
 
 const productsQueryOptions = (filters: ProductSearch) =>
@@ -79,12 +81,19 @@ export const Route = createFileRoute("/products/")({
     ordering: SORT_OPTIONS.some((o) => o.value === search.ordering)
       ? (search.ordering as ProductOrdering)
       : undefined,
+    ...Object.fromEntries(
+      Object.entries(search)
+        .filter(([key, value]) => /^attribute_[0-9]+$/.test(key) && value !== undefined)
+        .map(([key, value]) => [key, asStringArray(value)]),
+    ),
   }),
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => {
-    context.queryClient.ensureQueryData(productsQueryOptions(deps));
-    context.queryClient.ensureQueryData(categoriesQueryOptions);
-    context.queryClient.ensureQueryData(filterOptionsQueryOptions(deps.category));
+  loader: async ({ context, deps }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(productsQueryOptions(deps)),
+      context.queryClient.ensureQueryData(categoriesQueryOptions),
+      context.queryClient.ensureQueryData(filterOptionsQueryOptions(deps.category)),
+    ]);
   },
   component: ProductsPage,
 });
@@ -116,7 +125,7 @@ const faNum = (n: number) => new Intl.NumberFormat("fa-IR").format(n);
 function ProductsPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const { data: products } = useSuspenseQuery(productsQueryOptions(search));
+  const { data: productsPage } = useSuspenseQuery(productsQueryOptions(search));
   const { data: categories } = useSuspenseQuery(categoriesQueryOptions);
   const { data: filterOptions } = useSuspenseQuery(filterOptionsQueryOptions(search.category));
 
@@ -124,12 +133,13 @@ function ProductsPage() {
 
   const brands = filterOptions?.brands ?? [];
   const colorOptions = filterOptions?.colors ?? [];
+  const attributeOptions = filterOptions?.attributes ?? [];
   const maxPrice = filterOptions?.max_price ?? 0;
 
   const selectedBrands = search.brand ?? [];
   const selectedColors = search.color ?? [];
   const inStockOnly = search.in_stock === true;
-  const ordering = search.ordering ?? "-created_at";
+  const ordering = search.ordering ?? "-created_date";
 
   const appliedMin = search.min_price ?? 0;
   const appliedMax = search.max_price ?? PRICE_MAX;
@@ -144,7 +154,7 @@ function ProductsPage() {
   const toggleValue = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
-  const filtered = products ?? [];
+  const filtered = productsPage?.results ?? [];
 
   const resetFilters = () => {
     setPriceDraft([0, PRICE_MAX]);
@@ -175,7 +185,11 @@ function ProductsPage() {
           <Button
             variant={!search.category ? "default" : "outline"}
             size="sm"
-            onClick={() => navigate({ search: (prev: ProductSearch) => ({ ...prev, category: undefined, page: 1 }) })}
+            onClick={() => navigate({ search: (prev: ProductSearch) => ({
+              ...Object.fromEntries(Object.entries(prev).filter(([key]) => !key.startsWith("attribute_"))),
+              category: undefined,
+              page: 1,
+            }) as ProductSearch })}
           >
             همه
           </Button>
@@ -185,7 +199,11 @@ function ProductsPage() {
               variant={search.category === category.slug ? "default" : "outline"}
               size="sm"
               onClick={() =>
-                navigate({ search: (prev: ProductSearch) => ({ ...prev, category: category.slug, page: 1 }) })
+                navigate({ search: (prev: ProductSearch) => ({
+                  ...Object.fromEntries(Object.entries(prev).filter(([key]) => !key.startsWith("attribute_"))),
+                  category: category.slug,
+                  page: 1,
+                }) as ProductSearch })
               }
             >
               {category.title}
@@ -354,6 +372,30 @@ function ProductsPage() {
               </div>
             </FilterSection>
 
+            {attributeOptions.map((attribute) => {
+              const key = "attribute_" + attribute.id;
+              const selectedValues = asStringArray(search[key]) ?? [];
+              if (attribute.values.length === 0) return null;
+              return (
+                <FilterSection key={attribute.id} title={attribute.title}>
+                  <div className="max-h-56 space-y-3 overflow-y-auto pl-1">
+                    {attribute.values.map((value) => (
+                      <label key={value} className="flex items-center gap-3 text-[15px]">
+                        <Checkbox
+                          checked={selectedValues.includes(value)}
+                          onCheckedChange={() => {
+                            const next = toggleValue(selectedValues, value);
+                            setSearch({ [key]: next.length ? next : undefined });
+                          }}
+                        />
+                        {value}
+                      </label>
+                    ))}
+                  </div>
+                </FilterSection>
+              );
+            })}
+
             <FilterSection title="موجودی">
               <label className="flex items-center gap-3 text-[15px]">
                 <Checkbox
@@ -389,6 +431,9 @@ function ProductsPage() {
             ))}
           </div>
 
+          <p className="mb-4 text-sm text-muted-foreground">
+            {faNum(productsPage?.count ?? 0)} محصول پیدا شد
+          </p>
           {filtered.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((product) => (
@@ -408,6 +453,29 @@ function ProductsPage() {
                 onClick={resetFilters}
               >
                 پاک کردن فیلترها
+              </Button>
+            </div>
+          )}
+          {((productsPage?.previous && (search.page ?? 1) > 1) || productsPage?.next) && (
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!productsPage?.previous}
+                onClick={() => navigate({ search: (prev: ProductSearch) => ({ ...prev, page: Math.max(1, (prev.page ?? 1) - 1) }) })}
+              >
+                قبلی
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                صفحه {faNum(search.page ?? 1)}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!productsPage?.next}
+                onClick={() => navigate({ search: (prev: ProductSearch) => ({ ...prev, page: (prev.page ?? 1) + 1 }) })}
+              >
+                بعدی
               </Button>
             </div>
           )}

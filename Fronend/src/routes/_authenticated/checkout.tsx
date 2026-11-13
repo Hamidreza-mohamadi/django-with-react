@@ -35,10 +35,16 @@ function CheckoutPage() {
       await createOrderFn({
         data: {
           items: items.map((item) => ({
-            product_id: item.product.id,
+            variant_id: item.variant.id,
             quantity: item.quantity,
           })),
-          shipping_address: shippingAddress,
+          shipping_address: {
+            province: "",
+            city: "نامشخص",
+            postal_code: String(formData.get("postal") || ""),
+            exact_address: shippingAddress,
+            phone: String(formData.get("phone") || ""),
+          },
         },
       });
       clearCart();
@@ -97,7 +103,7 @@ function CheckoutPage() {
                 </label>
                 <input
                   id="postal"
-                  name="postal"
+                  name="postal" required
                   type="text"
                   className="w-full rounded-md border border-input bg-background px-4 py-2 text-sm outline-none ring-ring focus-visible:ring-1"
                 />
@@ -108,7 +114,7 @@ function CheckoutPage() {
                 </label>
                 <input
                   id="phone"
-                  name="phone"
+                  name="phone" required
                   type="tel"
                   className="w-full rounded-md border border-input bg-background px-4 py-2 text-sm outline-none ring-ring focus-visible:ring-1"
                 />
@@ -136,12 +142,12 @@ function CheckoutPage() {
           <h2 className="text-lg font-semibold text-foreground">خلاصه سفارش</h2>
           <div className="mt-4 space-y-3">
             {items.map((item) => (
-              <div key={item.product.id} className="flex justify-between text-sm">
+              <div key={item.variant.id} className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
-                  {item.product.name} × {item.quantity}
+                  {item.product.name}{item.variant.attribute_values.length ? ` (${item.variant.attribute_values.map((value) => `${value.title}: ${value.value}`).join("، ")})` : ""} × {item.quantity}
                 </span>
                 <span className="font-medium">
-                  {formatPrice(item.product.price * item.quantity)} تومان
+                  {formatPrice(item.variant.price * item.quantity)} تومان
                 </span>
               </div>
             ))}

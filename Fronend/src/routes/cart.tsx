@@ -38,7 +38,7 @@ function CartPage() {
         <div className="lg:col-span-2 space-y-4">
           {items.map((item) => (
             <div
-              key={item.product.id}
+              key={item.variant.id}
               className="flex gap-4 rounded-xl border border-border bg-card p-4"
             >
               <img
@@ -55,14 +55,15 @@ function CartPage() {
                   >
                     {item.product.name}
                   </Link>
+                  {!!item.variant.attribute_values.length && <p className="mt-1 text-xs text-muted-foreground">{item.variant.attribute_values.map((value) => `${value.title}: ${value.value}`).join("، ")}</p>}
                   <p className="text-sm text-muted-foreground">
-                    {formatPrice(item.product.price)} تومان
+                    {formatPrice(item.variant.price)} تومان
                   </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center rounded-md border border-input bg-background">
                     <button
-                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.variant.id, item.quantity - 1)}
                       className="flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-foreground"
                       aria-label="کاهش"
                     >
@@ -70,7 +71,7 @@ function CartPage() {
                     </button>
                     <span className="w-8 text-center text-sm">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.variant.id, item.quantity + 1)}
                       className="flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-foreground"
                       aria-label="افزایش"
                     >
@@ -78,7 +79,7 @@ function CartPage() {
                     </button>
                   </div>
                   <button
-                    onClick={() => removeItem(item.product.id)}
+                    onClick={() => removeItem(item.variant.id)}
                     className="flex items-center gap-1 text-sm text-destructive transition-colors hover:text-destructive/80"
                   >
                     <Trash2 className="h-4 w-4" />

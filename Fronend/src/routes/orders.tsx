@@ -83,7 +83,7 @@ function OrdersPage() {
         </div>
         <div className="mt-4 space-y-2">
           {order.items.map((item) => <div key={item.id} className="flex justify-between gap-3 text-sm">
-            <span>{item.product.name} × {item.quantity}</span>
+            <span>{item.product.name}{item.variant?.attributes.length ? ` (${item.variant.attributes.map((value) => `${value.title}: ${value.value}`).join("، ")})` : ""} × {item.quantity}</span>
             <span className="whitespace-nowrap">{formatPrice(item.line_total ?? item.price ?? item.product.price * item.quantity)} تومان</span>
           </div>)}
         </div>

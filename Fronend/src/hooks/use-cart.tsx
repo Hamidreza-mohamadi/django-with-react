@@ -1,17 +1,18 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
-import type { Product } from "@/lib/shop/types";
+import type { Product, ProductVariant } from "@/lib/shop/types";
 import { useAuth } from "@/hooks/use-auth";
 
 export interface CartItem {
   product: Product;
+  variant: ProductVariant;
   quantity: number;
 }
 
 interface CartContextValue {
   items: CartItem[];
-  addItem: (product: Product, quantity?: number) => void;
-  removeItem: (productId: number) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
+  addItem: (product: Product, variant: ProductVariant, quantity?: number) => void;
+  removeItem: (variantId: number) => void;
+  updateQuantity: (variantId: number, quantity: number) => void;
   clearCart: () => void;
   total: number;
   itemCount: number;
@@ -19,7 +20,6 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-// Never reuse one browser-wide cart between different signed-in accounts.
 function cartStorageKey(userId: number | undefined) {
   return userId ? `shop_cart:user:${userId}` : "shop_cart:guest";
 }
@@ -36,7 +36,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const stored = localStorage.getItem(storageKey);
       const parsed: unknown = stored ? JSON.parse(stored) : [];
-      setItems(Array.isArray(parsed) ? parsed as CartItem[] : []);
+      // Old carts did not identify a SKU. Drop those entries rather than silently
+      // purchasing an arbitrary variant after this schema change.
+      const validItems = Array.isArray(parsed)
+        ? (parsed as CartItem[]).filter((item) =>
+            item && item.product && item.variant && Number.isInteger(item.variant.id),
+          )
+        : [];
+      setItems(validItems);
     } catch {
       setItems([]);
     }
@@ -49,37 +56,38 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items, hydratedKey, authLoading, storageKey]);
 
-  const addItem = useCallback((product: Product, quantity = 1) => {
+  const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1) => {
     setItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+      const existing = prev.find((item) => item.variant.id === variant.id);
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + quantity } : item,
+          item.variant.id === variant.id
+            ? { ...item, product, variant, quantity: Math.min(variant.stock, item.quantity + quantity) }
+            : item,
         );
       }
-      return [...prev, { product, quantity }];
+      return [...prev, { product, variant, quantity: Math.min(variant.stock, quantity) }];
     });
   }, []);
 
-  const removeItem = useCallback((productId: number) => {
-    setItems((prev) => prev.filter((item) => item.product.id !== productId));
+  const removeItem = useCallback((variantId: number) => {
+    setItems((prev) => prev.filter((item) => item.variant.id !== variantId));
   }, []);
 
-  const updateQuantity = useCallback((productId: number, quantity: number) => {
+  const updateQuantity = useCallback((variantId: number, quantity: number) => {
     if (quantity <= 0) {
-      setItems((prev) => prev.filter((item) => item.product.id !== productId));
+      setItems((prev) => prev.filter((item) => item.variant.id !== variantId));
       return;
     }
     setItems((prev) =>
-      prev.map((item) => (item.product.id === productId ? { ...item, quantity } : item)),
+      prev.map((item) => item.variant.id === variantId
+        ? { ...item, quantity: Math.min(item.variant.stock, quantity) }
+        : item),
     );
   }, []);
 
-  const clearCart = useCallback(() => {
-    setItems([]);
-  }, []);
-
-  const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const clearCart = useCallback(() => setItems([]), []);
+  const total = items.reduce((sum, item) => sum + item.variant.price * item.quantity, 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -91,8 +99,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 export function useCart() {
   const context = useContext(CartContext);
-  if (!context) {
-    throw new Error("useCart must be used within a CartProvider");
-  }
+  if (!context) throw new Error("useCart must be used within a CartProvider");
   return context;
 }

@@ -1,11 +1,22 @@
 export interface Category {
   id: number;
   name: string;
+  title?: string;
   slug: string;
   is_active: boolean;
   image?: string;
   parent?: Category;
   description?: string;
+}
+
+export interface ProductVariant {
+  id: number;
+  sku: string;
+  price: number;
+  regular_price: number;
+  stock: number;
+  is_active: boolean;
+  attribute_values: { id: number; attribute_id: number; title: string; value: string }[];
 }
 
 export interface Product {
@@ -31,17 +42,21 @@ export interface Product {
   views?: number;
   reviews_count?: number;
   specs?: { label: string; value: string }[];
+  attribute_values?: { id: number; attribute_id: number; title: string; value: string }[];
+  variants?: ProductVariant[];
   updated_at?: string;
 }
 
 export type ProductOrdering =
-  | "-created_at"
+  | "-created_date"
   | "-sales_count"
   | "-views"
-  | "-price"
-  | "price";
+  | "-rating_sort"
+  | "-current_price"
+  | "current_price";
 
 export interface ProductFilters {
+  [key: string]: string | number | boolean | string[] | undefined;
   category?: string;
   search?: string;
   page?: number;
@@ -53,14 +68,28 @@ export interface ProductFilters {
   ordering?: ProductOrdering;
 }
 
+export interface ProductPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Product[];
+}
+
+export interface DynamicProductAttribute {
+  id: number;
+  title: string;
+  values: string[];
+}
+
 export interface ProductFilterOptions {
   brands: string[];
   colors: string[];
+  attributes: DynamicProductAttribute[];
   max_price: number;
 }
 
 export interface CartItem {
-  id: number;
+  variant: ProductVariant;
   product: Product;
   quantity: number;
 }
@@ -75,6 +104,7 @@ export interface Cart {
 export interface OrderItem {
   id: number;
   product: Product;
+  variant?: { id: number; sku: string; attributes: { title: string; value: string }[] } | null;
   quantity: number;
   unit_price?: number;
   line_total?: number;
@@ -82,7 +112,7 @@ export interface OrderItem {
 }
 
 export interface OrderQuote {
-  items: { product_id: number; name: string; quantity: number; regular_unit_price: number; unit_price: number; line_discount: number; line_total: number }[];
+  items: { product_id: number; variant_id: number; name: string; quantity: number; regular_unit_price: number; unit_price: number; line_discount: number; line_total: number }[];
   original_subtotal: number;
   discount_total: number;
   subtotal: number;
@@ -95,6 +125,7 @@ export interface Order {
   id: number;
   status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   is_paid?: boolean;
+  can_simulate_payment?: boolean;
   pay_date?: string | null;
   total: number;
   items: OrderItem[];
