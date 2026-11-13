@@ -1,5 +1,4 @@
-from django.contrib import admin
-from django.core.exceptions import ValidationError
+from django.contrib import admin, messages
 
 from .models import Article, ArticleCategory, ArticleComment
 
@@ -27,24 +26,44 @@ class ArticleAdmin(admin.ModelAdmin):
         return tuple(fields)
 
     def save_model(self, request, obj, form, change):
+        can_publish = request.user.has_perm("article_module.publish_article")
         if not change and obj.author_id is None:
             obj.author = request.user
         if change:
             previous = Article.objects.get(pk=obj.pk)
-            if not request.user.has_perm("article_module.publish_article"):
+            if not can_publish:
                 obj.status = previous.status
                 obj.scheduled_at = previous.scheduled_at
                 obj.published_at = previous.published_at
-            else:
-                if obj.status == Article.Status.PUBLISHED and previous.status != Article.Status.APPROVED:
-                    raise ValidationError("فقط مقاله تأییدشده توسط ویراستار قابل انتشار است.")
-                if obj.scheduled_at and obj.status != Article.Status.APPROVED:
-                    raise ValidationError("فقط مقاله تأییدشده را می‌توان زمان‌بندی کرد.")
-        elif request.user.has_perm("article_module.publish_article") and (
-            obj.status == Article.Status.PUBLISHED or obj.scheduled_at
-        ):
-            raise ValidationError("مقاله جدید ابتدا باید از مسیر بررسی و تأیید عبور کند.")
+            elif obj.status == Article.Status.PUBLISHED and previous.status != Article.Status.APPROVED:
+                obj.status = previous.status
+                obj.scheduled_at = previous.scheduled_at
+                obj.published_at = previous.published_at
+                self.message_user(
+                    request,
+                    "انتشار مستقیم مجاز نیست؛ مقاله باید ابتدا توسط ویراستار تأیید شود.",
+                    level=messages.ERROR,
+                )
+            elif obj.scheduled_at and obj.status != Article.Status.APPROVED:
+                obj.status = previous.status
+                obj.scheduled_at = previous.scheduled_at
+                obj.published_at = previous.published_at
+                self.message_user(
+                    request,
+                    "فقط مقاله تأییدشده را می‌توان زمان‌بندی کرد.",
+                    level=messages.ERROR,
+                )
+        elif can_publish and (obj.status == Article.Status.PUBLISHED or obj.scheduled_at):
+            obj.status = Article.Status.DRAFT
+            obj.scheduled_at = None
+            obj.published_at = None
+            self.message_user(
+                request,
+                "مقاله جدید ابتدا باید از مسیر بررسی و تأیید عبور کند.",
+                level=messages.ERROR,
+            )
         super().save_model(request, obj, form, change)
+
 
 
 class ArticleCategoryAdmin(admin.ModelAdmin):
