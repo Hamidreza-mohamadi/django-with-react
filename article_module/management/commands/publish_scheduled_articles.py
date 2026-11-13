@@ -4,7 +4,7 @@ from article_module.services import publish_scheduled_articles
 
 
 class Command(BaseCommand):
-    help = "Publish article drafts whose scheduled publication time has arrived."
+    help = "Publish approved articles whose scheduled publication time has arrived."
 
     def add_arguments(self, parser):
         parser.add_argument("--batch-size", type=int, default=100)
