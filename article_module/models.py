@@ -49,10 +49,8 @@ class ArticleCategory(models.Model):
             self.clean()
         if not self.slug:
             self.slug = _unique_slug(
-                self, self.title,
-                queryset=type(self).objects.all(),
-                fallback="category",
-                max_length=80,
+                self, self.title, queryset=type(self).objects.all(),
+                fallback="category", max_length=80,
             )
         super().save(*args, **kwargs)
 
@@ -64,14 +62,14 @@ class Article(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "پیش‌نویس"
         REVIEW = "review", "در انتظار بررسی"
+        APPROVED = "approved", "تأییدشده برای انتشار"
         PUBLISHED = "published", "منتشرشده"
         ARCHIVED = "archived", "بایگانی‌شده"
 
     title = models.CharField(max_length=80, verbose_name="تیتر مقاله")
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, verbose_name="نویسنده",
-        on_delete=models.PROTECT, blank=True, null=True,
-        related_name="articles",
+        on_delete=models.PROTECT, blank=True, null=True, related_name="articles",
     )
     content = models.TextField(verbose_name="متن مقاله", blank=True)
     short_description = models.TextField(verbose_name="توضیح کوتاه", blank=True)
@@ -80,7 +78,6 @@ class Article(models.Model):
     image = models.ImageField(verbose_name="تصویر مقاله", upload_to="images/articles/", blank=True)
     image_alt = models.CharField(max_length=255, blank=True, verbose_name="متن جایگزین تصویر")
     slug = models.SlugField(max_length=150, default="", unique=True, blank=True, verbose_name="عنوان در URL")
-
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.DRAFT,
         db_index=True, verbose_name="وضعیت انتشار",
@@ -115,10 +112,8 @@ class Article(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = _unique_slug(
-                self, self.title,
-                queryset=type(self).objects.all(),
-                fallback="article",
-                max_length=150,
+                self, self.title, queryset=type(self).objects.all(),
+                fallback="article", max_length=150,
             )
         if self.status == self.Status.PUBLISHED:
             self.is_published = True
