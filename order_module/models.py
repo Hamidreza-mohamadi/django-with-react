@@ -14,6 +14,7 @@ class Order(models.Model):
         SHIPPED = "shipped", "ارسال شده"
         DELIVERED = "delivered", "تحویل شده"
         CANCELLED = "cancelled", "لغو شده"
+        EXPIRED = "expired", "منقضی شده"
 
     user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="کاربر")
     pay_date = models.DateField(verbose_name="تاریخ پرداخت", null=True, blank=True)
