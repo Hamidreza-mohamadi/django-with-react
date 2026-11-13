@@ -5,13 +5,13 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 
-def _unique_slug(instance, source, *, queryset, fallback):
-    base = slugify(source, allow_unicode=True) or fallback
-    candidate = base[:140]
+def _unique_slug(instance, source, *, queryset, fallback, max_length):
+    base = slugify(source) or fallback
+    candidate = base[:max_length]
     suffix = 2
     while queryset.exclude(pk=instance.pk).filter(slug=candidate).exists():
         tail = f"-{suffix}"
-        candidate = f"{base[:150 - len(tail)]}{tail}"
+        candidate = f"{base[:max_length - len(tail)]}{tail}"
         suffix += 1
     return candidate
 
@@ -52,7 +52,8 @@ class ArticleCategory(models.Model):
                 self, self.title,
                 queryset=type(self).objects.all(),
                 fallback="category",
-            )[:80]
+                max_length=80,
+            )
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -117,6 +118,7 @@ class Article(models.Model):
                 self, self.title,
                 queryset=type(self).objects.all(),
                 fallback="article",
+                max_length=150,
             )
         if self.status == self.Status.PUBLISHED:
             self.is_published = True
@@ -147,7 +149,7 @@ class ArticleComment(models.Model):
 
     article = models.ForeignKey(Article, verbose_name="مقاله", on_delete=models.CASCADE, related_name="comments")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="کاربر", on_delete=models.CASCADE)
-    text = models.TextField(max_length=500, verbose_name="متن دیدگاه")
+    text = models.TextField(max_length=500, verbose_name="متن دیدگاه", blank=True, null=True)
     create_date = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ارسال دیدگاه")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True, verbose_name="وضعیت")
     parent = models.ForeignKey(
