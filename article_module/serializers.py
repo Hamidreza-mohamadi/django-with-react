@@ -1,20 +1,26 @@
 from rest_framework import serializers
-from .models import Article , ArticleCategory
-from account_module.serializers import UserSerializer
+
+from account_module.serializers import PublicUserSerializer
+from .models import Article, ArticleCategory
 
 
 class ArticleCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ArticleCategory
-        fields = '__all__'
+        fields = ("id", "title", "slug", "about", "image", "parent")
+        read_only_fields = fields
 
 
 class ArticleSerializer(serializers.ModelSerializer):
     category = ArticleCategorySerializer(many=True, read_only=True)
-    author = UserSerializer(read_only=True)
+    author = PublicUserSerializer(read_only=True)
 
     class Meta:
         model = Article
-        fields = '__all__'
-#categ ?
-
+        fields = (
+            "id", "title", "slug", "short_description", "content",
+            "image", "image_alt", "author", "category",
+            "published_at", "created_at", "updated_at",
+            "meta_title", "meta_description",
+        )
+        read_only_fields = fields
