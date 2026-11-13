@@ -35,6 +35,15 @@ class ArticleAdmin(admin.ModelAdmin):
                 obj.status = previous.status
                 obj.scheduled_at = previous.scheduled_at
                 obj.published_at = previous.published_at
+            elif obj.status == Article.Status.APPROVED and previous.status != Article.Status.APPROVED:
+                obj.status = previous.status
+                obj.scheduled_at = previous.scheduled_at
+                obj.published_at = previous.published_at
+                self.message_user(
+                    request,
+                    "تأیید مقاله فقط در اختیار ویراستار است.",
+                    level=messages.ERROR,
+                )
             elif obj.status == Article.Status.PUBLISHED and previous.status != Article.Status.APPROVED:
                 obj.status = previous.status
                 obj.scheduled_at = previous.scheduled_at
@@ -53,7 +62,9 @@ class ArticleAdmin(admin.ModelAdmin):
                     "فقط مقاله تأییدشده را می‌توان زمان‌بندی کرد.",
                     level=messages.ERROR,
                 )
-        elif can_publish and (obj.status == Article.Status.PUBLISHED or obj.scheduled_at):
+        elif can_publish and (
+            obj.status in (Article.Status.APPROVED, Article.Status.PUBLISHED) or obj.scheduled_at
+        ):
             obj.status = Article.Status.DRAFT
             obj.scheduled_at = None
             obj.published_at = None
