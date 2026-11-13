@@ -1,9 +1,13 @@
+from datetime import timedelta
+
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from account_module.models import User
 from product_module.models import Attribute, AttributeValue, Product, ProductVariant
 from .models import Order, OrderStatusHistory, PaymentEvent
+from .services import expire_due_orders
 
 
 class OrderApiTests(TestCase):
@@ -128,3 +132,42 @@ class OrderApiTests(TestCase):
         self.assertEqual(len(payment.data["payment_events"]), 1)
         self.assertEqual(payment.data["payment_events"][0]["status"], PaymentEvent.Status.SUCCEEDED)
         self.assertEqual(len(payment.data["status_history"]), 2)
+
+    def test_expired_order_releases_inventory_exactly_once(self):
+        response = self.client.post("/api/v1/orders/", self.payload, format="json")
+        order_id = response.data["id"]
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.inventory, 3)
+
+        order = Order.objects.get(pk=order_id)
+        order.expires_at = timezone.now() - timedelta(minutes=1)
+        order.save(update_fields=["expires_at"])
+
+        self.assertEqual(expire_due_orders(), 1)
+        order.refresh_from_db()
+        self.variant.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.EXPIRED)
+        self.assertEqual(self.variant.inventory, 5)
+        self.assertEqual(
+            OrderStatusHistory.objects.filter(order=order, to_status=Order.Status.EXPIRED).count(),
+            1,
+        )
+
+        self.assertEqual(expire_due_orders(), 0)
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.inventory, 5)
+
+    def test_expiry_does_not_cancel_paid_order(self):
+        response = self.client.post("/api/v1/orders/", self.payload, format="json")
+        order_id = response.data["id"]
+        order = Order.objects.get(pk=order_id)
+        order.expires_at = timezone.now() - timedelta(minutes=1)
+        order.is_paid = True
+        order.status = Order.Status.CONFIRMED
+        order.save(update_fields=["expires_at", "is_paid", "status"])
+
+        self.assertEqual(expire_due_orders(), 0)
+        order.refresh_from_db()
+        self.variant.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.CONFIRMED)
+        self.assertEqual(self.variant.inventory, 3)
