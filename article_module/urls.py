@@ -25,7 +25,7 @@ urlpatterns = [
     path("review/<int:pk>/decision/", ArticleReviewDecisionView.as_view(), name="article-review-decision"),
     path("publish/<int:pk>/", ArticlePublicationView.as_view(), name="article-publish"),
     path("comments/<slug:slug>/", PublicArticleCommentListCreateView.as_view(), name="article-comments"),
-    path("", PublicArticleListView.as_view(), name="article-list"),
-    path("latest/", LatestArticlesView.as_view(), name="latest-articles"),
+    path("list/", PublicArticleListView.as_view(), name="article-list"),
+    path("", LatestArticlesView.as_view(), name="latest-articles"),
     path("<slug:slug>/", ArticleDetailGeneric.as_view(), name="article-detail"),
 ]
