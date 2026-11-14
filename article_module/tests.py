@@ -257,7 +257,7 @@ class ArticleCmsApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 12)
         self.assertEqual(len(response.data["results"]), 5)
-        response = self.client.get("/api/v1/articles/?search=شماره%201")
+        response = self.client.get("/api/v1/articles/?search=شماره%207")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
 
