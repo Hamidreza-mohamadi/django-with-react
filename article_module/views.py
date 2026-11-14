@@ -4,6 +4,7 @@ from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,7 +13,7 @@ from .models import Article, ArticleCategory, ArticleComment, ArticleImage, Arti
 from .serializers import (
     ArticleCategorySerializer, ArticleCommentCreateSerializer, ArticleCommentModerationSerializer,
     ArticleCommentSerializer, ArticleImageSerializer, ArticleManagementSerializer,
-    ArticleSerializer, ArticleTagSerializer,
+    ArticleImageUploadSerializer, ArticleSerializer, ArticleTagSerializer,
 )
 
 
@@ -30,9 +31,16 @@ def owned_article_or_404(user, pk):
     return get_object_or_404(Article.objects.select_related("author"), pk=pk, author=user)
 
 
+class ArticlePagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 50
+
+
 class PublicArticleListView(generics.ListAPIView):
     permission_classes = [AllowAny]
     serializer_class = ArticleSerializer
+    pagination_class = ArticlePagination
 
     def get_queryset(self):
         queryset = public_articles()
@@ -171,12 +179,12 @@ class ArticleImageUploadView(APIView):
         article = owned_article_or_404(request.user, pk)
         if article.status != Article.Status.DRAFT:
             raise ValidationError("فقط برای پیش‌نویس می‌توان تصویر بارگذاری کرد.")
-        uploaded = request.FILES.get("image")
-        if not uploaded:
-            raise ValidationError({"image": "فایل تصویر الزامی است."})
-        if uploaded.size > 5 * 1024 * 1024:
-            raise ValidationError({"image": "حداکثر حجم تصویر ۵ مگابایت است."})
-        image = ArticleImage.objects.create(article=article, image=uploaded, alt_text=request.data.get("alt_text", "")[:255], uploaded_by=request.user)
+        serializer = ArticleImageUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        image = ArticleImage.objects.create(
+            article=article, image=serializer.validated_data["image"],
+            alt_text=serializer.validated_data.get("alt_text", ""), uploaded_by=request.user,
+        )
         return Response(ArticleImageSerializer(image, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
