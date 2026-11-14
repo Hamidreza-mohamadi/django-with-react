@@ -17,10 +17,7 @@ def _unique_slug(instance, source, *, queryset, fallback, max_length):
 
 
 class ArticleCategory(models.Model):
-    parent = models.ForeignKey(
-        "self", on_delete=models.PROTECT, verbose_name="دسته‌بندی والد",
-        blank=True, null=True, related_name="children",
-    )
+    parent = models.ForeignKey("self", on_delete=models.PROTECT, verbose_name="دسته‌بندی والد", blank=True, null=True, related_name="children")
     title = models.CharField(max_length=80, verbose_name="نام دسته‌بندی")
     image = models.ImageField(upload_to="images/categories", verbose_name="تصویر دسته‌بندی", blank=True, null=True)
     slug = models.SlugField(max_length=80, unique=True, blank=True, verbose_name="آدرس دسته‌بندی")
@@ -34,8 +31,7 @@ class ArticleCategory(models.Model):
 
     def clean(self):
         super().clean()
-        ancestor = self.parent
-        visited = set()
+        ancestor, visited = self.parent, set()
         while ancestor is not None:
             if ancestor.pk == self.pk:
                 raise ValidationError({"parent": "یک دسته‌بندی نمی‌تواند زیرمجموعه خودش یا نوادگانش باشد."})
@@ -48,10 +44,26 @@ class ArticleCategory(models.Model):
         if self.parent_id:
             self.clean()
         if not self.slug:
-            self.slug = _unique_slug(
-                self, self.title, queryset=type(self).objects.all(),
-                fallback="category", max_length=80,
-            )
+            self.slug = _unique_slug(self, self.title, queryset=type(self).objects.all(), fallback="category", max_length=80)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title
+
+
+class ArticleTag(models.Model):
+    title = models.CharField(max_length=50, unique=True, verbose_name="برچسب")
+    slug = models.SlugField(max_length=60, unique=True, blank=True)
+    is_active = models.BooleanField(default=True, verbose_name="فعال/غیرفعال")
+
+    class Meta:
+        ordering = ["title"]
+        verbose_name = "برچسب مقاله"
+        verbose_name_plural = "برچسب‌های مقاله"
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = _unique_slug(self, self.title, queryset=type(self).objects.all(), fallback="tag", max_length=60)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -67,25 +79,18 @@ class Article(models.Model):
         ARCHIVED = "archived", "بایگانی‌شده"
 
     title = models.CharField(max_length=80, verbose_name="تیتر مقاله")
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL, verbose_name="نویسنده",
-        on_delete=models.PROTECT, blank=True, null=True, related_name="articles",
-    )
-    content = models.TextField(verbose_name="متن مقاله", blank=True)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="نویسنده", on_delete=models.PROTECT, blank=True, null=True, related_name="articles")
+    content = models.TextField(verbose_name="متن مقاله", blank=True, help_text="فیلد متنی قدیمی؛ محتوای جدید در content_json ذخیره می‌شود.")
+    content_json = models.JSONField(blank=True, null=True, verbose_name="محتوای ساختارمند")
     short_description = models.TextField(verbose_name="توضیح کوتاه", blank=True)
     pub_date = models.DateTimeField(verbose_name="تاریخ انتشار قدیمی", auto_now_add=True)
     category = models.ManyToManyField(ArticleCategory, verbose_name="دسته‌بندی", blank=True, related_name="articles")
+    tags = models.ManyToManyField(ArticleTag, verbose_name="برچسب‌ها", blank=True, related_name="articles")
     image = models.ImageField(verbose_name="تصویر مقاله", upload_to="images/articles/", blank=True)
     image_alt = models.CharField(max_length=255, blank=True, verbose_name="متن جایگزین تصویر")
     slug = models.SlugField(max_length=150, default="", unique=True, blank=True, verbose_name="عنوان در URL")
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.DRAFT,
-        db_index=True, verbose_name="وضعیت انتشار",
-    )
-    is_published = models.BooleanField(
-        default=False, db_index=True, verbose_name="انتشار یافته (سازگاری قدیمی)",
-        help_text="فیلد سازگاری با نسخه قبلی؛ وضعیت اصلی انتشار، فیلد وضعیت است.",
-    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True, verbose_name="وضعیت انتشار")
+    is_published = models.BooleanField(default=False, db_index=True, verbose_name="انتشار یافته (سازگاری قدیمی)")
     scheduled_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name="زمان انتشار زمان‌بندی‌شده")
     published_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name="زمان انتشار")
     created_at = models.DateTimeField(default=timezone.now, editable=False, verbose_name="زمان ایجاد")
@@ -97,10 +102,7 @@ class Article(models.Model):
         verbose_name = "مقاله"
         verbose_name_plural = "مقاله‌ها"
         ordering = ["-published_at", "-id"]
-        permissions = [
-            ("publish_article", "Can publish or schedule article"),
-            ("review_article", "Can review submitted articles"),
-        ]
+        permissions = [("publish_article", "Can publish or schedule article"), ("review_article", "Can review submitted articles")]
 
     def clean(self):
         super().clean()
@@ -111,10 +113,7 @@ class Article(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = _unique_slug(
-                self, self.title, queryset=type(self).objects.all(),
-                fallback="article", max_length=150,
-            )
+            self.slug = _unique_slug(self, self.title, queryset=type(self).objects.all(), fallback="article", max_length=150)
         if self.status == self.Status.PUBLISHED:
             self.is_published = True
             if self.published_at is None:
@@ -136,6 +135,17 @@ class Article(models.Model):
         return self.title
 
 
+class ArticleImage(models.Model):
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="content_images")
+    image = models.ImageField(upload_to="images/articles/content/%Y/%m/")
+    alt_text = models.CharField(max_length=255, blank=True)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="article_images")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
 class ArticleComment(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "در انتظار تأیید"
@@ -144,13 +154,10 @@ class ArticleComment(models.Model):
 
     article = models.ForeignKey(Article, verbose_name="مقاله", on_delete=models.CASCADE, related_name="comments")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="کاربر", on_delete=models.CASCADE)
-    text = models.TextField(max_length=500, verbose_name="متن دیدگاه", blank=True, null=True)
+    text = models.TextField(max_length=2000, verbose_name="متن دیدگاه")
     create_date = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ارسال دیدگاه")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True, verbose_name="وضعیت")
-    parent = models.ForeignKey(
-        "self", verbose_name="دیدگاه والد", null=True, blank=True,
-        related_name="children", on_delete=models.CASCADE,
-    )
+    parent = models.ForeignKey("self", verbose_name="دیدگاه والد", null=True, blank=True, related_name="children", on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = "دیدگاه"
@@ -164,6 +171,8 @@ class ArticleComment(models.Model):
                 raise ValidationError({"parent": "پاسخ باید متعلق به همان مقاله باشد."})
             if self.parent_id == self.pk:
                 raise ValidationError({"parent": "یک دیدگاه نمی‌تواند والد خودش باشد."})
+            if self.parent.parent_id:
+                raise ValidationError({"parent": "عمق پاسخ‌ها حداکثر یک سطح است."})
 
     def __str__(self):
         return f"{self.user} - {self.article}"
