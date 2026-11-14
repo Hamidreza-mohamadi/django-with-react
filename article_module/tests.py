@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from account_module.models import User
-from .models import Article, ArticleCategory, ArticleComment
+from .models import Article, ArticleCategory, ArticleComment, ArticleTag
 from .services import publish_scheduled_articles
 
 
@@ -252,7 +252,7 @@ class ArticleCmsApiTests(TestCase):
             )
             article.category.add(category)
             article.tags.add(tag)
-        response = self.client.get("/api/v1/articles/?category=rahnama&tag=amoozeshi&page_size=5")
+        response = self.client.get(f"/api/v1/articles/?category={category.slug}&tag={tag.slug}&page_size=5")
         # Persian slugs are generated with the project's existing slug policy; use a robust filter check below.
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 12)
