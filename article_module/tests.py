@@ -173,3 +173,136 @@ class ArticleLifecycleTests(TestCase):
         self.assertIsNotNone(article.published_at)
         self.assertIsNone(article.scheduled_at)
         self.assertEqual(publish_scheduled_articles(), 0)
+
+
+import base64
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+
+class ArticleCmsApiTests(TestCase):
+    def setUp(self):
+        self.author = User.objects.create_user(username="cms-author", email="cms@example.com", password="test-password")
+        self.client = APIClient()
+        self.article = Article.objects.create(title="CMS draft", author=self.author)
+
+    def grant(self, user, *codenames):
+        permissions = Permission.objects.filter(content_type__app_label="article_module", codename__in=codenames)
+        user.user_permissions.add(*permissions)
+
+    def test_management_api_accepts_structured_tiptap_document_and_rejects_unsafe_values(self):
+        self.grant(self.author, "add_article", "change_article")
+        self.client.force_authenticate(self.author)
+        document = {
+            "type": "doc",
+            "content": [{
+                "type": "heading", "attrs": {"level": 2},
+                "content": [{
+                    "type": "text", "text": "راهنمای خرید",
+                    "marks": [{"type": "textStyle", "attrs": {"fontFamily": "Vazirmatn", "fontSize": "18px", "color": "#111827"}}],
+                }],
+            }],
+        }
+        response = self.client.post("/api/v1/articles/manage/", {
+            "title": "Structured article", "content_json": document,
+        }, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["content_json"]["type"], "doc")
+        article_id = response.data["id"]
+
+        unsafe = {"type": "doc", "content": [{"type": "heading", "attrs": {"level": 1}}]}
+        response = self.client.patch(
+            f"/api/v1/articles/manage/{article_id}/", {"content_json": unsafe}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_article_image_upload_is_owned_by_draft_and_can_be_referenced(self):
+        self.grant(self.author, "change_article")
+        self.client.force_authenticate(self.author)
+        png = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jXioAAAAASUVORK5CYII="
+        )
+        upload = SimpleUploadedFile("inline.png", png, content_type="image/png")
+        response = self.client.post(
+            f"/api/v1/articles/manage/{self.article.pk}/images/",
+            {"image": upload, "alt_text": "نمونه تصویر"}, format="multipart",
+        )
+        self.assertEqual(response.status_code, 201)
+        image_url = response.data["url"]
+        self.assertTrue(image_url.startswith("/medias/images/articles/content/"))
+
+        document = {"type": "doc", "content": [{"type": "image", "attrs": {"src": image_url, "alt": "نمونه تصویر"}}]}
+        response = self.client.patch(
+            f"/api/v1/articles/manage/{self.article.pk}/", {"content_json": document}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        foreign_document = {"type": "doc", "content": [{"type": "image", "attrs": {"src": "/medias/images/articles/content/other.png"}}]}
+        response = self.client.patch(
+            f"/api/v1/articles/manage/{self.article.pk}/", {"content_json": foreign_document}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_public_article_list_supports_search_filters_and_pagination(self):
+        category = ArticleCategory.objects.create(title="راهنما")
+        tag = ArticleTag.objects.create(title="آموزشی")
+        for index in range(12):
+            article = Article.objects.create(
+                title=f"راهنمای شماره {index}", author=self.author,
+                status=Article.Status.PUBLISHED,
+            )
+            article.category.add(category)
+            article.tags.add(tag)
+        response = self.client.get("/api/v1/articles/?category=rahnama&tag=amoozeshi&page_size=5")
+        # Persian slugs are generated with the project's existing slug policy; use a robust filter check below.
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 12)
+        self.assertEqual(len(response.data["results"]), 5)
+        response = self.client.get("/api/v1/articles/?search=شماره%201")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+
+    def test_category_and_tag_management_requires_article_permissions(self):
+        self.grant(self.author, "add_article", "change_article")
+        self.client.force_authenticate(self.author)
+        category_response = self.client.post(
+            "/api/v1/articles/manage/categories/",
+            {"title": "تکنولوژی", "about": "اخبار فناوری"}, format="json",
+        )
+        self.assertEqual(category_response.status_code, 201)
+        tag_response = self.client.post(
+            "/api/v1/articles/manage/tags/", {"title": "بررسی"}, format="json",
+        )
+        self.assertEqual(tag_response.status_code, 201)
+        self.assertTrue(tag_response.data["slug"])
+
+    def test_comments_require_review_before_public_display(self):
+        reviewer = User.objects.create_user(username="cms-reviewer", password="test-password")
+        self.grant(reviewer, "review_article")
+        public_article = Article.objects.create(
+            title="Public comments", author=self.author, status=Article.Status.PUBLISHED,
+        )
+        self.client.force_authenticate(self.author)
+        response = self.client.post(
+            f"/api/v1/articles/comments/{public_article.slug}/",
+            {"text": "دیدگاه آزمایشی"}, format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        comment_id = response.data["id"]
+        self.client.force_authenticate(None)
+        response = self.client.get(f"/api/v1/articles/comments/{public_article.slug}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
+        self.client.force_authenticate(reviewer)
+        response = self.client.get("/api/v1/articles/manage/comments/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        response = self.client.patch(
+            f"/api/v1/articles/manage/comments/{comment_id}/",
+            {"status": "approved"}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.client.force_authenticate(None)
+        response = self.client.get(f"/api/v1/articles/comments/{public_article.slug}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
