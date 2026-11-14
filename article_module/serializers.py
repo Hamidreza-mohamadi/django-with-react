@@ -14,7 +14,7 @@ FONT_SIZES = {"12px", "14px", "16px", "18px", "20px", "24px", "28px", "32px"}
 ALLOWED_COLORS = {"#111827", "#374151", "#6B7280", "#DC2626", "#2563EB", "#059669"}
 
 
-def validate_rich_document(document):
+def validate_rich_document(document, *, allowed_image_urls=None):
     if not isinstance(document, dict) or document.get("type") != "doc":
         raise serializers.ValidationError("ساختار محتوا باید یک سند Tiptap با ریشه doc باشد.")
     node_count = 0
@@ -34,7 +34,7 @@ def validate_rich_document(document):
         if node["type"] == "image":
             src = attrs.get("src", "")
             parsed = urlparse(src)
-            if parsed.scheme or parsed.netloc or not src.startswith(settings.MEDIA_URL):
+            if parsed.scheme or parsed.netloc or not src.startswith(settings.MEDIA_URL) or (allowed_image_urls is not None and src not in allowed_image_urls):
                 raise serializers.ValidationError("تصویر محتوا باید از مسیر رسانه‌ای همین سایت آپلود شده باشد.")
         marks = node.get("marks", [])
         if not isinstance(marks, list):
@@ -89,6 +89,17 @@ class ArticleImageSerializer(serializers.ModelSerializer):
         return obj.image.url
 
 
+
+class ArticleImageUploadSerializer(serializers.Serializer):
+    image = serializers.ImageField()
+    alt_text = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+    def validate_image(self, value):
+        if value.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError("حداکثر حجم تصویر ۵ مگابایت است.")
+        return value
+
+
 class ArticleCommentSerializer(serializers.ModelSerializer):
     user = PublicUserSerializer(read_only=True)
     replies = serializers.SerializerMethodField()
@@ -125,7 +136,10 @@ class ArticleManagementSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "slug", "author", "status", "scheduled_at", "published_at", "created_at", "updated_at")
 
     def validate_content_json(self, value):
-        return validate_rich_document(value)
+        allowed = set()
+        if self.instance is not None:
+            allowed = {item.image.url for item in self.instance.content_images.all()}
+        return validate_rich_document(value, allowed_image_urls=allowed)
 
 
 class ArticleCommentCreateSerializer(serializers.ModelSerializer):
