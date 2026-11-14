@@ -252,12 +252,12 @@ class ArticleCmsApiTests(TestCase):
             )
             article.category.add(category)
             article.tags.add(tag)
-        response = self.client.get(f"/api/v1/articles/?category={category.slug}&tag={tag.slug}&page_size=5")
+        response = self.client.get(f"/api/v1/articles/list/?category={category.slug}&tag={tag.slug}&page_size=5")
         # Persian slugs are generated with the project's existing slug policy; use a robust filter check below.
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 12)
         self.assertEqual(len(response.data["results"]), 5)
-        response = self.client.get("/api/v1/articles/?search=شماره%207")
+        response = self.client.get("/api/v1/articles/list/?search=شماره%207")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
 
