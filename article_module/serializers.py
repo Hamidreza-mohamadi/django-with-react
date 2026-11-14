@@ -29,6 +29,16 @@ def validate_rich_document(document, *, allowed_image_urls=None):
         attrs = node.get("attrs") or {}
         if not isinstance(attrs, dict):
             raise serializers.ValidationError("ویژگی‌های بلوک نامعتبر است.")
+        allowed_node_attrs = {
+            "heading": {"level"}, "orderedList": {"start"},
+            "image": {"src", "alt", "title", "width", "height"},
+            "tableCell": {"colspan", "rowspan", "colwidth"},
+            "tableHeader": {"colspan", "rowspan", "colwidth"},
+        }
+        if set(attrs) - allowed_node_attrs.get(node["type"], set()):
+            raise serializers.ValidationError("یکی از ویژگی‌های بلوک مجاز نیست.")
+        if node["type"] == "text" and (not isinstance(node.get("text"), str) or len(node["text"]) > 100000):
+            raise serializers.ValidationError("متن یکی از بلوک‌ها نامعتبر یا بیش از حد طولانی است.")
         if node["type"] == "heading" and attrs.get("level", 2) not in (2, 3, 4):
             raise serializers.ValidationError("سطح تیتر باید ۲، ۳ یا ۴ باشد.")
         if node["type"] == "image":
@@ -43,11 +53,19 @@ def validate_rich_document(document, *, allowed_image_urls=None):
             if not isinstance(mark, dict) or mark.get("type") not in ALLOWED_MARKS:
                 raise serializers.ValidationError("نوع قالب‌بندی متن مجاز نیست.")
             mark_attrs = mark.get("attrs") or {}
+            allowed_mark_attrs = {
+                "link": {"href", "target", "rel"},
+                "textStyle": {"fontFamily", "fontSize", "color"},
+            }
+            if not isinstance(mark_attrs, dict) or set(mark_attrs) - allowed_mark_attrs.get(mark["type"], set()):
+                raise serializers.ValidationError("ویژگی قالب‌بندی متن مجاز نیست.")
             if mark["type"] == "link":
                 href = mark_attrs.get("href", "")
                 parsed = urlparse(href)
                 if parsed.scheme not in ("", "http", "https", "mailto") or href.startswith("//"):
                     raise serializers.ValidationError("نشانی لینک معتبر نیست.")
+                if mark_attrs.get("target") not in (None, "_blank", "_self"):
+                    raise serializers.ValidationError("مقصد لینک مجاز نیست.")
             if mark["type"] == "textStyle":
                 if mark_attrs.get("fontFamily") and mark_attrs["fontFamily"] not in FONT_FAMILIES:
                     raise serializers.ValidationError("فونت انتخاب‌شده مجاز نیست.")
@@ -110,6 +128,8 @@ class ArticleCommentSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_replies(self, obj):
+        if obj.parent_id:
+            return []
         replies = obj.children.filter(status=ArticleComment.Status.APPROVED).select_related("user")
         return ArticleCommentSerializer(replies, many=True, context=self.context).data
 
