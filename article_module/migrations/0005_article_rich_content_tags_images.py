@@ -3,6 +3,11 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def normalize_legacy_comment_text(apps, schema_editor):
+    Comment = apps.get_model("article_module", "ArticleComment")
+    Comment.objects.using(schema_editor.connection.alias).filter(text__isnull=True).update(text="")
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("article_module", "0004_article_approved_status"),
@@ -42,6 +47,7 @@ class Migration(migrations.Migration):
             ],
             options={"ordering": ["created_at", "id"]},
         ),
+        migrations.RunPython(normalize_legacy_comment_text, migrations.RunPython.noop),
         migrations.AlterField(
             model_name="articlecomment",
             name="text",
