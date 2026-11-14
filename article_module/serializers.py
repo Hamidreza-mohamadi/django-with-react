@@ -7,11 +7,7 @@ from account_module.serializers import PublicUserSerializer
 from .models import Article, ArticleCategory, ArticleComment, ArticleImage, ArticleTag
 
 
-ALLOWED_NODES = {
-    "doc", "paragraph", "heading", "text", "bulletList", "orderedList",
-    "listItem", "blockquote", "codeBlock", "horizontalRule", "image",
-    "table", "tableRow", "tableHeader", "tableCell", "hardBreak",
-}
+ALLOWED_NODES = {"doc", "paragraph", "heading", "text", "bulletList", "orderedList", "listItem", "blockquote", "codeBlock", "horizontalRule", "image", "table", "tableRow", "tableHeader", "tableCell", "hardBreak"}
 ALLOWED_MARKS = {"bold", "italic", "underline", "strike", "code", "link", "textStyle"}
 FONT_FAMILIES = {"Vazirmatn", "IRANSans", "Arial", "Tahoma", "system"}
 FONT_SIZES = {"12px", "14px", "16px", "18px", "20px", "24px", "28px", "32px"}
@@ -90,9 +86,7 @@ class ArticleImageSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_url(self, obj):
-        request = self.context.get("request")
-        url = obj.image.url
-        return request.build_absolute_uri(url) if request else url
+        return obj.image.url
 
 
 class ArticleCommentSerializer(serializers.ModelSerializer):
@@ -102,7 +96,7 @@ class ArticleCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArticleComment
         fields = ("id", "article", "user", "text", "parent", "status", "create_date", "replies")
-        read_only_fields = ("id", "user", "status", "create_date", "replies", "article")
+        read_only_fields = fields
 
     def get_replies(self, obj):
         replies = obj.children.filter(status=ArticleComment.Status.APPROVED).select_related("user")
@@ -116,12 +110,7 @@ class ArticleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Article
-        fields = (
-            "id", "title", "slug", "short_description", "content", "content_json",
-            "image", "image_alt", "author", "category", "tags", "published_at",
-            "created_at", "updated_at", "pub_date", "is_published", "meta_title",
-            "meta_description",
-        )
+        fields = ("id", "title", "slug", "short_description", "content", "content_json", "image", "image_alt", "author", "category", "tags", "published_at", "created_at", "updated_at", "pub_date", "is_published", "meta_title", "meta_description")
         read_only_fields = fields
 
 
@@ -132,12 +121,7 @@ class ArticleManagementSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Article
-        fields = (
-            "id", "title", "slug", "short_description", "content", "content_json",
-            "image", "image_alt", "author", "category", "tags", "status",
-            "scheduled_at", "published_at", "created_at", "updated_at",
-            "meta_title", "meta_description",
-        )
+        fields = ("id", "title", "slug", "short_description", "content", "content_json", "image", "image_alt", "author", "category", "tags", "status", "scheduled_at", "published_at", "created_at", "updated_at", "meta_title", "meta_description")
         read_only_fields = ("id", "slug", "author", "status", "scheduled_at", "published_at", "created_at", "updated_at")
 
     def validate_content_json(self, value):
