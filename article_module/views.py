@@ -18,9 +18,7 @@ from .serializers import (
 
 def public_articles():
     now = timezone.now()
-    return Article.objects.filter(
-        status=Article.Status.PUBLISHED, published_at__isnull=False, published_at__lte=now,
-    ).select_related("author").prefetch_related("category", "tags").order_by("-published_at", "-id")
+    return Article.objects.filter(status=Article.Status.PUBLISHED, published_at__isnull=False, published_at__lte=now).select_related("author").prefetch_related("category", "tags").order_by("-published_at", "-id")
 
 
 def require_perm(user, permission):
@@ -42,15 +40,12 @@ class PublicArticleListView(generics.ListAPIView):
         search = params.get("search")
         if search:
             queryset = queryset.filter(Q(title__icontains=search) | Q(short_description__icontains=search))
-        category = params.get("category")
-        if category:
-            queryset = queryset.filter(category__slug=category)
-        tag = params.get("tag")
-        if tag:
-            queryset = queryset.filter(tags__slug=tag)
-        author = params.get("author")
-        if author:
-            queryset = queryset.filter(author__username=author)
+        if params.get("category"):
+            queryset = queryset.filter(category__slug=params["category"])
+        if params.get("tag"):
+            queryset = queryset.filter(tags__slug=params["tag"])
+        if params.get("author"):
+            queryset = queryset.filter(author__username=params["author"])
         ordering = params.get("ordering", "-published_at")
         if ordering not in ("published_at", "-published_at", "title", "-title"):
             raise ValidationError({"ordering": "مرتب‌سازی مجاز نیست."})
@@ -181,10 +176,7 @@ class ArticleImageUploadView(APIView):
             raise ValidationError({"image": "فایل تصویر الزامی است."})
         if uploaded.size > 5 * 1024 * 1024:
             raise ValidationError({"image": "حداکثر حجم تصویر ۵ مگابایت است."})
-        image = ArticleImage.objects.create(
-            article=article, image=uploaded,
-            alt_text=request.data.get("alt_text", "")[:255], uploaded_by=request.user,
-        )
+        image = ArticleImage.objects.create(article=article, image=uploaded, alt_text=request.data.get("alt_text", "")[:255], uploaded_by=request.user)
         return Response(ArticleImageSerializer(image, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
@@ -193,15 +185,13 @@ class ArticleCategoryManagementView(APIView):
 
     def get(self, request):
         require_perm(request.user, "article_module.change_article")
-        categories = ArticleCategory.objects.all()
-        return Response(ArticleCategorySerializer(categories, many=True, context={"request": request}).data)
+        return Response(ArticleCategorySerializer(ArticleCategory.objects.all(), many=True).data)
 
     def post(self, request):
         require_perm(request.user, "article_module.add_article")
         serializer = ArticleCategorySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        category = serializer.save()
-        return Response(ArticleCategorySerializer(category).data, status=status.HTTP_201_CREATED)
+        return Response(ArticleCategorySerializer(serializer.save()).data, status=status.HTTP_201_CREATED)
 
 
 class ArticleCategoryDetailManagementView(APIView):
@@ -212,8 +202,7 @@ class ArticleCategoryDetailManagementView(APIView):
         category = get_object_or_404(ArticleCategory, pk=pk)
         serializer = ArticleCategorySerializer(category, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        category = serializer.save()
-        return Response(ArticleCategorySerializer(category).data)
+        return Response(ArticleCategorySerializer(serializer.save()).data)
 
     def delete(self, request, pk):
         require_perm(request.user, "article_module.delete_article")
@@ -235,8 +224,7 @@ class ArticleTagManagementView(APIView):
         require_perm(request.user, "article_module.add_article")
         serializer = ArticleTagSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        tag = serializer.save()
-        return Response(ArticleTagSerializer(tag).data, status=status.HTTP_201_CREATED)
+        return Response(ArticleTagSerializer(serializer.save()).data, status=status.HTTP_201_CREATED)
 
 
 class ArticleTagDetailManagementView(APIView):
@@ -259,7 +247,7 @@ class ArticleTagDetailManagementView(APIView):
 
 
 class PublicArticleCommentListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, slug):
         article = get_object_or_404(public_articles(), slug=slug)
@@ -267,14 +255,13 @@ class PublicArticleCommentListCreateView(APIView):
         return Response(ArticleCommentSerializer(comments, many=True, context={"request": request}).data)
 
     def post(self, request, slug):
+        if not request.user.is_authenticated:
+            raise PermissionDenied("برای ثبت دیدگاه ابتدا وارد حساب کاربری شوید.")
         article = get_object_or_404(public_articles(), slug=slug)
         serializer = ArticleCommentCreateSerializer(data=request.data, context={"article": article})
         serializer.is_valid(raise_exception=True)
         comment = serializer.save(article=article, user=request.user, status=ArticleComment.Status.PENDING)
-        return Response(
-            {"id": comment.id, "status": comment.status, "detail": "دیدگاه پس از بررسی نمایش داده می‌شود."},
-            status=status.HTTP_201_CREATED,
-        )
+        return Response({"id": comment.id, "status": comment.status, "detail": "دیدگاه پس از بررسی نمایش داده می‌شود."}, status=status.HTTP_201_CREATED)
 
 
 class ArticleCommentModerationListView(APIView):
