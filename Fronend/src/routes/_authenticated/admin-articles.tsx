@@ -66,7 +66,7 @@ function ArticleAdminPage() {
             <p className="mt-2 text-sm text-muted-foreground">مدیریت نوشته‌ها، بررسی محتوا و نظارت بر دیدگاه‌ها</p>
           </div>
           <Link to="/articles" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
-            <Plus className="h-4 w-4" /> ایجاد مقاله
+            <Plus className="h-4 w-4" /> مشاهده وبلاگ
           </Link>
         </div>
 
@@ -106,7 +106,7 @@ function ArticleAdminPage() {
             <div className="p-10 text-center">
               <FileText className="mx-auto h-9 w-9 text-muted-foreground" />
               <p className="mt-3 font-medium">هنوز مقاله‌ای ثبت نکرده‌اید.</p>
-              <p className="mt-1 text-sm text-muted-foreground">با ایجاد اولین مقاله، مدیریت محتوا را از همین‌جا شروع کنید.</p>
+              <p className="mt-1 text-sm text-muted-foreground">با ایجاد اولین مقاله، پس از اتصال فرم ایجاد مقاله، می‌توانید نوشته خود را از پنل ثبت کنید.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
