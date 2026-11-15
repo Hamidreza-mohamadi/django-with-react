@@ -700,3 +700,38 @@ export const getPublicProfile = createServerFn({ method: "GET" })
   .handler(async ({ data }) =>
     djangoFetch<PublicUser>(`/auth/users/${encodeURIComponent(data.username)}/`, {}, false),
   );
+
+
+export interface ManagedArticle {
+  id: number;
+  title: string;
+  slug: string;
+  short_description: string;
+  status: "draft" | "review" | "approved" | "published" | "archived";
+  scheduled_at: string | null;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+  author: { id: number; username: string };
+}
+
+export interface ManagedArticleComment {
+  id: number;
+  article: number;
+  text: string;
+  status: "pending" | "approved" | "rejected";
+  create_date: string;
+  user: { id: number; username: string };
+}
+
+export const getManagedArticles = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ManagedArticle[]>("/articles/manage/"),
+);
+
+export const getArticleReviewQueue = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ManagedArticle[]>("/articles/review/"),
+);
+
+export const getPendingArticleComments = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ManagedArticleComment[]>("/articles/manage/comments/"),
+);
