@@ -72,7 +72,7 @@ export const Route = createFileRoute("/articles/$slug")({
 });
 
 const formatDate = (d?: string) => d ? new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d)) : "تاریخ نامشخص";
-const MEDIA_BASE_URL = (import.meta.env.VITE_MEDIA_BASE_URL || "http://localhost:8000").replace(/\\/$/, "");
+const MEDIA_BASE_URL = (import.meta.env.VITE_MEDIA_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 
 function mapArticleImages(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(mapArticleImages);
