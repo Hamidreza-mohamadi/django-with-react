@@ -20,7 +20,7 @@ type EditorState = {
   title: string; short_description: string; content: string; content_json: Record<string, unknown>;
   category: number[]; tags: number[]; meta_title: string; meta_description: string; image_alt: string;
 };
-const blank: EditorState = {
+const MEDIA_BASE_URL = (import.meta.env.VITE_MEDIA_BASE_URL || "http://localhost:8000").replace(/\/$/, "");\n\nfunction mapImageSources(value: unknown, mapSource: (source: string) => string): unknown {\n  if (Array.isArray(value)) return value.map((item) => mapImageSources(item, mapSource));\n  if (!value || typeof value !== "object") return value;\n  const node = value as Record<string, unknown>;\n  const mapped = Object.fromEntries(Object.entries(node).map(([key, item]) => [key, mapImageSources(item, mapSource)]));\n  if (mapped.type === "image" && mapped.attrs && typeof mapped.attrs === "object") {\n    const attrs = mapped.attrs as Record<string, unknown>;\n    if (typeof attrs.src === "string") mapped.attrs = { ...attrs, src: mapSource(attrs.src) };\n  }\n  return mapped;\n}\n\nconst blank: EditorState = {
   title: "", short_description: "", content: "", content_json: emptyDoc,
   category: [], tags: [], meta_title: "", meta_description: "", image_alt: "",
 };
@@ -73,14 +73,14 @@ function ArticleEditorPage() {
     onUpdate: ({ editor: current }) => setForm((previous) => ({ ...previous, content_json: current.getJSON() as Record<string, unknown> })),
   });
   useEffect(() => {
-    if (editor && article.data?.content_json) editor.commands.setContent(article.data.content_json as never);
+    if (editor && article.data?.content_json) {\n      const content = mapImageSources(article.data.content_json, (src) => src.startsWith("http") ? src : `${MEDIA_BASE_URL}${src}`);\n      editor.commands.setContent(content as never);\n    }
   }, [editor, article.data]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: ManagedArticleInput = {
         title: form.title.trim(), short_description: form.short_description,
-        content: form.content, content_json: (editor?.getJSON() ?? form.content_json) as Record<string, unknown>,
+        content: form.content, content_json: mapImageSources(editor?.getJSON() ?? form.content_json, (src) => src.startsWith(MEDIA_BASE_URL) ? src.slice(MEDIA_BASE_URL.length) : src) as Record<string, unknown>,
         category: form.category, tags: form.tags,
         meta_title: form.meta_title, meta_description: form.meta_description, image_alt: form.image_alt,
       };
@@ -114,7 +114,7 @@ function ArticleEditorPage() {
         articleId: articleKey, fileName: file.name, mimeType: file.type,
         base64: btoa(binary), altText: form.image_alt,
       });
-      const src = uploaded.url.startsWith("http") ? uploaded.url : `${(import.meta.env.VITE_MEDIA_BASE_URL || "").replace(/\/$/, "")}${uploaded.url}`;
+      const src = uploaded.url.startsWith("http") ? uploaded.url : `${MEDIA_BASE_URL}${uploaded.url}`;
       editor?.chain().focus().setImage({ src, alt: form.image_alt }).run();
       setMessage("تصویر بارگذاری و به متن اضافه شد.");
     } catch (error) {
