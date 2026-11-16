@@ -185,6 +185,10 @@ class ArticleImageUploadView(APIView):
             article=article, image=serializer.validated_data["image"],
             alt_text=serializer.validated_data.get("alt_text", ""), uploaded_by=request.user,
         )
+        if serializer.validated_data.get("is_cover"):
+            article.image.name = image.image.name
+            article.image_alt = image.alt_text
+            article.save(update_fields=["image", "image_alt", "updated_at"])
         return Response(ArticleImageSerializer(image, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
