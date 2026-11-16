@@ -4,8 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import LinkExtension from "@tiptap/extension-link";
-import Underline from "@tiptap/extension-underline";
 import { ArrowRight, Bold, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Save, Strikethrough, Underline as UnderlineIcon } from "lucide-react";
 import {
   createManagedArticle, getArticleCategories, getArticleTags, getManagedArticle,
@@ -64,10 +62,8 @@ function ArticleEditorPage() {
   }, [article.data]);
 
   const extensions = useMemo(() => [
-    StarterKit,
-    Underline,
+    StarterKit.configure({ heading: { levels: [2, 3, 4] }, link: { openOnClick: false } }),
     Image.configure({ inline: false, allowBase64: false }),
-    LinkExtension.configure({ openOnClick: false, protocols: ["http", "https", "mailto"] }),
   ], []);
   const editor = useEditor({
     extensions,
