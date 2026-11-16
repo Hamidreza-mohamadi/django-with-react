@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import { ArrowRight, Bold, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Save, Strikethrough, Underline as UnderlineIcon } from "lucide-react";
+import { ArrowRight, Bold, Eye, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Save, Strikethrough, Underline as UnderlineIcon, X } from "lucide-react";
 import {
   createManagedArticle, getArticleCategories, getArticleTags, getManagedArticle,
   updateManagedArticle, uploadManagedArticleImage,
@@ -54,6 +54,7 @@ function ArticleEditorPage() {
   const [articleKey, setArticleKey] = useState<number | null>(isNew ? null : id);
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const coverImageInput = useRef<HTMLInputElement>(null);
   const article = useQuery({
@@ -92,6 +93,18 @@ function ArticleEditorPage() {
     editorProps: { attributes: { dir: "rtl", class: "prose prose-sm max-w-none min-h-[360px] px-5 py-4 text-right outline-none focus:outline-none" } },
     onUpdate: ({ editor: current }) => setForm((previous) => ({ ...previous, content_json: current.getJSON() as Record<string, unknown> })),
   });
+  const previewEditor = useEditor({
+    extensions,
+    content: form.content_json,
+    editable: false,
+    immediatelyRender: false,
+    editorProps: { attributes: { dir: "rtl", class: "prose prose-lg max-w-none text-right leading-9" } },
+  });
+  useEffect(() => {
+    if (previewOpen && previewEditor) {
+      previewEditor.commands.setContent((editor?.getJSON() ?? form.content_json) as never);
+    }
+  }, [previewOpen, previewEditor, editor, form.content_json]);
   useEffect(() => {
     if (editor && article.data?.content_json) {
       const content = mapImageSources(article.data.content_json, (src) => src.startsWith("http") ? src : `${MEDIA_BASE_URL}${src}`);
@@ -168,9 +181,37 @@ function ArticleEditorPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div><Link to="/admin-articles" className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"><ArrowRight className="h-4 w-4" /> بازگشت به داشبورد مقاله‌ها</Link><h1 className="text-2xl font-bold">{isNew ? "ایجاد مقاله جدید" : "ویرایش مقاله"}</h1><p className="mt-1 text-sm text-muted-foreground">محتوا را بنویسید و به‌صورت پیش‌نویس ذخیره کنید.</p></div>
-        <button disabled={saveMutation.isPending || !form.title.trim()} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره پیش‌نویس</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted"><Eye className="h-4 w-4" /> پیش‌نمایش در سایت</button>
+          <button disabled={saveMutation.isPending || !form.title.trim()} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره پیش‌نویس</button>
+        </div>
       </div>
       {message && <p role="status" className={`mb-4 rounded-xl border p-3 text-sm ${message.includes("موفقیت") || message.includes("اضافه شد") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}>{message}</p>}
+      {previewOpen && (
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-background" dir="rtl">
+          <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
+            <div><p className="font-semibold">پیش‌نمایش مقاله در قالب سایت</p><p className="text-xs text-muted-foreground">این نمایش فقط برای بررسی است و مقاله را منتشر نمی‌کند.</p></div>
+            <button type="button" onClick={() => setPreviewOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted"><X className="h-4 w-4" /> بستن پیش‌نمایش</button>
+          </div>
+          <header className="border-b border-border bg-secondary/40">
+            <div className="container-shop py-8">
+              <div className={coverImageUrl ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center" : "max-w-4xl"}>
+                <div>
+                  <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">پیش‌نویس مقاله</span>
+                  <h1 className="mt-4 text-3xl font-bold leading-tight text-foreground md:text-4xl">{form.title || "عنوان مقاله"}</h1>
+                  <p className="mt-4 max-w-2xl text-base leading-8 text-muted-foreground">{form.short_description || "خلاصه مقاله در این قسمت نمایش داده می‌شود."}</p>
+                </div>
+                {coverImageUrl && <div className="overflow-hidden rounded-2xl border border-border bg-secondary"><img src={coverImageUrl} alt={form.image_alt || form.title} className="aspect-[16/10] w-full object-cover" /></div>}
+              </div>
+            </div>
+          </header>
+          <main className="container-shop py-10">
+            <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-8">
+              {previewEditor ? <EditorContent editor={previewEditor} /> : <p className="text-muted-foreground">در حال آماده‌سازی پیش‌نمایش…</p>}
+            </div>
+          </main>
+        </div>
+      )}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="space-y-5">
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
