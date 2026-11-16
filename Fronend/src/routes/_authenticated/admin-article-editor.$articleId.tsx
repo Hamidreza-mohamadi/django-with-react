@@ -45,7 +45,8 @@ function ToolButton({ label, onClick, active = false, children }: { label: strin
 }
 
 function ArticleEditorPage() {
-  const routeParams = useParams({ strict: false }) as { articleId?: string };\n  const articleId = routeParams?.articleId ?? "new";
+  const routeParams = useParams({ strict: false }) as { articleId?: string };
+  const articleId = routeParams?.articleId ?? "new";
   const isNew = articleId === "new";
   const id = Number(articleId);
   const navigate = useNavigate();
