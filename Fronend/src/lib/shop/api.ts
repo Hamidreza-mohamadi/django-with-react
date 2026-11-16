@@ -491,7 +491,10 @@ export const getArticles = createServerFn({ method: "GET" })
     const params = new URLSearchParams();
     if (data.category) params.set("category", data.category);
     if (data.search) params.set("search", data.search);
-    return djangoFetch<Article[]>(`/articles/?${params.toString()}`);
+    const result = await djangoFetch<Article[] | { count: number; next: string | null; previous: string | null; results: Article[] }>(
+      `/articles/list/?${params.toString()}`,
+    );
+    return Array.isArray(result) ? result : result.results ?? [];
   });
 
 export const getArticle = createServerFn({ method: "GET" })
