@@ -23,9 +23,9 @@ Requires article_module.add_article to create and article_module.change_article 
 | GET, POST | manage/ | List own articles / create draft |
 | GET, PATCH | manage/<id>/ | Read or edit own draft |
 | POST | manage/<id>/submit/ | Submit draft for review |
-| POST | manage/<id>/images/ | Upload an inline image to own draft (multipart: image, optional alt_text) |
+| POST | manage/<id>/images/ | Upload an inline image or cover image to own draft (multipart: image, optional alt_text, optional is_cover=true) |
 
-Inline image uploads are limited to 5 MiB and must be valid image files. The response URL is a relative media URL. Only images uploaded to that article may be referenced by its content_json.
+Image uploads are limited to 5 MiB and must be valid image files. The response URL is a relative media URL. Set is_cover=true to also assign the uploaded file to the article's main image field. Only images uploaded to that article may be referenced by its content_json.
 
 ## Rich content format
 
