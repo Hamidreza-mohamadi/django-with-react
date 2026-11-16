@@ -181,6 +181,8 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/checkout': typeof AuthenticatedCheckoutRoute
   '/orders': typeof AuthenticatedOrdersRoute
+  '/admin-articles': typeof AuthenticatedAdminArticlesRoute
+  '/admin-article-editor/$articleId': typeof AuthenticatedAdminArticleEditorArticleIdRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/articles': typeof ArticlesIndexRoute
