@@ -13,6 +13,9 @@ import {
   Tag,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
 import { getArticle, getArticles, getArticleComments, createArticleComment } from "@/lib/shop/api";
 import { Button } from "@/components/ui/button";
 import type { ArticleComment } from "@/lib/shop/types";
@@ -68,8 +71,31 @@ export const Route = createFileRoute("/articles/$slug")({
   ),
 });
 
-const formatDate = (d: string) =>
-  new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d));
+const formatDate = (d?: string) => d ? new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d)) : "تاریخ نامشخص";
+const MEDIA_BASE_URL = (import.meta.env.VITE_MEDIA_BASE_URL || "http://localhost:8000").replace(/\\/$/, "");
+
+function mapArticleImages(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(mapArticleImages);
+  if (!value || typeof value !== "object") return value;
+  const node = value as Record<string, unknown>;
+  const mapped = Object.fromEntries(Object.entries(node).map(([key, item]) => [key, mapArticleImages(item)]));
+  if (mapped.type === "image" && mapped.attrs && typeof mapped.attrs === "object") {
+    const attrs = mapped.attrs as Record<string, unknown>;
+    if (typeof attrs.src === "string" && attrs.src.startsWith("/")) mapped.attrs = { ...attrs, src: `${MEDIA_BASE_URL}${attrs.src}` };
+  }
+  return mapped;
+}
+
+function RichArticleBody({ content }: { content: Record<string, unknown> }) {
+  const editor = useEditor({
+    extensions: [StarterKit.configure({ heading: { levels: [2, 3, 4] } }), Image.configure({ inline: false, allowBase64: false })],
+    content: mapArticleImages(content) as never,
+    editable: false,
+    immediatelyRender: false,
+    editorProps: { attributes: { dir: "rtl", class: "prose prose-lg max-w-none text-right leading-9 prose-a:text-primary prose-img:rounded-xl" } },
+  });
+  return <EditorContent editor={editor} />;
+}
 
 const toFa = (n: number) => new Intl.NumberFormat("fa-IR").format(n);
 
@@ -182,7 +208,7 @@ function ArticleDetailPage() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
-                  {formatDate(article.pub_date || article.published_at || article.created_at || "")}
+                  {formatDate(article.pub_date || article.published_at || article.created_at)}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-4 w-4" />
@@ -220,15 +246,18 @@ function ArticleDetailPage() {
           {/* متن مقاله */}
           <div className="min-w-0">
             <article className="max-w-3xl">
-              <p className="border-r-4 border-primary bg-secondary/50 px-5 py-4 text-base leading-8 text-foreground">
-                {paragraphs[0] ?? article.short_description}
-              </p>
-
-              <div className="mt-6 space-y-5 text-base leading-9 text-foreground/90">
-                {paragraphs.slice(1).map((p, i) => (
-                  <p key={i}>{p}</p>
-                ))}
-              </div>
+              {article.content_json ? (
+                <RichArticleBody content={article.content_json} />
+              ) : (
+                <>
+                  <p className="border-r-4 border-primary bg-secondary/50 px-5 py-4 text-base leading-8 text-foreground">
+                    {paragraphs[0] ?? article.short_description}
+                  </p>
+                  <div className="mt-6 space-y-5 text-base leading-9 text-foreground/90">
+                    {paragraphs.slice(1).map((p, i) => <p key={i}>{p}</p>)}
+                  </div>
+                </>
+              )}
 
               <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center gap-3">
@@ -236,7 +265,7 @@ function ArticleDetailPage() {
                     <UserIcon className="h-5 w-5" />
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-foreground">{article.author.last_name}</p>
+                    <p className="text-sm font-bold text-foreground">{authorName}</p>
                     <p className="text-xs text-muted-foreground">نویسنده در مجله فروشگاه</p>
                   </div>
                 </div>
@@ -271,7 +300,7 @@ function ArticleDetailPage() {
                             {a.title}
                           </p>
                           <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            {formatDate(a.pub_date || a.published_at || a.created_at || "")}
+                            {formatDate(a.pub_date || a.published_at || a.created_at)}
                           </p>
                         </div>
                       </Link>
