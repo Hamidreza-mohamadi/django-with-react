@@ -54,7 +54,7 @@ def validate_rich_document(document, *, allowed_image_urls=None):
                 raise serializers.ValidationError("نوع قالب‌بندی متن مجاز نیست.")
             mark_attrs = mark.get("attrs") or {}
             allowed_mark_attrs = {
-                "link": {"href", "target", "rel"},
+                "link": {"href", "target", "rel", "class"},
                 "textStyle": {"fontFamily", "fontSize", "color"},
             }
             if not isinstance(mark_attrs, dict) or set(mark_attrs) - allowed_mark_attrs.get(mark["type"], set()):
@@ -62,10 +62,17 @@ def validate_rich_document(document, *, allowed_image_urls=None):
             if mark["type"] == "link":
                 href = mark_attrs.get("href", "")
                 parsed = urlparse(href)
-                if parsed.scheme not in ("", "http", "https", "mailto") or href.startswith("//"):
+                if not isinstance(href, str) or not href.strip() or parsed.scheme not in ("", "http", "https", "mailto") or href.startswith("//"):
                     raise serializers.ValidationError("نشانی لینک معتبر نیست.")
                 if mark_attrs.get("target") not in (None, "_blank", "_self"):
                     raise serializers.ValidationError("مقصد لینک مجاز نیست.")
+                link_class = mark_attrs.get("class")
+                if link_class is not None and (
+                    not isinstance(link_class, str)
+                    or len(link_class) > 100
+                    or any(not (char.isalnum() or char in " _-") for char in link_class)
+                ):
+                    raise serializers.ValidationError("کلاس ظاهری لینک معتبر نیست.")
             if mark["type"] == "textStyle":
                 if mark_attrs.get("fontFamily") and mark_attrs["fontFamily"] not in FONT_FAMILIES:
                     raise serializers.ValidationError("فونت انتخاب‌شده مجاز نیست.")
