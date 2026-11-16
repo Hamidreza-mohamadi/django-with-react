@@ -1,0 +1,193 @@
+import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
+import LinkExtension from "@tiptap/extension-link";
+import Underline from "@tiptap/extension-underline";
+import { ArrowRight, Bold, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Save, Strikethrough, Underline as UnderlineIcon } from "lucide-react";
+import {
+  createManagedArticle, getArticleCategories, getArticleTags, getManagedArticle,
+  updateManagedArticle, uploadManagedArticleImage,
+  type ManagedArticleInput,
+} from "@/lib/shop/api";
+
+export const Route = createFileRoute("/_authenticated/admin-article-editor/$articleId")({
+  component: ArticleEditorPage,
+});
+
+const emptyDoc = { type: "doc", content: [{ type: "paragraph" }] };
+type EditorState = {
+  title: string; short_description: string; content: string; content_json: Record<string, unknown>;
+  category: number[]; tags: number[]; meta_title: string; meta_description: string; image_alt: string;
+};
+const blank: EditorState = {
+  title: "", short_description: "", content: "", content_json: emptyDoc,
+  category: [], tags: [], meta_title: "", meta_description: "", image_alt: "",
+};
+
+function ToolButton({ label, onClick, active = false, children }: { label: string; onClick: () => void; active?: boolean; children: React.ReactNode }) {
+  return <button type="button" title={label} aria-label={label} onClick={onClick} className={`rounded-lg border p-2 transition ${active ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>{children}</button>;
+}
+
+function ArticleEditorPage() {
+  const { articleId } = Route.useParams();
+  const isNew = articleId === "new";
+  const id = Number(articleId);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<EditorState>(blank);
+  const [articleKey, setArticleKey] = useState<number | null>(isNew ? null : id);
+  const [message, setMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const article = useQuery({
+    queryKey: ["cms", "article", id],
+    queryFn: () => getManagedArticle({ articleId: id }),
+    enabled: !isNew && Number.isInteger(id) && id > 0,
+  });
+  const categories = useQuery({ queryKey: ["cms", "categories"], queryFn: () => getArticleCategories() });
+  const tags = useQuery({ queryKey: ["cms", "tags"], queryFn: () => getArticleTags() });
+
+  useEffect(() => {
+    if (article.data) {
+      const value = article.data;
+      setForm({
+        title: value.title ?? "", short_description: value.short_description ?? "",
+        content: value.content ?? "", content_json: value.content_json ?? emptyDoc,
+        category: value.category ?? [], tags: value.tags ?? [],
+        meta_title: value.meta_title ?? "", meta_description: value.meta_description ?? "",
+        image_alt: value.image_alt ?? "",
+      });
+      setArticleKey(value.id);
+    }
+  }, [article.data]);
+
+  const extensions = useMemo(() => [
+    StarterKit,
+    Underline,
+    Image.configure({ inline: false, allowBase64: false }),
+    LinkExtension.configure({ openOnClick: false, protocols: ["http", "https", "mailto"] }),
+  ], []);
+  const editor = useEditor({
+    extensions,
+    content: form.content_json,
+    immediatelyRender: false,
+    editorProps: { attributes: { dir: "rtl", class: "prose prose-sm max-w-none min-h-[360px] px-5 py-4 text-right outline-none focus:outline-none" } },
+    onUpdate: ({ editor: current }) => setForm((previous) => ({ ...previous, content_json: current.getJSON() as Record<string, unknown> })),
+  });
+  useEffect(() => {
+    if (editor && article.data?.content_json) editor.commands.setContent(article.data.content_json as never);
+  }, [editor, article.data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload: ManagedArticleInput = {
+        title: form.title.trim(), short_description: form.short_description,
+        content: form.content, content_json: (editor?.getJSON() ?? form.content_json) as Record<string, unknown>,
+        category: form.category, tags: form.tags,
+        meta_title: form.meta_title, meta_description: form.meta_description, image_alt: form.image_alt,
+      };
+      if (articleKey) return updateManagedArticle({ ...payload, articleId: articleKey });
+      return createManagedArticle(payload);
+    },
+    onSuccess: async (saved) => {
+      setArticleKey(saved.id);
+      setMessage("پیش‌نویس با موفقیت ذخیره شد.");
+      await queryClient.invalidateQueries({ queryKey: ["cms", "my-articles"] });
+      if (isNew) navigate({ to: "/admin-article-editor/$articleId", params: { articleId: String(saved.id) }, replace: true });
+    },
+    onError: (error) => setMessage(error.message || "ذخیره مقاله ناموفق بود."),
+  });
+
+  async function handleImage(file?: File) {
+    if (!file) return;
+    if (!articleKey) {
+      setMessage("ابتدا مقاله را یک‌بار ذخیره کنید؛ سپس تصویر را بارگذاری کنید.");
+      return;
+    }
+    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
+      setMessage("فقط تصویر با حجم حداکثر ۵ مگابایت مجاز است.");
+      return;
+    }
+    setUploading(true); setMessage("");
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = ""; bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+      const uploaded = await uploadManagedArticleImage({
+        articleId: articleKey, fileName: file.name, mimeType: file.type,
+        base64: btoa(binary), altText: form.image_alt,
+      });
+      const src = uploaded.url.startsWith("http") ? uploaded.url : `${(import.meta.env.VITE_MEDIA_BASE_URL || "").replace(/\/$/, "")}${uploaded.url}`;
+      editor?.chain().focus().setImage({ src, alt: form.image_alt }).run();
+      setMessage("تصویر بارگذاری و به متن اضافه شد.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "بارگذاری تصویر ناموفق بود.");
+    } finally { setUploading(false); }
+  }
+
+  const field = (key: keyof EditorState, value: string) => setForm((previous) => ({ ...previous, [key]: value }));
+  if (!isNew && article.isLoading) return <main dir="rtl" className="mx-auto max-w-5xl p-8 text-center text-muted-foreground">در حال دریافت مقاله…</main>;
+  if (!isNew && article.isError) return <main dir="rtl" className="mx-auto max-w-5xl p-8"><p className="text-destructive">{article.error.message}</p><Link to="/admin-articles" className="mt-4 inline-block text-primary">بازگشت به فهرست</Link></main>;
+  if (!isNew && article.data && article.data.status !== "draft") return <main dir="rtl" className="mx-auto max-w-5xl p-8"><h1 className="text-xl font-bold">این مقاله قابل ویرایش نیست</h1><p className="mt-2 text-muted-foreground">فقط مقاله‌های پیش‌نویس از این بخش قابل ویرایش هستند.</p><Link to="/admin-articles" className="mt-4 inline-block text-primary">بازگشت</Link></main>;
+
+  return <main dir="rtl" className="min-h-screen bg-muted/30">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div><Link to="/admin-articles" className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"><ArrowRight className="h-4 w-4" /> بازگشت به داشبورد مقاله‌ها</Link><h1 className="text-2xl font-bold">{isNew ? "ایجاد مقاله جدید" : "ویرایش مقاله"}</h1><p className="mt-1 text-sm text-muted-foreground">محتوا را بنویسید و به‌صورت پیش‌نویس ذخیره کنید.</p></div>
+        <button disabled={saveMutation.isPending || !form.title.trim()} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره پیش‌نویس</button>
+      </div>
+      {message && <p role="status" className={`mb-4 rounded-xl border p-3 text-sm ${message.includes("موفقیت") || message.includes("اضافه شد") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}>{message}</p>}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="space-y-5">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <label className="mb-2 block text-sm font-medium">عنوان مقاله</label>
+            <input value={form.title} onChange={(event) => field("title", event.target.value)} maxLength={80} placeholder="عنوان مقاله را وارد کنید" className="w-full rounded-xl border border-border bg-background px-4 py-3 text-lg font-semibold outline-none focus:border-primary" />
+            <label className="mb-2 mt-5 block text-sm font-medium">خلاصه مقاله</label>
+            <textarea value={form.short_description} onChange={(event) => field("short_description", event.target.value)} rows={3} className="w-full resize-y rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary" placeholder="خلاصه‌ای کوتاه برای معرفی مقاله…" />
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+            <div className="flex flex-wrap gap-2 border-b border-border p-3">
+              <ToolButton label="متن ضخیم" active={editor?.isActive("bold")} onClick={() => editor?.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></ToolButton>
+              <ToolButton label="ایتالیک" active={editor?.isActive("italic")} onClick={() => editor?.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></ToolButton>
+              <ToolButton label="زیرخط" active={editor?.isActive("underline")} onClick={() => editor?.chain().focus().toggleUnderline().run()}><UnderlineIcon className="h-4 w-4" /></ToolButton>
+              <ToolButton label="خط‌خورده" active={editor?.isActive("strike")} onClick={() => editor?.chain().focus().toggleStrike().run()}><Strikethrough className="h-4 w-4" /></ToolButton>
+              <span className="mx-1 w-px bg-border" />
+              <ToolButton label="تیتر ۲" active={editor?.isActive("heading", { level: 2 })} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 className="h-4 w-4" /></ToolButton>
+              <ToolButton label="تیتر ۳" active={editor?.isActive("heading", { level: 3 })} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}><Heading3 className="h-4 w-4" /></ToolButton>
+              <ToolButton label="فهرست نشانه‌دار" onClick={() => editor?.chain().focus().toggleBulletList().run()}><List className="h-4 w-4" /></ToolButton>
+              <ToolButton label="فهرست شماره‌دار" onClick={() => editor?.chain().focus().toggleOrderedList().run()}><ListOrdered className="h-4 w-4" /></ToolButton>
+              <ToolButton label="افزودن لینک" onClick={() => { const href = window.prompt("نشانی لینک را وارد کنید"); if (href) editor?.chain().focus().setLink({ href }).run(); }}><Link2 className="h-4 w-4" /></ToolButton>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted"><ImagePlus className="h-4 w-4" /> {uploading ? "در حال بارگذاری…" : "تصویر"}<input type="file" accept="image/*" className="hidden" disabled={uploading || !articleKey} onChange={(event) => handleImage(event.target.files?.[0])} /></label>
+            </div>
+            <EditorContent editor={editor} />
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="mb-4 font-semibold">تنظیمات سئو</h2>
+            <label className="mb-2 block text-sm font-medium">عنوان سئو <span className="text-muted-foreground">({form.meta_title.length}/70)</span></label>
+            <input value={form.meta_title} maxLength={70} onChange={(event) => field("meta_title", event.target.value)} className="mb-4 w-full rounded-xl border border-border bg-background px-3 py-2.5" placeholder="عنوان نمایش در موتورهای جست‌وجو" />
+            <label className="mb-2 block text-sm font-medium">توضیحات سئو <span className="text-muted-foreground">({form.meta_description.length}/160)</span></label>
+            <textarea value={form.meta_description} maxLength={160} rows={3} onChange={(event) => field("meta_description", event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5" placeholder="توضیح کوتاه برای نتایج جست‌وجو" />
+          </div>
+        </section>
+        <aside className="space-y-5">
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="mb-3 font-semibold">دسته‌بندی‌ها</h2>
+            {categories.isError ? <p className="text-sm text-destructive">{categories.error.message}</p> : categories.data?.filter((item) => item.is_active).map((item) => <label key={item.id} className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={form.category.includes(item.id)} onChange={(event) => setForm((previous) => ({ ...previous, category: event.target.checked ? [...previous.category, item.id] : previous.category.filter((id) => id !== item.id) }))} />{item.title}</label>)}
+            {categories.data?.length === 0 && <p className="text-xs text-muted-foreground">دسته‌بندی فعالی ثبت نشده است.</p>}
+          </section>
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="mb-3 font-semibold">برچسب‌ها</h2>
+            {tags.isError ? <p className="text-sm text-destructive">{tags.error.message}</p> : tags.data?.filter((item) => item.is_active).map((item) => <label key={item.id} className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={form.tags.includes(item.id)} onChange={(event) => setForm((previous) => ({ ...previous, tags: event.target.checked ? [...previous.tags, item.id] : previous.tags.filter((id) => id !== item.id) }))} />{item.title}</label>)}
+            {tags.data?.length === 0 && <p className="text-xs text-muted-foreground">برچسب فعالی ثبت نشده است.</p>}
+          </section>
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="mb-3 font-semibold">تصویر و توضیح جایگزین</h2>
+            <input value={form.image_alt} onChange={(event) => field("image_alt", event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" placeholder="متن جایگزین تصویر" />
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">تصویر داخل متن پس از ذخیره اولیه مقاله قابل بارگذاری است. حداکثر حجم هر تصویر ۵ مگابایت است.</p>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </main>;
+}
