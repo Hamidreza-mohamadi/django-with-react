@@ -155,7 +155,7 @@ async function djangoFetch<T>(
   accessOverride?: string,
 ): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
+  if (!(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
 
   // A refreshed HttpOnly cookie is attached to the response and may not be
   // readable again during this same server-function invocation. Use the token
@@ -735,3 +735,85 @@ export const getArticleReviewQueue = createServerFn({ method: "GET" }).handler(
 export const getPendingArticleComments = createServerFn({ method: "GET" }).handler(
   async () => djangoFetch<ManagedArticleComment[]>("/articles/manage/comments/"),
 );
+
+
+export interface ArticleCategoryOption {
+  id: number;
+  title: string;
+  slug: string;
+  is_active: boolean;
+}
+export interface ArticleTagOption {
+  id: number;
+  title: string;
+  slug: string;
+  is_active: boolean;
+}
+export interface ManagedArticleDetail extends ManagedArticle {
+  content: string;
+  content_json: Record<string, unknown> | null;
+  image: string | null;
+  image_alt: string;
+  category: number[];
+  tags: number[];
+  meta_title: string;
+  meta_description: string;
+}
+export interface ManagedArticleInput {
+  title: string;
+  short_description: string;
+  content: string;
+  content_json: Record<string, unknown>;
+  category: number[];
+  tags: number[];
+  meta_title: string;
+  meta_description: string;
+  image_alt: string;
+}
+export const getManagedArticle = createServerFn({ method: "GET" })
+  .validator((data: { articleId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/manage/${data.articleId}/`));
+
+export const getArticleCategories = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ArticleCategoryOption[]>("/articles/manage/categories/"),
+);
+export const getArticleTags = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ArticleTagOption[]>("/articles/manage/tags/"),
+);
+export const createManagedArticle = createServerFn({ method: "POST" })
+  .validator((data: ManagedArticleInput) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>("/articles/manage/", {
+    method: "POST", body: JSON.stringify(data),
+  }));
+export const updateManagedArticle = createServerFn({ method: "POST" })
+  .validator((data: ManagedArticleInput & { articleId: number }) => data)
+  .handler(async ({ data }) => {
+    const { articleId, ...payload } = data;
+    return djangoFetch<ManagedArticleDetail>(`/articles/manage/${articleId}/`, {
+      method: "PATCH", body: JSON.stringify(payload),
+    });
+  });
+export const uploadManagedArticleImage = createServerFn({ method: "POST" })
+  .validator((data: { articleId: number; fileName: string; mimeType: string; base64: string; altText: string }) => data)
+  .handler(async ({ data }) => {
+    const bytes = Uint8Array.from(atob(data.base64), (char) => char.charCodeAt(0));
+    const form = new FormData();
+    form.set("image", new Blob([bytes], { type: data.mimeType }), data.fileName);
+    form.set("alt_text", data.altText);
+    const send = async (access?: string) => fetch(`${API_BASE_URL()}/articles/manage/${data.articleId}/images/`, {
+      method: "POST",
+      headers: access ? { Authorization: `Bearer ${access}` } : {},
+      body: form,
+    });
+    let response = await send(getCookie(ACCESS_COOKIE));
+    if (response.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) response = await send(refreshed);
+      else clearAuthCookies();
+    }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({})) as Record<string, unknown>;
+      throw new Error(formatApiError(error));
+    }
+    return response.json() as Promise<{ id: number; url: string; alt_text: string; created_at: string }>;
+  });
