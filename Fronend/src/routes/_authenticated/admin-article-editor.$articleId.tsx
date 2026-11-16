@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -45,7 +45,7 @@ function ToolButton({ label, onClick, active = false, children }: { label: strin
 }
 
 function ArticleEditorPage() {
-  const { articleId } = Route.useParams();
+  const routeParams = useParams({ strict: false }) as { articleId?: string };\n  const articleId = routeParams?.articleId ?? "new";
   const isNew = articleId === "new";
   const id = Number(articleId);
   const navigate = useNavigate();
