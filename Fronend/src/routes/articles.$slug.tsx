@@ -98,7 +98,14 @@ function ArticleDetailPage() {
   const progress = useReadingProgress();
   const [copied, setCopied] = useState(false);
 
-  const categoryName = typeof article.category === "string" ? article.category : article.category.title;
+  const categoryName = typeof article.category === "string"
+    ? article.category
+    : Array.isArray(article.category)
+      ? article.category[0]?.title ?? "بدون دسته‌بندی"
+      : article.category?.title ?? "بدون دسته‌بندی";
+  const authorName = typeof article.author === "string"
+    ? article.author
+    : [article.author.first_name, article.author.last_name].filter(Boolean).join(" ") || article.author.username;
 
   const paragraphs = useMemo(
     () => article.content.split("\n\n").map((p) => p.trim()).filter(Boolean),
@@ -109,7 +116,7 @@ function ArticleDetailPage() {
   const related = allArticles
     .filter((a) => a.slug !== article.slug)
     .sort((a) => {
-      const cat = typeof a.category === "string" ? a.category : a.category.title;
+      const cat = typeof a.category === "string" ? a.category : Array.isArray(a.category) ? a.category[0]?.title : a.category?.title;
       return cat === categoryName ? -1 : 1;
     })
     .slice(0, 4);
@@ -171,11 +178,11 @@ function ArticleDetailPage() {
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <UserIcon className="h-4 w-4" />
                   </span>
-                  {article.author.last_name}
+                  {authorName}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
-                  {formatDate(article.pub_date)}
+                  {formatDate(article.pub_date || article.published_at || article.created_at || "")}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-4 w-4" />
@@ -264,7 +271,7 @@ function ArticleDetailPage() {
                             {a.title}
                           </p>
                           <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            {formatDate(a.pub_date)}
+                            {formatDate(a.pub_date || a.published_at || a.created_at || "")}
                           </p>
                         </div>
                       </Link>
