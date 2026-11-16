@@ -72,7 +72,7 @@ function ArticleAdminPage() {
 
         <nav className="mb-6 flex flex-wrap gap-2">
           <span className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><LayoutDashboard className="h-4 w-4" /> داشبورد</span>
-          <Link to="/admin-articles" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><FileText className="h-4 w-4" /> مقاله‌ها</Link>
+          <a href="#my-articles" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><FileText className="h-4 w-4" /> فهرست مقاله‌ها</a>
           <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground"><Tags className="h-4 w-4" /> دسته‌بندی و برچسب</span>
           <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground"><MessageSquare className="h-4 w-4" /> دیدگاه‌ها</span>
         </nav>
@@ -92,7 +92,7 @@ function ArticleAdminPage() {
           </div>
         )}
 
-        <section className="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <section id="my-articles" className="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
             <div>
               <h2 className="font-semibold">آخرین مقاله‌های من</h2>
