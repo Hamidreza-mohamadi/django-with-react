@@ -111,6 +111,7 @@ class ArticleImageSerializer(serializers.ModelSerializer):
 class ArticleImageUploadSerializer(serializers.Serializer):
     image = serializers.ImageField()
     alt_text = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    is_cover = serializers.BooleanField(required=False, default=False)
 
     def validate_image(self, value):
         if value.size > 5 * 1024 * 1024:
