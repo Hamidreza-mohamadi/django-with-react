@@ -794,12 +794,13 @@ export const updateManagedArticle = createServerFn({ method: "POST" })
     });
   });
 export const uploadManagedArticleImage = createServerFn({ method: "POST" })
-  .validator((data: { articleId: number; fileName: string; mimeType: string; base64: string; altText: string }) => data)
+  .validator((data: { articleId: number; fileName: string; mimeType: string; base64: string; altText: string; isCover?: boolean }) => data)
   .handler(async ({ data }) => {
     const bytes = Uint8Array.from(atob(data.base64), (char) => char.charCodeAt(0));
     const form = new FormData();
     form.set("image", new Blob([bytes], { type: data.mimeType }), data.fileName);
     form.set("alt_text", data.altText);
+    if (data.isCover) form.set("is_cover", "true");
     const send = async (access?: string) => fetch(`${API_BASE_URL()}/articles/manage/${data.articleId}/images/`, {
       method: "POST",
       headers: access ? { Authorization: `Bearer ${access}` } : {},
