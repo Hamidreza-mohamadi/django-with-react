@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -45,8 +45,7 @@ function ToolButton({ label, onClick, active = false, children }: { label: strin
 }
 
 function ArticleEditorPage() {
-  const routeParams = useParams({ strict: false }) as { articleId?: string };
-  const articleId = routeParams?.articleId ?? "new";
+  const { articleId } = Route.useParams();
   const isNew = articleId === "new";
   const id = Number(articleId);
   const navigate = useNavigate();
@@ -55,9 +54,12 @@ function ArticleEditorPage() {
   const [articleKey, setArticleKey] = useState<number | null>(isNew ? null : id);
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const inlineImageInput = useRef<HTMLInputElement>(null);
+  const coverImageInput = useRef<HTMLInputElement>(null);
   const article = useQuery({
     queryKey: ["cms", "article", id],
-    queryFn: () => getManagedArticle({ articleId: id }),
+    queryFn: () => getManagedArticle({ data: { articleId: id } }),
     enabled: !isNew && Number.isInteger(id) && id > 0,
   });
   const categories = useQuery({ queryKey: ["cms", "categories"], queryFn: () => getArticleCategories() });
@@ -72,10 +74,13 @@ function ArticleEditorPage() {
         category: value.category ?? [], tags: value.tags ?? [],
         meta_title: value.meta_title ?? "", meta_description: value.meta_description ?? "",
         image_alt: value.image_alt ?? "",
-      });
+        });
+      setCoverImageUrl(value.image ?? null);
       setArticleKey(value.id);
     }
   }, [article.data]);
+
+
 
   const extensions = useMemo(() => [
     StarterKit.configure({ heading: { levels: [2, 3, 4] }, link: { openOnClick: false } }),
@@ -103,8 +108,8 @@ function ArticleEditorPage() {
         category: form.category, tags: form.tags,
         meta_title: form.meta_title, meta_description: form.meta_description, image_alt: form.image_alt,
       };
-      if (articleKey) return updateManagedArticle({ ...payload, articleId: articleKey });
-      return createManagedArticle(payload);
+      if (articleKey) return updateManagedArticle({ data: { ...payload, articleId: articleKey } });
+      return createManagedArticle({ data: payload });
     },
     onSuccess: async (saved) => {
       setArticleKey(saved.id);
@@ -115,11 +120,20 @@ function ArticleEditorPage() {
     onError: (error) => setMessage(error.message || "ذخیره مقاله ناموفق بود."),
   });
 
-  async function handleImage(file?: File) {
+  async function handleImage(file?: File, isCover = false) {
     if (!file) return;
-    if (!articleKey) {
-      setMessage("ابتدا مقاله را یک‌بار ذخیره کنید؛ سپس تصویر را بارگذاری کنید.");
-      return;
+    let targetArticleId = articleKey;
+    if (!targetArticleId) {
+      if (!form.title.trim()) {
+        setMessage("برای بارگذاری تصویر، ابتدا عنوان مقاله را وارد کنید.");
+        return;
+      }
+      try {
+        const saved = await saveMutation.mutateAsync();
+        targetArticleId = saved.id;
+      } catch {
+        return;
+      }
     }
     if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
       setMessage("فقط تصویر با حجم حداکثر ۵ مگابایت مجاز است.");
@@ -130,12 +144,17 @@ function ArticleEditorPage() {
       const bytes = new Uint8Array(await file.arrayBuffer());
       let binary = ""; bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
       const uploaded = await uploadManagedArticleImage({
-        articleId: articleKey, fileName: file.name, mimeType: file.type,
-        base64: btoa(binary), altText: form.image_alt,
+        articleId: targetArticleId, fileName: file.name, mimeType: file.type,
+        base64: btoa(binary), altText: form.image_alt, isCover,
       });
       const src = uploaded.url.startsWith("http") ? uploaded.url : `${MEDIA_BASE_URL}${uploaded.url}`;
-      editor?.chain().focus().setImage({ src, alt: form.image_alt }).run();
-      setMessage("تصویر بارگذاری و به متن اضافه شد.");
+      if (isCover) {
+        setCoverImageUrl(src);
+        setMessage("تصویر اصلی مقاله ذخیره شد.");
+      } else {
+        editor?.chain().focus().setImage({ src, alt: form.image_alt }).run();
+        setMessage("تصویر بارگذاری و به متن اضافه شد.");
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "بارگذاری تصویر ناموفق بود.");
     } finally { setUploading(false); }
@@ -173,7 +192,7 @@ function ArticleEditorPage() {
               <ToolButton label="فهرست نشانه‌دار" onClick={() => editor?.chain().focus().toggleBulletList().run()}><List className="h-4 w-4" /></ToolButton>
               <ToolButton label="فهرست شماره‌دار" onClick={() => editor?.chain().focus().toggleOrderedList().run()}><ListOrdered className="h-4 w-4" /></ToolButton>
               <ToolButton label="افزودن لینک" onClick={() => { const href = window.prompt("نشانی لینک را وارد کنید"); if (href) editor?.chain().focus().setLink({ href }).run(); }}><Link2 className="h-4 w-4" /></ToolButton>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted"><ImagePlus className="h-4 w-4" /> {uploading ? "در حال بارگذاری…" : "تصویر"}<input type="file" accept="image/*" className="hidden" disabled={uploading || !articleKey} onChange={(event) => handleImage(event.target.files?.[0])} /></label>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted"><ImagePlus className="h-4 w-4" /> {uploading ? "در حال بارگذاری…" : "تصویر"}<input type="file" accept="image/*" className="hidden" disabled={uploading || saveMutation.isPending} onChange={(event) => { void handleImage(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
             </div>
             <EditorContent editor={editor} />
           </div>
@@ -197,9 +216,13 @@ function ArticleEditorPage() {
             {tags.data?.length === 0 && <p className="text-xs text-muted-foreground">برچسب فعالی ثبت نشده است.</p>}
           </section>
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-3 font-semibold">تصویر و توضیح جایگزین</h2>
-            <input value={form.image_alt} onChange={(event) => field("image_alt", event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" placeholder="متن جایگزین تصویر" />
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">تصویر داخل متن پس از ذخیره اولیه مقاله قابل بارگذاری است. حداکثر حجم هر تصویر ۵ مگابایت است.</p>
+            <h2 className="mb-3 font-semibold">تصویر اصلی مقاله</h2>
+            {coverImageUrl && <img src={coverImageUrl} alt="پیش‌نمایش تصویر اصلی مقاله" className="mb-3 aspect-video w-full rounded-lg object-cover" />}
+            <input ref={coverImageInput} type="file" accept="image/*" className="hidden" disabled={uploading || saveMutation.isPending} onChange={(event) => { void handleImage(event.target.files?.[0], true); event.currentTarget.value = ""; }} />
+            <button type="button" onClick={() => coverImageInput.current?.click()} disabled={uploading || saveMutation.isPending} className="w-full rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50">{uploading ? "در حال بارگذاری…" : coverImageUrl ? "تغییر تصویر اصلی" : "انتخاب تصویر اصلی"}</button>
+            <label className="mb-2 mt-4 block text-sm font-medium">متن جایگزین تصویر</label>
+            <input value={form.image_alt} onChange={(event) => field("image_alt", event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" placeholder="توضیح تصویر برای دسترس‌پذیری و سئو" />
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">تصویر اصلی به‌عنوان کاور مقاله استفاده می‌شود. حداکثر حجم تصویر ۵ مگابایت است.</p>
           </section>
         </aside>
       </div>
