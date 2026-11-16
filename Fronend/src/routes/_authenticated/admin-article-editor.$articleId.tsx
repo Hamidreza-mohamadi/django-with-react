@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";\nimport type { ReactNode } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -27,7 +27,7 @@ const blank: EditorState = {
   category: [], tags: [], meta_title: "", meta_description: "", image_alt: "",
 };
 
-function ToolButton({ label, onClick, active = false, children }: { label: string; onClick: () => void; active?: boolean; children: React.ReactNode }) {
+function ToolButton({ label, onClick, active = false, children }: { label: string; onClick: () => void; active?: boolean; children: ReactNode }) {
   return <button type="button" title={label} aria-label={label} onClick={onClick} className={`rounded-lg border p-2 transition ${active ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>{children}</button>;
 }
 
