@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, MessageSquare, ShieldCheck, Clock3, Plus, RefreshCw, LayoutDashboard, Tags } from "lucide-react";
+import { FileText, MessageSquare, ShieldCheck, Clock3, Plus, RefreshCw, LayoutDashboard, Tags, Pencil } from "lucide-react";
 import { getManagedArticles, getArticleReviewQueue, getPendingArticleComments } from "@/lib/shop/api";
 
 export const Route = createFileRoute("/_authenticated/admin-articles")({
@@ -72,7 +72,7 @@ function ArticleAdminPage() {
 
         <nav className="mb-6 flex flex-wrap gap-2">
           <span className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><LayoutDashboard className="h-4 w-4" /> داشبورد</span>
-          <Link to="/articles" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><FileText className="h-4 w-4" /> مقاله‌ها</Link>
+          <Link to="/admin-articles" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><FileText className="h-4 w-4" /> مقاله‌ها</Link>
           <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground"><Tags className="h-4 w-4" /> دسته‌بندی و برچسب</span>
           <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground"><MessageSquare className="h-4 w-4" /> دیدگاه‌ها</span>
         </nav>
@@ -106,18 +106,18 @@ function ArticleAdminPage() {
             <div className="p-10 text-center">
               <FileText className="mx-auto h-9 w-9 text-muted-foreground" />
               <p className="mt-3 font-medium">هنوز مقاله‌ای ثبت نکرده‌اید.</p>
-              <p className="mt-1 text-sm text-muted-foreground">با ایجاد اولین مقاله، پس از اتصال فرم ایجاد مقاله، می‌توانید نوشته خود را از پنل ثبت کنید.</p>
+              <p className="mt-1 text-sm text-muted-foreground">برای شروع، اولین مقاله خود را ایجاد کنید.</p>\n              <Link to="/admin-article-editor/new" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><Plus className="h-4 w-4" /> ایجاد مقاله</Link>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px] text-right text-sm">
-                <thead className="bg-muted/50 text-xs text-muted-foreground"><tr><th className="px-5 py-3 font-medium">عنوان</th><th className="px-5 py-3 font-medium">وضعیت</th><th className="px-5 py-3 font-medium">آخرین تغییر</th><th className="px-5 py-3 font-medium">شناسه</th></tr></thead>
+                <thead className="bg-muted/50 text-xs text-muted-foreground"><tr><th className="px-5 py-3 font-medium">عنوان</th><th className="px-5 py-3 font-medium">وضعیت</th><th className="px-5 py-3 font-medium">آخرین تغییر</th><th className="px-5 py-3 font-medium">عملیات</th></tr></thead>
                 <tbody className="divide-y divide-border">
                   {own.map((article) => <tr key={article.id} className="hover:bg-muted/30">
-                    <td className="max-w-sm px-5 py-4"><div className="truncate font-medium">{article.title || "بدون عنوان"}</div><div className="mt-1 truncate text-xs text-muted-foreground">{article.short_description}</div></td>
+                    <td className="max-w-sm px-5 py-4"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="group block"><div className="flex items-center gap-2 truncate font-medium text-primary group-hover:underline">{article.title || "بدون عنوان"} <Pencil className="h-3.5 w-3.5 shrink-0" /></div><div className="mt-1 truncate text-xs text-muted-foreground">{article.short_description}</div></Link></td>
                     <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[article.status] || "bg-muted"}`}>{statusLabels[article.status] || article.status}</span></td>
                     <td className="px-5 py-4 text-muted-foreground">{formatDate(article.updated_at)}</td>
-                    <td className="px-5 py-4 font-mono text-xs text-muted-foreground">#{article.id}</td>
+                    <td className="px-5 py-4"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted">ویرایش</Link></td>
                   </tr>)}
                 </tbody>
               </table>
