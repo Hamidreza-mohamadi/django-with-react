@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";\nimport type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -20,7 +21,21 @@ type EditorState = {
   title: string; short_description: string; content: string; content_json: Record<string, unknown>;
   category: number[]; tags: number[]; meta_title: string; meta_description: string; image_alt: string;
 };
-const MEDIA_BASE_URL = (import.meta.env.VITE_MEDIA_BASE_URL || "http://localhost:8000").replace(/\/$/, "");\n\nfunction mapImageSources(value: unknown, mapSource: (source: string) => string): unknown {\n  if (Array.isArray(value)) return value.map((item) => mapImageSources(item, mapSource));\n  if (!value || typeof value !== "object") return value;\n  const node = value as Record<string, unknown>;\n  const mapped = Object.fromEntries(Object.entries(node).map(([key, item]) => [key, mapImageSources(item, mapSource)]));\n  if (mapped.type === "image" && mapped.attrs && typeof mapped.attrs === "object") {\n    const attrs = mapped.attrs as Record<string, unknown>;\n    if (typeof attrs.src === "string") mapped.attrs = { ...attrs, src: mapSource(attrs.src) };\n  }\n  return mapped;\n}\n\nconst blank: EditorState = {
+const MEDIA_BASE_URL = (import.meta.env.VITE_MEDIA_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
+
+function mapImageSources(value: unknown, mapSource: (source: string) => string): unknown {
+  if (Array.isArray(value)) return value.map((item) => mapImageSources(item, mapSource));
+  if (!value || typeof value !== "object") return value;
+  const node = value as Record<string, unknown>;
+  const mapped = Object.fromEntries(Object.entries(node).map(([key, item]) => [key, mapImageSources(item, mapSource)]));
+  if (mapped.type === "image" && mapped.attrs && typeof mapped.attrs === "object") {
+    const attrs = mapped.attrs as Record<string, unknown>;
+    if (typeof attrs.src === "string") mapped.attrs = { ...attrs, src: mapSource(attrs.src) };
+  }
+  return mapped;
+}
+
+const blank: EditorState = {
   title: "", short_description: "", content: "", content_json: emptyDoc,
   category: [], tags: [], meta_title: "", meta_description: "", image_alt: "",
 };
@@ -73,7 +88,10 @@ function ArticleEditorPage() {
     onUpdate: ({ editor: current }) => setForm((previous) => ({ ...previous, content_json: current.getJSON() as Record<string, unknown> })),
   });
   useEffect(() => {
-    if (editor && article.data?.content_json) {\n      const content = mapImageSources(article.data.content_json, (src) => src.startsWith("http") ? src : `${MEDIA_BASE_URL}${src}`);\n      editor.commands.setContent(content as never);\n    }
+    if (editor && article.data?.content_json) {
+      const content = mapImageSources(article.data.content_json, (src) => src.startsWith("http") ? src : `${MEDIA_BASE_URL}${src}`);
+      editor.commands.setContent(content as never);
+    }
   }, [editor, article.data]);
 
   const saveMutation = useMutation({
