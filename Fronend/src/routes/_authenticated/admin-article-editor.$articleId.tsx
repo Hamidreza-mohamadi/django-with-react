@@ -55,7 +55,6 @@ function ArticleEditorPage() {
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
-  const inlineImageInput = useRef<HTMLInputElement>(null);
   const coverImageInput = useRef<HTMLInputElement>(null);
   const article = useQuery({
     queryKey: ["cms", "article", id],
@@ -143,10 +142,10 @@ function ArticleEditorPage() {
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       let binary = ""; bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-      const uploaded = await uploadManagedArticleImage({
+      const uploaded = await uploadManagedArticleImage({ data: {
         articleId: targetArticleId, fileName: file.name, mimeType: file.type,
         base64: btoa(binary), altText: form.image_alt, isCover,
-      });
+      } });
       const src = uploaded.url.startsWith("http") ? uploaded.url : `${MEDIA_BASE_URL}${uploaded.url}`;
       if (isCover) {
         setCoverImageUrl(src);
