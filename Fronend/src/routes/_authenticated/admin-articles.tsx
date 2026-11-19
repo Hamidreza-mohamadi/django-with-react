@@ -95,7 +95,7 @@ function ArticleAdminPage() {
         {(permissions?.create || permissions?.edit_own || permissions?.view_all) && <section id="my-articles" className="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
             <div>
-              <h2 className="font-semibold">آخرین مقاله‌های من</h2>
+              <h2 className="font-semibold">{permissions?.view_all ? "فهرست همه مقاله‌ها" : "آخرین مقاله‌های من"}</h2>
               <p className="mt-1 text-xs text-muted-foreground">وضعیت و زمان آخرین تغییر مقاله‌ها</p>
             </div>
             <button onClick={() => articles.refetch()} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted"><RefreshCw className="h-3.5 w-3.5" /> بروزرسانی</button>
