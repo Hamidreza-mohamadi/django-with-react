@@ -27,8 +27,30 @@ def require_perm(user, permission):
         raise PermissionDenied("شما مجوز انجام این عملیات را ندارید.")
 
 
-def owned_article_or_404(user, pk):
-    return get_object_or_404(Article.objects.select_related("author"), pk=pk, author=user)
+def managed_article_or_404(user, pk):
+    queryset = Article.objects.select_related("author")
+    if not user.has_perm("article_module.view_all_articles"):
+        queryset = queryset.filter(author=user)
+    return get_object_or_404(queryset, pk=pk)
+
+
+class ArticleCapabilitiesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        permissions = {
+            "create": user.has_perm("article_module.add_article"),
+            "edit_own": user.has_perm("article_module.change_article"),
+            "view_all": user.has_perm("article_module.view_all_articles"),
+            "review": user.has_perm("article_module.review_article"),
+            "publish": user.has_perm("article_module.publish_article"),
+            "delete": user.has_perm("article_module.delete_article"),
+            "moderate_comments": user.has_perm("article_module.moderate_article_comments"),
+            "manage_roles": user.has_perm("article_module.manage_article_roles"),
+            "is_superuser": user.is_superuser,
+        }
+        return Response({"permissions": permissions, "groups": list(user.groups.values_list("name", flat=True))})
 
 
 class ArticlePagination(PageNumberPagination):
@@ -99,7 +121,7 @@ class ArticleManagementDetailView(APIView):
 
     def get(self, request, pk):
         require_perm(request.user, "article_module.change_article")
-        article = owned_article_or_404(request.user, pk)
+        article = managed_article_or_404(request.user, pk)
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
 
     def patch(self, request, pk):
