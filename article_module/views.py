@@ -193,6 +193,35 @@ class ArticlePublicationView(APIView):
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
 
 
+
+class ArticleManagementDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        article = managed_article_or_404(request.user, pk)
+        if article.status == Article.Status.PUBLISHED:
+            raise ValidationError("برای حذف مقاله منتشرشده ابتدا باید انتشار آن لغو شود.")
+        if article.status != Article.Status.DRAFT and not request.user.has_perm("article_module.delete_article"):
+            raise PermissionDenied("فقط پیش‌نویس‌های خودتان را می‌توانید حذف کنید.")
+        if article.author_id != request.user.id:
+            require_perm(request.user, "article_module.delete_article")
+        article.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ArticleUnpublishView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        require_perm(request.user, "article_module.publish_article")
+        article = get_object_or_404(Article, pk=pk, status=Article.Status.PUBLISHED)
+        article.status = Article.Status.APPROVED
+        article.published_at = None
+        article.scheduled_at = None
+        article.save()
+        return Response(ArticleManagementSerializer(article, context={"request": request}).data)
+
+
 class ArticleImageUploadView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
