@@ -60,6 +60,7 @@ function ArticleEditorPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const coverImageInput = useRef<HTMLInputElement>(null);
+  const publishingNewArticle = useRef(false);
   const capabilities = useQuery({ queryKey: ["cms", "capabilities"], queryFn: () => getArticleCmsCapabilities() });
   const permissions = capabilities.data?.permissions;
   const article = useQuery({
@@ -176,10 +177,33 @@ function ArticleEditorPage() {
       setArticleKey(saved.id);
       setMessage("پیش‌نویس با موفقیت ذخیره شد.");
       await queryClient.invalidateQueries({ queryKey: ["cms", "my-articles"] });
-      if (isNew) navigate({ to: "/admin-article-editor/$articleId", params: { articleId: String(saved.id) }, replace: true });
+      if (isNew && !publishingNewArticle.current) navigate({ to: "/admin-article-editor/$articleId", params: { articleId: String(saved.id) }, replace: true });
     },
     onError: (error) => setMessage(error.message || "ذخیره مقاله ناموفق بود."),
   });
+
+  async function handlePublish() {
+    if (isNew && !articleKey) {
+      publishingNewArticle.current = true;
+      try {
+        const saved = await saveMutation.mutateAsync();
+        const published = await publishManagedArticle({ data: {
+          articleId: saved.id,
+          ...(scheduledAt ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
+        } });
+        setMessage(scheduledAt ? "مقاله برای انتشار زمان‌بندی شد." : "مقاله مستقیماً منتشر شد.");
+        await queryClient.invalidateQueries({ queryKey: ["cms"] });
+        navigate({ to: "/admin-articles" });
+        return;
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "انتشار مقاله ناموفق بود.");
+      } finally {
+        publishingNewArticle.current = false;
+      }
+      return;
+    }
+    workflowMutation.mutate("publish");
+  }
 
   async function handleImage(file?: File, isCover = false) {
     if (!file) return;
@@ -232,17 +256,15 @@ function ArticleEditorPage() {
         <div><Link to="/admin-articles" className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"><ArrowRight className="h-4 w-4" /> بازگشت به داشبورد مقاله‌ها</Link><h1 className="text-2xl font-bold">{isNew ? "ایجاد مقاله جدید" : "ویرایش مقاله"}</h1><p className="mt-1 text-sm text-muted-foreground">محتوا را بنویسید و به‌صورت پیش‌نویس ذخیره کنید.</p></div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted"><Eye className="h-4 w-4" /> پیش‌نمایش در سایت</button>
-          <button disabled={saveMutation.isPending || !form.title.trim() || (isNew ? !permissions?.create : (!permissions?.edit_own || (article.data?.status !== "draft" && !permissions?.is_superuser) || article.data?.status === "published"))} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره پیش‌نویس</button>
-          {!isNew && article.data?.status === "draft" && permissions?.edit_own && <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("submit")} className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted disabled:opacity-50">ارسال برای بررسی</button>}
-          {!isNew && article.data?.status === "review" && permissions?.review && <><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("approve")} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">تأیید مقاله</button><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("reject")} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">رد و بازگشت به پیش‌نویس</button></>}
-          {!isNew && article.data?.status === "published" && permissions?.publish && <button type="button" disabled={unpublishMutation.isPending} onClick={() => { if (window.confirm("انتشار این مقاله لغو شود؟")) unpublishMutation.mutate(); }} className="rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold text-amber-700 disabled:opacity-50">لغو انتشار</button>}
-          {!isNew && article.data?.status !== "published" && (permissions?.is_superuser || (article.data?.status === "draft" && permissions?.edit_own)) && <button type="button" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm("این مقاله برای همیشه حذف شود؟")) deleteMutation.mutate(); }} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">حذف مقاله</button>}
-          {!isNew && (permissions?.is_superuser || permissions?.publish) && (article.data?.status === "approved" || (permissions?.is_superuser && ["draft", "review"].includes(article.data?.status ?? ""))) && <>
-            {permissions.is_superuser && <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <button disabled={saveMutation.isPending || !form.title.trim() || (isNew ? !permissions?.create : (!permissions?.edit_own || article.data?.status === "published"))} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره پیش‌نویس</button>
+           {!isNew && article.data?.status === "published" && permissions?.publish && <button type="button" disabled={unpublishMutation.isPending} onClick={() => { if (window.confirm("انتشار این مقاله لغو شود؟")) unpublishMutation.mutate(); }} className="rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold text-amber-700 disabled:opacity-50">لغو انتشار</button>}
+          {!isNew && article.data?.status !== "published" && (permissions?.delete || (article.data?.status === "draft" && permissions?.edit_own)) && <button type="button" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm("این مقاله برای همیشه حذف شود؟")) deleteMutation.mutate(); }} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">حذف مقاله</button>}
+          {permissions?.publish && (isNew || article.data?.status !== "published") && <>
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               زمان انتشار (اختیاری)
               <input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground" />
-            </label>}
-            <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("publish")} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{scheduledAt ? "زمان‌بندی انتشار" : "انتشار مستقیم مقاله"}</button>
+            </label>
+            <button type="button" disabled={workflowMutation.isPending || saveMutation.isPending} onClick={() => void handlePublish()} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{scheduledAt ? "زمان‌بندی انتشار" : "انتشار مستقیم مقاله"}</button>
           </>}
         </div>
       </div>
