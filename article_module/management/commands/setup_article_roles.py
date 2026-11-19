@@ -8,15 +8,15 @@ ROLE_PERMISSIONS = {
     ],
     "ویراستار": [
         "add_article", "change_article", "view_article",
-        "review_article", "view_all_articles", "publish_article",
+        "view_all_articles", "publish_article",
     ],
     "ناشر": [
         "add_article", "change_article", "view_article", "delete_article",
-        "review_article", "view_all_articles", "publish_article",
+        "view_all_articles", "publish_article",
     ],
     "مدیر محتوا": [
         "add_article", "change_article", "view_article", "delete_article",
-        "review_article", "view_all_articles", "publish_article",
+        "view_all_articles", "publish_article",
         "moderate_article_comments", "manage_article_roles",
     ],
     "ناظر کامنت‌ها": [
