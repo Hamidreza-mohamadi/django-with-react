@@ -731,10 +731,6 @@ export const getManagedArticles = createServerFn({ method: "GET" }).handler(
   async () => djangoFetch<ManagedArticle[]>("/articles/manage/"),
 );
 
-export const getArticleReviewQueue = createServerFn({ method: "GET" }).handler(
-  async () => djangoFetch<ManagedArticle[]>("/articles/review/"),
-);
-
 export const getPendingArticleComments = createServerFn({ method: "GET" }).handler(
   async () => djangoFetch<ManagedArticleComment[]>("/articles/manage/comments/"),
 );
@@ -825,7 +821,7 @@ export const uploadManagedArticleImage = createServerFn({ method: "POST" })
 
 export interface ArticleCmsCapabilities {
   permissions: {
-    create: boolean; edit_own: boolean; view_all: boolean; review: boolean;
+    create: boolean; edit_own: boolean; view_all: boolean;
     publish: boolean; delete: boolean; moderate_comments: boolean;
     manage_roles: boolean; is_superuser: boolean;
   };
@@ -834,12 +830,6 @@ export interface ArticleCmsCapabilities {
 export const getArticleCmsCapabilities = createServerFn({ method: "GET" }).handler(
   async () => djangoFetch<ArticleCmsCapabilities>("/articles/manage/capabilities/"),
 );
-export const submitArticleForReview = createServerFn({ method: "POST" })
-  .validator((data: { articleId: number }) => data)
-  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/manage/${data.articleId}/submit/`, { method: "POST" }));
-export const decideArticleReview = createServerFn({ method: "POST" })
-  .validator((data: { articleId: number; decision: "approve" | "reject" }) => data)
-  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/review/${data.articleId}/decision/`, { method: "POST", body: JSON.stringify({ decision: data.decision }) }));
 export const publishManagedArticle = createServerFn({ method: "POST" })
   .validator((data: { articleId: number; scheduled_at?: string }) => data)
   .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/publish/${data.articleId}/`, { method: "POST", body: JSON.stringify(data.scheduled_at ? { scheduled_at: data.scheduled_at } : {}) }));
