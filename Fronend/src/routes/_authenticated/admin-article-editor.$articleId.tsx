@@ -175,7 +175,7 @@ function ArticleEditorPage() {
   const field = (key: keyof EditorState, value: string) => setForm((previous) => ({ ...previous, [key]: value }));
   if (!isNew && article.isLoading) return <main dir="rtl" className="mx-auto max-w-5xl p-8 text-center text-muted-foreground">در حال دریافت مقاله…</main>;
   if (!isNew && article.isError) return <main dir="rtl" className="mx-auto max-w-5xl p-8"><p className="text-destructive">{article.error.message}</p><Link to="/admin-articles" className="mt-4 inline-block text-primary">بازگشت به فهرست</Link></main>;
-  if (!isNew && article.data && article.data.status !== "draft") return <main dir="rtl" className="mx-auto max-w-5xl p-8"><h1 className="text-xl font-bold">این مقاله قابل ویرایش نیست</h1><p className="mt-2 text-muted-foreground">فقط مقاله‌های پیش‌نویس از این بخش قابل ویرایش هستند.</p><Link to="/admin-articles" className="mt-4 inline-block text-primary">بازگشت</Link></main>;
+
 
   return <main dir="rtl" className="min-h-screen bg-muted/30">
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
