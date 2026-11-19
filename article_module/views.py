@@ -49,12 +49,14 @@ CMS_ROLE_PERMISSIONS = {
 
 
 def has_cms_perm(user, permission):
-    if user.is_superuser or user.has_perm(f"article_module.{permission}"):
+    codename = permission.rsplit(".", 1)[-1]
+    django_permission = permission if "." in permission else f"article_module.{codename}"
+    if user.is_superuser or user.has_perm(django_permission):
         return True
     inherited = set()
     for role_name in user.groups.values_list("name", flat=True):
         inherited.update(CMS_ROLE_PERMISSIONS.get(role_name, set()))
-    return permission in inherited
+    return codename in inherited
 
 
 def require_perm(user, permission):
