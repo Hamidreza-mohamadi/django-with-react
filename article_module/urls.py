@@ -12,7 +12,7 @@ from .views import (
 
 urlpatterns = [\n    path("manage/capabilities/", ArticleCapabilitiesView.as_view(), name="article-capabilities"),
     path("manage/", ArticleManagementListCreateView.as_view(), name="article-manage-list"),
-    path("manage/<int:pk>/", ArticleManagementDetailView.as_view(), name="article-manage-detail"),
+    path("manage/<int:pk>/", ArticleManagementDetailView.as_view(), name="article-manage-detail"),\n    path("manage/<int:pk>/delete/", ArticleManagementDeleteView.as_view(), name="article-manage-delete"),
     path("manage/<int:pk>/submit/", SubmitArticleForReviewView.as_view(), name="article-submit-review"),
     path("manage/<int:pk>/images/", ArticleImageUploadView.as_view(), name="article-image-upload"),
     path("manage/categories/", ArticleCategoryManagementView.as_view(), name="article-category-manage"),
@@ -23,7 +23,7 @@ urlpatterns = [\n    path("manage/capabilities/", ArticleCapabilitiesView.as_vie
     path("manage/comments/<int:pk>/", ArticleCommentModerationDetailView.as_view(), name="article-comment-moderation-detail"),
     path("review/", ArticleReviewQueueView.as_view(), name="article-review-queue"),
     path("review/<int:pk>/decision/", ArticleReviewDecisionView.as_view(), name="article-review-decision"),
-    path("publish/<int:pk>/", ArticlePublicationView.as_view(), name="article-publish"),
+    path("publish/<int:pk>/", ArticlePublicationView.as_view(), name="article-publish"),\n    path("publish/<int:pk>/unpublish/", ArticleUnpublishView.as_view(), name="article-unpublish"),
     path("comments/<slug:slug>/", PublicArticleCommentListCreateView.as_view(), name="article-comments"),
     path("list/", PublicArticleListView.as_view(), name="article-list"),
     path("", LatestArticlesView.as_view(), name="latest-articles"),
