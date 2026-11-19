@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, MessageSquare, ShieldCheck, Clock3, Plus, RefreshCw, LayoutDashboard, Tags, Pencil } from "lucide-react";
+import { FileText, MessageSquare, Clock3, Plus, RefreshCw, LayoutDashboard, Tags, Pencil } from "lucide-react";
 import { getManagedArticles, getPendingArticleComments, getArticleCmsCapabilities, moderateArticleComment, deleteArticleComment, unpublishManagedArticle, deleteManagedArticle, publishManagedArticle } from "@/lib/shop/api";
 
 export const Route = createFileRoute("/_authenticated/admin-articles")({
