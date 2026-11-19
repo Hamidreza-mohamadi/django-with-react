@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
@@ -165,6 +165,38 @@ class ArticleCmsApiTests(TestCase):
     def grant(self, user, *codenames):
         permissions = Permission.objects.filter(content_type__app_label="article_module", codename__in=codenames)
         user.user_permissions.add(*permissions)
+
+    def test_publisher_group_inherits_writer_and_editor_capabilities(self):
+        publisher = User.objects.create_user(
+            username="cms-publisher", email="publisher@example.com", password="test-password",
+        )
+        publisher_group = Group.objects.create(name="ناشر")
+        publisher.groups.add(publisher_group)
+
+        self.client.force_authenticate(publisher)
+        capabilities = self.client.get("/api/v1/articles/manage/capabilities/")
+        self.assertEqual(capabilities.status_code, 200)
+        for capability in ("create", "edit_own", "view_all", "publish", "delete"):
+            self.assertTrue(capabilities.data["permissions"][capability], capability)
+
+        listing = self.client.get("/api/v1/articles/manage/")
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(len(listing.data), 1)
+
+        update = self.client.patch(
+            f"/api/v1/articles/manage/{self.article.pk}/",
+            {"title": "Edited by publisher"}, format="json",
+        )
+        self.assertEqual(update.status_code, 200)
+
+        publish = self.client.post(f"/api/v1/articles/publish/{self.article.pk}/")
+        self.assertEqual(publish.status_code, 200)
+        self.assertEqual(publish.data["status"], Article.Status.PUBLISHED)
+
+        create = self.client.post(
+            "/api/v1/articles/manage/", {"title": "Created by publisher"}, format="json",
+        )
+        self.assertEqual(create.status_code, 201)
 
     def test_management_api_accepts_structured_tiptap_document_and_rejects_unsafe_values(self):
         self.grant(self.author, "add_article", "change_article")
