@@ -9,7 +9,7 @@ import { ArrowRight, Bold, Eye, Heading2, Heading3, ImagePlus, Italic, Link2, Li
 import {
   createManagedArticle, getArticleCategories, getArticleTags, getManagedArticle,
   updateManagedArticle, uploadManagedArticleImage, getArticleCmsCapabilities,
-  submitArticleForReview, decideArticleReview, publishManagedArticle,
+  publishManagedArticle,
   unpublishManagedArticle, deleteManagedArticle,
   type ManagedArticleInput,
 } from "@/lib/shop/api";
@@ -119,17 +119,15 @@ function ArticleEditorPage() {
   }, [editor, article.data]);
 
   const workflowMutation = useMutation({
-    mutationFn: async (action: "submit" | "approve" | "reject" | "publish") => {
+    mutationFn: async () => {
       if (!articleKey) throw new Error("ابتدا مقاله را ذخیره کنید.");
-      if (action === "submit") return submitArticleForReview({ data: { articleId: articleKey } });
-      if (action === "approve" || action === "reject") return decideArticleReview({ data: { articleId: articleKey, decision: action } });
       return publishManagedArticle({ data: {
         articleId: articleKey,
         ...(scheduledAt ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
       } });
     },
     onSuccess: async (saved) => {
-      setMessage("وضعیت مقاله با موفقیت تغییر کرد.");
+      setMessage("مقاله با موفقیت منتشر یا زمان‌بندی شد.");
       await queryClient.invalidateQueries({ queryKey: ["cms"] });
       setArticleKey(saved.id);
       if (saved.status !== "draft") navigate({ to: "/admin-articles" });
@@ -143,7 +141,7 @@ function ArticleEditorPage() {
       return unpublishManagedArticle({ data: { articleId: articleKey } });
     },
     onSuccess: async () => {
-      setMessage("انتشار مقاله لغو شد و مقاله به وضعیت تأییدشده برگشت.");
+      setMessage("انتشار مقاله لغو شد.");
       await queryClient.invalidateQueries({ queryKey: ["cms"] });
       await article.refetch();
     },
@@ -202,7 +200,7 @@ function ArticleEditorPage() {
       }
       return;
     }
-    workflowMutation.mutate("publish");
+    workflowMutation.mutate();
   }
 
   async function handleImage(file?: File, isCover = false) {
