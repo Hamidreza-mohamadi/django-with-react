@@ -128,8 +128,6 @@ class ArticleManagementDetailView(APIView):
     def patch(self, request, pk):
         require_perm(request.user, "article_module.change_article")
         article = managed_article_or_404(request.user, pk)
-        if article.status != Article.Status.DRAFT and not request.user.is_superuser:
-            raise ValidationError("فقط سوپر‌یوزر می‌تواند مقاله‌های خارج از وضعیت پیش‌نویس را ویرایش کند.")
         if article.status == Article.Status.PUBLISHED:
             raise ValidationError("برای ویرایش مقاله منتشرشده ابتدا انتشار آن را لغو کنید.")
         serializer = ArticleManagementSerializer(article, data=request.data, partial=True, context={"request": request})
@@ -185,10 +183,8 @@ class ArticlePublicationView(APIView):
     def post(self, request, pk):
         require_perm(request.user, "article_module.publish_article")
         user = request.user
-        if user.is_superuser:
-            article = get_object_or_404(Article, pk=pk)
-        else:
-            article = get_object_or_404(Article, pk=pk, status=Article.Status.APPROVED)
+        # هر دارنده مجوز انتشار می‌تواند هر مقاله منتشرنشده‌ای را مستقیم منتشر کند.
+        article = get_object_or_404(Article, pk=pk)
 
         scheduled_at = request.data.get("scheduled_at")
         if scheduled_at:
@@ -196,8 +192,8 @@ class ArticlePublicationView(APIView):
             scheduled_at = DateTimeField().run_validation(scheduled_at)
             if scheduled_at <= timezone.now():
                 raise ValidationError({"scheduled_at": "زمان انتشار باید در آینده باشد."})
-            # زمان‌بندی سوپر‌یوزر هم از مسیر وضعیت تأییدشده عبور می‌کند؛
-            # این وضعیت برای اجرای job انتشار زمان‌بندی‌شده استفاده می‌شود.
+            # وضعیت approved فقط برای سازگاری job زمان‌بندی قدیمی استفاده می‌شود؛
+            # این وضعیت یک مرحله تأیید یا محدودیت دسترسی نیست.
             article.status = Article.Status.APPROVED
             article.published_at = None
             article.scheduled_at = scheduled_at
@@ -244,8 +240,6 @@ class ArticleImageUploadView(APIView):
     def post(self, request, pk):
         require_perm(request.user, "article_module.change_article")
         article = managed_article_or_404(request.user, pk)
-        if article.status != Article.Status.DRAFT and not request.user.is_superuser:
-            raise ValidationError("فقط برای پیش‌نویس می‌توان تصویر بارگذاری کرد.")
         if article.status == Article.Status.PUBLISHED:
             raise ValidationError("برای تغییر تصاویر مقاله منتشرشده ابتدا انتشار آن را لغو کنید.")
         serializer = ArticleImageUploadSerializer(data=request.data)
