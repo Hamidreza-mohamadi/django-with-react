@@ -277,7 +277,7 @@ function ArticleEditorPage() {
             <div className="container-shop py-8">
               <div className={coverImageUrl ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center" : "max-w-4xl"}>
                 <div>
-                  <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">پیش‌نویس مقاله</span>
+                  <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">پیش‌نمایش مقاله</span>
                   <h1 className="mt-4 text-3xl font-bold leading-tight text-foreground md:text-4xl">{form.title || "عنوان مقاله"}</h1>
                   <p className="mt-4 max-w-2xl text-base leading-8 text-muted-foreground">{form.short_description || "خلاصه مقاله در این قسمت نمایش داده می‌شود."}</p>
                 </div>
