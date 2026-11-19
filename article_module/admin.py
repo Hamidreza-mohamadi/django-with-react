@@ -32,7 +32,9 @@ class ArticleAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         fields = list(super().get_readonly_fields(request, obj))
         if not request.user.has_perm("article_module.publish_article"):
-            fields.extend(("status", "scheduled_at"))
+            fields.append("scheduled_at")
+        if not (request.user.has_perm("article_module.review_article") or request.user.has_perm("article_module.publish_article")):
+            fields.append("status")
         return tuple(fields)
 
     def save_model(self, request, obj, form, change):
@@ -41,9 +43,13 @@ class ArticleAdmin(admin.ModelAdmin):
             obj.author = request.user
         if change:
             previous = Article.objects.get(pk=obj.pk)
+            can_review = request.user.has_perm("article_module.review_article")
+            approved_transition = obj.status == Article.Status.APPROVED and previous.status == Article.Status.REVIEW and can_review
             if not can_publish:
-                obj.status, obj.scheduled_at, obj.published_at = previous.status, previous.scheduled_at, previous.published_at
-            elif obj.status == Article.Status.APPROVED and previous.status != Article.Status.APPROVED and not can_review:
+                if not approved_transition:
+                    obj.status = previous.status
+                obj.scheduled_at, obj.published_at = previous.scheduled_at, previous.published_at
+            elif obj.status == Article.Status.APPROVED and previous.status != Article.Status.APPROVED and not (can_review and previous.status == Article.Status.REVIEW):
                 obj.status, obj.scheduled_at, obj.published_at = previous.status, previous.scheduled_at, previous.published_at
                 self.message_user(request, "تأیید مقاله فقط در اختیار ویراستار است.", level=messages.ERROR)
             elif obj.status == Article.Status.PUBLISHED and previous.status != Article.Status.APPROVED:
