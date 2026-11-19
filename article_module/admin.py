@@ -39,8 +39,8 @@ class ArticleAdmin(admin.ModelAdmin):
         allowed = super().has_change_permission(request, obj)
         if not allowed:
             return False
-        # Users with change permission can edit any unpublished article.
-        return obj is None or obj.status != Article.Status.PUBLISHED
+        # Change permission is role-based, not restricted by publication status.
+        return allowed
 
     def get_readonly_fields(self, request, obj=None):
         fields = list(super().get_readonly_fields(request, obj))
