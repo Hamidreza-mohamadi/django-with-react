@@ -346,3 +346,9 @@ class ArticleCommentModerationDetailView(APIView):
         serializer = ArticleCommentModerationSerializer(comment, data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(ArticleCommentSerializer(serializer.save(), context={"request": request}).data)
+
+    def delete(self, request, pk):
+        require_perm(request.user, "article_module.moderate_article_comments")
+        comment = get_object_or_404(ArticleComment, pk=pk)
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
