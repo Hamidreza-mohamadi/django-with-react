@@ -43,7 +43,6 @@ class ArticleCapabilitiesView(APIView):
             "create": user.is_superuser or user.has_perm("article_module.add_article"),
             "edit_own": user.is_superuser or user.has_perm("article_module.change_article"),
             "view_all": user.is_superuser or user.has_perm("article_module.view_all_articles"),
-            "review": user.is_superuser or user.has_perm("article_module.review_article"),
             "publish": user.is_superuser or user.has_perm("article_module.publish_article"),
             "delete": user.is_superuser or user.has_perm("article_module.delete_article"),
             "moderate_comments": user.is_superuser or user.has_perm("article_module.moderate_article_comments"),
@@ -131,47 +130,6 @@ class ArticleManagementDetailView(APIView):
         serializer = ArticleManagementSerializer(article, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         article = serializer.save()
-        return Response(ArticleManagementSerializer(article, context={"request": request}).data)
-
-
-class SubmitArticleForReviewView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk):
-        require_perm(request.user, "article_module.change_article")
-        article = managed_article_or_404(request.user, pk)
-        if article.status != Article.Status.DRAFT:
-            raise ValidationError("فقط مقاله پیش‌نویس را می‌توان برای بررسی ارسال کرد.")
-        article.status = Article.Status.REVIEW
-        article.save()
-        return Response(ArticleManagementSerializer(article, context={"request": request}).data)
-
-
-class ArticleReviewQueueView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        require_perm(request.user, "article_module.review_article")
-        articles = Article.objects.filter(status=Article.Status.REVIEW).select_related("author").prefetch_related("category", "tags")
-        return Response(ArticleManagementSerializer(articles, many=True, context={"request": request}).data)
-
-
-class ArticleReviewDecisionView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk):
-        require_perm(request.user, "article_module.review_article")
-        article = get_object_or_404(Article, pk=pk, status=Article.Status.REVIEW)
-        if article.author_id == request.user.id and not request.user.is_superuser:
-            raise PermissionDenied("نویسنده نمی‌تواند مقاله خودش را تأیید کند.")
-        decision = request.data.get("decision")
-        if decision == "approve":
-            article.status = Article.Status.APPROVED
-        elif decision == "reject":
-            article.status = Article.Status.DRAFT
-        else:
-            raise ValidationError({"decision": "مقدار مجاز approve یا reject است."})
-        article.save()
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
 
 
