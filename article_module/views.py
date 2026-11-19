@@ -302,7 +302,7 @@ class ArticleCommentModerationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        require_perm(request.user, "article_module.review_article")
+        require_perm(request.user, "article_module.moderate_article_comments")
         comments = ArticleComment.objects.select_related("article", "user").filter(status=ArticleComment.Status.PENDING)
         return Response(ArticleCommentSerializer(comments, many=True, context={"request": request}).data)
 
@@ -311,7 +311,7 @@ class ArticleCommentModerationDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
-        require_perm(request.user, "article_module.review_article")
+        require_perm(request.user, "article_module.moderate_article_comments")
         comment = get_object_or_404(ArticleComment, pk=pk)
         serializer = ArticleCommentModerationSerializer(comment, data=request.data)
         serializer.is_valid(raise_exception=True)
