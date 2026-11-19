@@ -164,6 +164,8 @@ class ArticleReviewDecisionView(APIView):
     def post(self, request, pk):
         require_perm(request.user, "article_module.review_article")
         article = get_object_or_404(Article, pk=pk, status=Article.Status.REVIEW)
+        if article.author_id == request.user.id and not request.user.is_superuser:
+            raise PermissionDenied("نویسنده نمی‌تواند مقاله خودش را تأیید کند.")
         decision = request.data.get("decision")
         if decision == "approve":
             article.status = Article.Status.APPROVED
