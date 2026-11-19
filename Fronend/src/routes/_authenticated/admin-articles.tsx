@@ -8,17 +8,17 @@ export const Route = createFileRoute("/_authenticated/admin-articles")({
 });
 
 const statusLabels: Record<string, string> = {
-  draft: "پیش‌نویس",
-  review: "در انتظار بررسی",
-  approved: "تأیید شده",
+  draft: "منتشر نشده",
+  review: "منتشر نشده",
+  approved: "منتشر نشده",
   published: "منتشر شده",
   archived: "بایگانی",
 };
 
 const statusStyles: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
-  review: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
-  approved: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
+  review: "bg-muted text-muted-foreground",
+  approved: "bg-muted text-muted-foreground",
   published: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
   archived: "bg-muted text-muted-foreground",
 };
@@ -59,7 +59,7 @@ function ArticleAdminPage() {
 
   const own = articles.data ?? [];
   const pendingComments = comments.data ?? [];
-  const count = (status: string) => own.filter((article) => article.status === status).length;
+  const unpublishedCount = own.filter((article) => article.status !== "published" && article.status !== "archived").length;
   const formatDate = (value: string) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium" }).format(new Date(value));
 
   return (
@@ -87,7 +87,7 @@ function ArticleAdminPage() {
         {capabilities.isError && <QueryError message={capabilities.error.message || "دریافت سطح دسترسی ناموفق بود."} retry={() => capabilities.refetch()} />}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {(permissions?.create || permissions?.edit_own || permissions?.view_all) && <Metric title={permissions?.view_all ? "همه مقاله‌ها" : "مقاله‌های من"} value={articles.isLoading ? "…" : own.length} icon={FileText} detail={permissions?.view_all ? "مقاله‌های تمام نویسندگان" : "مقاله‌های ثبت‌شده توسط شما"} />}
-          <Metric title="پیش‌نویس‌ها" value={articles.isLoading ? "…" : count("draft")} icon={Clock3} detail="قابل ویرایش و انتشار بر اساس سطح دسترسی" />
+          <Metric title="مقاله‌های منتشرنشده" value={articles.isLoading ? "…" : unpublishedCount} icon={Clock3} detail="قابل انتشار مستقیم بر اساس سطح دسترسی" />
           {permissions?.moderate_comments && <Metric title="دیدگاه‌های منتظر" value={comments.isLoading ? "…" : pendingComments.length} icon={MessageSquare} detail="در انتظار تأیید یا رد" />}
         </div>
 
@@ -134,7 +134,7 @@ function ArticleAdminPage() {
           )}
         </section>}
 
-        <p className="mt-5 text-xs leading-6 text-muted-foreground">دسترسی هر بخش توسط مجوزهای سمت سرور کنترل می‌شود؛ نمایش این داشبورد به‌تنهایی به معنی داشتن مجوز انتشار یا بررسی مقاله نیست.</p>
+        <p className="mt-5 text-xs leading-6 text-muted-foreground">دسترسی هر عملیات توسط مجوزهای سمت سرور کنترل می‌شود؛ هر نقش فقط امکانات مجاز خودش و نقش‌های پایین‌تر را دارد.</p>
       </div>
     </main>
   );
