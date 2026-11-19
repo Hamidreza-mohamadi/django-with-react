@@ -11,7 +11,7 @@ ROLE_PERMISSIONS = {
         "review_article", "view_all_articles", "publish_article",
     ],
     "ناشر": [
-        "add_article", "change_article", "view_article",
+        "add_article", "change_article", "view_article", "delete_article",
         "review_article", "view_all_articles", "publish_article",
     ],
     "مدیر محتوا": [
