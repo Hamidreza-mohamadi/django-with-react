@@ -142,7 +142,7 @@ function ArticleAdminPage() {
               </table>
             </div>
           )}
-        </section>
+        </section>}
 
         <p className="mt-5 text-xs leading-6 text-muted-foreground">دسترسی هر بخش توسط مجوزهای سمت سرور کنترل می‌شود؛ نمایش این داشبورد به‌تنهایی به معنی داشتن مجوز انتشار یا بررسی مقاله نیست.</p>
       </div>
