@@ -43,7 +43,7 @@ class ArticleAdmin(admin.ModelAdmin):
             previous = Article.objects.get(pk=obj.pk)
             if not can_publish:
                 obj.status, obj.scheduled_at, obj.published_at = previous.status, previous.scheduled_at, previous.published_at
-            elif obj.status == Article.Status.APPROVED and previous.status != Article.Status.APPROVED:
+            elif obj.status == Article.Status.APPROVED and previous.status != Article.Status.APPROVED and not can_review:
                 obj.status, obj.scheduled_at, obj.published_at = previous.status, previous.scheduled_at, previous.published_at
                 self.message_user(request, "تأیید مقاله فقط در اختیار ویراستار است.", level=messages.ERROR)
             elif obj.status == Article.Status.PUBLISHED and previous.status != Article.Status.APPROVED:
