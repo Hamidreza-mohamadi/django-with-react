@@ -29,6 +29,18 @@ class ArticleAdmin(admin.ModelAdmin):
         ("زمان‌ها", {"fields": ("pub_date", "created_at", "updated_at")}),
     )
 
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        if not request.user.has_perm("article_module.view_all_articles"):
+            queryset = queryset.filter(author=request.user)
+        return queryset
+
+    def has_change_permission(self, request, obj=None):
+        allowed = super().has_change_permission(request, obj)
+        if not allowed:
+            return False
+        return obj is None or obj.author_id == request.user.id or request.user.has_perm("article_module.view_all_articles")
+
     def get_readonly_fields(self, request, obj=None):
         fields = list(super().get_readonly_fields(request, obj))
         if not request.user.has_perm("article_module.publish_article"):
