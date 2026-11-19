@@ -54,6 +54,7 @@ function ArticleEditorPage() {
   const [form, setForm] = useState<EditorState>(blank);
   const [articleKey, setArticleKey] = useState<number | null>(isNew ? null : id);
   const [message, setMessage] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
   const [uploading, setUploading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
@@ -120,7 +121,10 @@ function ArticleEditorPage() {
       if (!articleKey) throw new Error("ابتدا مقاله را ذخیره کنید.");
       if (action === "submit") return submitArticleForReview({ data: { articleId: articleKey } });
       if (action === "approve" || action === "reject") return decideArticleReview({ data: { articleId: articleKey, decision: action } });
-      return publishManagedArticle({ data: { articleId: articleKey } });
+      return publishManagedArticle({ data: {
+        articleId: articleKey,
+        ...(scheduledAt ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
+      } });
     },
     onSuccess: async (saved) => {
       setMessage("وضعیت مقاله با موفقیت تغییر کرد.");
@@ -205,7 +209,13 @@ function ArticleEditorPage() {
           <button disabled={saveMutation.isPending || !form.title.trim() || (isNew ? !permissions?.create : !permissions?.edit_own)} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره پیش‌نویس</button>
           {!isNew && article.data?.status === "draft" && permissions?.edit_own && <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("submit")} className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted disabled:opacity-50">ارسال برای بررسی</button>}
           {!isNew && article.data?.status === "review" && permissions?.review && <><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("approve")} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">تأیید مقاله</button><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("reject")} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">رد و بازگشت به پیش‌نویس</button></>}
-          {!isNew && article.data?.status === "approved" && permissions?.publish && <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("publish")} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">انتشار مقاله</button>}
+          {!isNew && permissions?.publish && (article.data?.status === "approved" || (permissions.is_superuser && ["draft", "review"].includes(article.data?.status ?? ""))) && <>
+            {permissions.is_superuser && <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              زمان انتشار (اختیاری)
+              <input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground" />
+            </label>}
+            <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("publish")} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{scheduledAt ? "زمان‌بندی انتشار" : "انتشار مستقیم مقاله"}</button>
+          </>}
         </div>
       </div>
       {message && <p role="status" className={`mb-4 rounded-xl border p-3 text-sm ${message.includes("موفقیت") || message.includes("اضافه شد") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}>{message}</p>}
