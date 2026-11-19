@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .views import (
-    ArticleCategoryDetailManagementView, ArticleCategoryManagementView,
+    ArticleCapabilitiesView, ArticleCategoryDetailManagementView, ArticleCategoryManagementView,
     ArticleCommentModerationDetailView, ArticleCommentModerationListView,
     ArticleDetailGeneric, ArticleImageUploadView, ArticleManagementDetailView,
     ArticleManagementListCreateView, ArticlePublicationView,
@@ -10,7 +10,7 @@ from .views import (
     PublicArticleListView, SubmitArticleForReviewView,
 )
 
-urlpatterns = [
+urlpatterns = [\n    path("manage/capabilities/", ArticleCapabilitiesView.as_view(), name="article-capabilities"),
     path("manage/", ArticleManagementListCreateView.as_view(), name="article-manage-list"),
     path("manage/<int:pk>/", ArticleManagementDetailView.as_view(), name="article-manage-detail"),
     path("manage/<int:pk>/submit/", SubmitArticleForReviewView.as_view(), name="article-submit-review"),
