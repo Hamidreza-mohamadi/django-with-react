@@ -7,14 +7,6 @@ export const Route = createFileRoute("/_authenticated/admin-articles")({
   component: ArticleAdminPage,
 });
 
-const statusLabels: Record<string, string> = {
-  draft: "منتشر نشده",
-  review: "منتشر نشده",
-  approved: "منتشر نشده",
-  published: "منتشر شده",
-  archived: "بایگانی",
-};
-
 const statusStyles: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
   review: "bg-muted text-muted-foreground",
