@@ -846,3 +846,13 @@ export const publishManagedArticle = createServerFn({ method: "POST" })
 export const moderateArticleComment = createServerFn({ method: "POST" })
   .validator((data: { commentId: number; status: "approved" | "rejected" }) => data)
   .handler(async ({ data }) => djangoFetch<ManagedArticleComment>(`/articles/manage/comments/${data.commentId}/`, { method: "PATCH", body: JSON.stringify({ status: data.status }) }));
+
+export const unpublishManagedArticle = createServerFn({ method: "POST" })
+  .validator((data: { articleId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/publish/${data.articleId}/unpublish/`, { method: "POST" }));
+export const deleteManagedArticle = createServerFn({ method: "POST" })
+  .validator((data: { articleId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/${data.articleId}/delete/`, { method: "DELETE" }));
+export const deleteArticleComment = createServerFn({ method: "POST" })
+  .validator((data: { commentId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/comments/${data.commentId}/`, { method: "DELETE" }));
