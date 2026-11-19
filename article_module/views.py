@@ -126,7 +126,7 @@ class ArticleManagementDetailView(APIView):
 
     def patch(self, request, pk):
         require_perm(request.user, "article_module.change_article")
-        article = owned_article_or_404(request.user, pk)
+        article = managed_article_or_404(request.user, pk)
         if article.status != Article.Status.DRAFT:
             raise ValidationError("فقط مقاله‌های پیش‌نویس قابل ویرایش هستند.")
         serializer = ArticleManagementSerializer(article, data=request.data, partial=True, context={"request": request})
@@ -140,7 +140,7 @@ class SubmitArticleForReviewView(APIView):
 
     def post(self, request, pk):
         require_perm(request.user, "article_module.change_article")
-        article = owned_article_or_404(request.user, pk)
+        article = managed_article_or_404(request.user, pk)
         if article.status != Article.Status.DRAFT:
             raise ValidationError("فقط مقاله پیش‌نویس را می‌توان برای بررسی ارسال کرد.")
         article.status = Article.Status.REVIEW
@@ -198,7 +198,7 @@ class ArticleImageUploadView(APIView):
 
     def post(self, request, pk):
         require_perm(request.user, "article_module.change_article")
-        article = owned_article_or_404(request.user, pk)
+        article = managed_article_or_404(request.user, pk)
         if article.status != Article.Status.DRAFT:
             raise ValidationError("فقط برای پیش‌نویس می‌توان تصویر بارگذاری کرد.")
         serializer = ArticleImageUploadSerializer(data=request.data)
