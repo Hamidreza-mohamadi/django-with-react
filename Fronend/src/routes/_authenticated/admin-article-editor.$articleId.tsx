@@ -8,7 +8,8 @@ import Image from "@tiptap/extension-image";
 import { ArrowRight, Bold, Eye, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Save, Strikethrough, Underline as UnderlineIcon, X } from "lucide-react";
 import {
   createManagedArticle, getArticleCategories, getArticleTags, getManagedArticle,
-  updateManagedArticle, uploadManagedArticleImage, getArticleCmsCapabilities,\n  submitArticleForReview, decideArticleReview, publishManagedArticle,
+  updateManagedArticle, uploadManagedArticleImage, getArticleCmsCapabilities,
+  submitArticleForReview, decideArticleReview, publishManagedArticle,
   type ManagedArticleInput,
 } from "@/lib/shop/api";
 
@@ -57,7 +58,9 @@ function ArticleEditorPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const coverImageInput = useRef<HTMLInputElement>(null);
-  const capabilities = useQuery({ queryKey: ["cms", "capabilities"], queryFn: () => getArticleCmsCapabilities() });\n  const permissions = capabilities.data?.permissions;\n  const article = useQuery({
+  const capabilities = useQuery({ queryKey: ["cms", "capabilities"], queryFn: () => getArticleCmsCapabilities() });
+  const permissions = capabilities.data?.permissions;
+  const article = useQuery({
     queryKey: ["cms", "article", id],
     queryFn: () => getManagedArticle({ data: { articleId: id } }),
     enabled: !isNew && Number.isInteger(id) && id > 0,
@@ -112,7 +115,23 @@ function ArticleEditorPage() {
     }
   }, [editor, article.data]);
 
-  const workflowMutation = useMutation({\n    mutationFn: async (action: "submit" | "approve" | "reject" | "publish") => {\n      if (!articleKey) throw new Error("ابتدا مقاله را ذخیره کنید.");\n      if (action === "submit") return submitArticleForReview({ data: { articleId: articleKey } });\n      if (action === "approve" || action === "reject") return decideArticleReview({ data: { articleId: articleKey, decision: action } });\n      return publishManagedArticle({ data: { articleId: articleKey } });\n    },\n    onSuccess: async (saved) => {\n      setMessage("وضعیت مقاله با موفقیت تغییر کرد.");\n      await queryClient.invalidateQueries({ queryKey: ["cms"] });\n      setArticleKey(saved.id);\n      if (saved.status !== "draft") navigate({ to: "/admin-articles" });\n    },\n    onError: (error) => setMessage(error.message || "تغییر وضعیت مقاله ناموفق بود."),\n  });\n\n  const saveMutation = useMutation({
+  const workflowMutation = useMutation({
+    mutationFn: async (action: "submit" | "approve" | "reject" | "publish") => {
+      if (!articleKey) throw new Error("ابتدا مقاله را ذخیره کنید.");
+      if (action === "submit") return submitArticleForReview({ data: { articleId: articleKey } });
+      if (action === "approve" || action === "reject") return decideArticleReview({ data: { articleId: articleKey, decision: action } });
+      return publishManagedArticle({ data: { articleId: articleKey } });
+    },
+    onSuccess: async (saved) => {
+      setMessage("وضعیت مقاله با موفقیت تغییر کرد.");
+      await queryClient.invalidateQueries({ queryKey: ["cms"] });
+      setArticleKey(saved.id);
+      if (saved.status !== "draft") navigate({ to: "/admin-articles" });
+    },
+    onError: (error) => setMessage(error.message || "تغییر وضعیت مقاله ناموفق بود."),
+  });
+
+  const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: ManagedArticleInput = {
         title: form.title.trim(), short_description: form.short_description,
@@ -183,7 +202,10 @@ function ArticleEditorPage() {
         <div><Link to="/admin-articles" className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"><ArrowRight className="h-4 w-4" /> بازگشت به داشبورد مقاله‌ها</Link><h1 className="text-2xl font-bold">{isNew ? "ایجاد مقاله جدید" : "ویرایش مقاله"}</h1><p className="mt-1 text-sm text-muted-foreground">محتوا را بنویسید و به‌صورت پیش‌نویس ذخیره کنید.</p></div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted"><Eye className="h-4 w-4" /> پیش‌نمایش در سایت</button>
-          <button disabled={saveMutation.isPending || !form.title.trim() || (isNew ? !permissions?.create : !permissions?.edit_own)} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره پیش‌نویس</button>\n          {!isNew && article.data?.status === "draft" && permissions?.edit_own && <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("submit")} className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted disabled:opacity-50">ارسال برای بررسی</button>}\n          {!isNew && article.data?.status === "review" && permissions?.review && <><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("approve")} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">تأیید مقاله</button><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("reject")} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">رد و بازگشت به پیش‌نویس</button></>}\n          {!isNew && article.data?.status === "approved" && permissions?.publish && <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("publish")} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">انتشار مقاله</button>}
+          <button disabled={saveMutation.isPending || !form.title.trim() || (isNew ? !permissions?.create : !permissions?.edit_own)} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره پیش‌نویس</button>
+          {!isNew && article.data?.status === "draft" && permissions?.edit_own && <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("submit")} className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted disabled:opacity-50">ارسال برای بررسی</button>}
+          {!isNew && article.data?.status === "review" && permissions?.review && <><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("approve")} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">تأیید مقاله</button><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("reject")} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">رد و بازگشت به پیش‌نویس</button></>}
+          {!isNew && article.data?.status === "approved" && permissions?.publish && <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("publish")} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">انتشار مقاله</button>}
         </div>
       </div>
       {message && <p role="status" className={`mb-4 rounded-xl border p-3 text-sm ${message.includes("موفقیت") || message.includes("اضافه شد") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}>{message}</p>}
