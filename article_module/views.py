@@ -180,8 +180,7 @@ class ArticlePublicationView(APIView):
 
     def post(self, request, pk):
         require_perm(request.user, "article_module.publish_article")
-        user = request.user
-        # هر دارنده مجوز انتشار می‌تواند هر مقاله منتشرنشده‌ای را مستقیم منتشر کند.
+        # هر دارنده مجوز انتشار می‌تواند هر مقاله‌ای را مستقیماً منتشر کند.
         article = get_object_or_404(Article, pk=pk)
 
         scheduled_at = request.data.get("scheduled_at")
