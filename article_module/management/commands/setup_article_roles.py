@@ -8,7 +8,7 @@ ROLE_PERMISSIONS = {
     ],
     "ویراستار": [
         "add_article", "change_article", "view_article",
-        "review_article", "view_all_articles",
+        "review_article", "view_all_articles", "publish_article",
     ],
     "ناشر": [
         "add_article", "change_article", "view_article",
