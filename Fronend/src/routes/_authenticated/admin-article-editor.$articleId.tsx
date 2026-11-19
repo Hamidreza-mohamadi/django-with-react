@@ -252,19 +252,7 @@ function ArticleEditorPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div><Link to="/admin-articles" className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"><ArrowRight className="h-4 w-4" /> بازگشت به داشبورد مقاله‌ها</Link><h1 className="text-2xl font-bold">{isNew ? "ایجاد مقاله جدید" : "ویرایش مقاله"}</h1><p className="mt-1 text-sm text-muted-foreground">محتوا را بنویسید، ذخیره کنید یا در صورت داشتن مجوز مستقیماً منتشر کنید.</p></div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => setPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted"><Eye className="h-4 w-4" /> پیش‌نمایش در سایت</button>
-          <button disabled={saveMutation.isPending || !form.title.trim() || (isNew ? !permissions?.create : !permissions?.edit_own)} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره مقاله</button>
-           {!isNew && article.data?.status === "published" && permissions?.publish && <button type="button" disabled={unpublishMutation.isPending} onClick={() => { if (window.confirm("انتشار این مقاله لغو شود؟")) unpublishMutation.mutate(); }} className="rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold text-amber-700 disabled:opacity-50">لغو انتشار</button>}
-          {!isNew && (permissions?.delete || (article.data?.status === "draft" && permissions?.edit_own)) && <button type="button" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm("این مقاله برای همیشه حذف شود؟")) deleteMutation.mutate(); }} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">حذف مقاله</button>}
-          {permissions?.publish && (isNew || article.data?.status !== "published") && <>
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              زمان انتشار (اختیاری)
-              <input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground" />
-            </label>
-            <button type="button" disabled={workflowMutation.isPending || saveMutation.isPending} onClick={() => void handlePublish()} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{scheduledAt ? "زمان‌بندی انتشار" : "انتشار مستقیم مقاله"}</button>
-          </>}
-        </div>
+        <button type="button" onClick={() => setPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted"><Eye className="h-4 w-4" /> پیش‌نمایش در سایت</button>
       </div>
       {message && <p role="status" className={`mb-4 rounded-xl border p-3 text-sm ${message.includes("موفقیت") || message.includes("اضافه شد") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}>{message}</p>}
       {previewOpen && (
@@ -346,6 +334,25 @@ function ArticleEditorPage() {
           </section>
         </aside>
       </div>
+      <section className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="mb-3">
+          <h2 className="font-semibold">عملیات مقاله</h2>
+          <p className="mt-1 text-xs text-muted-foreground">تمام امکاناتی که نقش شما اجازه می‌دهد اینجا قرار دارند؛ نیازی به طی مرحلهٔ اجباری نیست.</p>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          {(isNew ? permissions?.create : permissions?.edit_own) && <button disabled={saveMutation.isPending || !form.title.trim()} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره مقاله</button>}
+          {!isNew && article.data?.status === "published" && permissions?.publish && <button type="button" disabled={unpublishMutation.isPending} onClick={() => { if (window.confirm("انتشار این مقاله لغو شود؟")) unpublishMutation.mutate(); }} className="rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold text-amber-700 disabled:opacity-50">لغو انتشار</button>}
+          {!isNew && (permissions?.delete || (article.data?.status === "draft" && permissions?.edit_own)) && <button type="button" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm("این مقاله برای همیشه حذف شود؟")) deleteMutation.mutate(); }} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">حذف مقاله</button>}
+          {permissions?.publish && (isNew || article.data?.status !== "published") && <>
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              زمان انتشار (اختیاری)
+              <input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
+            </label>
+            <button type="button" disabled={workflowMutation.isPending || saveMutation.isPending} onClick={() => void handlePublish()} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{scheduledAt ? "زمان‌بندی انتشار" : "انتشار مستقیم مقاله"}</button>
+          </>}
+          {!permissions?.create && !permissions?.edit_own && !permissions?.publish && <p className="text-sm text-muted-foreground">نقش شما دسترسی ویرایش یا انتشار مقاله را ندارد.</p>}
+        </div>
+      </section>
     </div>
   </main>;
 }
