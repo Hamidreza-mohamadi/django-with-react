@@ -10,6 +10,7 @@ import {
   createManagedArticle, getArticleCategories, getArticleTags, getManagedArticle,
   updateManagedArticle, uploadManagedArticleImage, getArticleCmsCapabilities,
   submitArticleForReview, decideArticleReview, publishManagedArticle,
+  unpublishManagedArticle, deleteManagedArticle,
   type ManagedArticleInput,
 } from "@/lib/shop/api";
 
@@ -135,6 +136,31 @@ function ArticleEditorPage() {
     onError: (error) => setMessage(error.message || "تغییر وضعیت مقاله ناموفق بود."),
   });
 
+  const unpublishMutation = useMutation({
+    mutationFn: () => {
+      if (!articleKey) throw new Error("شناسه مقاله در دسترس نیست.");
+      return unpublishManagedArticle({ data: { articleId: articleKey } });
+    },
+    onSuccess: async () => {
+      setMessage("انتشار مقاله لغو شد و مقاله به وضعیت تأییدشده برگشت.");
+      await queryClient.invalidateQueries({ queryKey: ["cms"] });
+      await article.refetch();
+    },
+    onError: (error) => setMessage(error.message || "لغو انتشار ناموفق بود."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => {
+      if (!articleKey) throw new Error("شناسه مقاله در دسترس نیست.");
+      return deleteManagedArticle({ data: { articleId: articleKey } });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["cms"] });
+      navigate({ to: "/admin-articles" });
+    },
+    onError: (error) => setMessage(error.message || "حذف مقاله ناموفق بود."),
+  });
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: ManagedArticleInput = {
@@ -209,6 +235,8 @@ function ArticleEditorPage() {
           <button disabled={saveMutation.isPending || !form.title.trim() || (isNew ? !permissions?.create : !permissions?.edit_own)} onClick={() => { setMessage(""); saveMutation.mutate(); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره پیش‌نویس</button>
           {!isNew && article.data?.status === "draft" && permissions?.edit_own && <button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("submit")} className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted disabled:opacity-50">ارسال برای بررسی</button>}
           {!isNew && article.data?.status === "review" && permissions?.review && <><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("approve")} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">تأیید مقاله</button><button type="button" disabled={workflowMutation.isPending} onClick={() => workflowMutation.mutate("reject")} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">رد و بازگشت به پیش‌نویس</button></>}
+          {!isNew && article.data?.status === "published" && permissions?.publish && <button type="button" disabled={unpublishMutation.isPending} onClick={() => { if (window.confirm("انتشار این مقاله لغو شود؟")) unpublishMutation.mutate(); }} className="rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold text-amber-700 disabled:opacity-50">لغو انتشار</button>}
+          {!isNew && article.data?.status !== "published" && (permissions?.is_superuser || (article.data?.status === "draft" && permissions?.edit_own)) && <button type="button" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm("این مقاله برای همیشه حذف شود؟")) deleteMutation.mutate(); }} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">حذف مقاله</button>}
           {!isNew && permissions?.publish && (article.data?.status === "approved" || (permissions.is_superuser && ["draft", "review"].includes(article.data?.status ?? ""))) && <>
             {permissions.is_superuser && <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               زمان انتشار (اختیاری)
