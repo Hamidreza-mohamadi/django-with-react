@@ -244,8 +244,10 @@ class ArticleImageUploadView(APIView):
     def post(self, request, pk):
         require_perm(request.user, "article_module.change_article")
         article = managed_article_or_404(request.user, pk)
-        if article.status != Article.Status.DRAFT:
+        if article.status != Article.Status.DRAFT and not request.user.is_superuser:
             raise ValidationError("فقط برای پیش‌نویس می‌توان تصویر بارگذاری کرد.")
+        if article.status == Article.Status.PUBLISHED:
+            raise ValidationError("برای تغییر تصاویر مقاله منتشرشده ابتدا انتشار آن را لغو کنید.")
         serializer = ArticleImageUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         image = ArticleImage.objects.create(
