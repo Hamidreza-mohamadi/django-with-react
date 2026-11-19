@@ -166,6 +166,18 @@ class ArticleCmsApiTests(TestCase):
         permissions = Permission.objects.filter(content_type__app_label="article_module", codename__in=codenames)
         user.user_permissions.add(*permissions)
 
+    def test_publish_permission_inherits_writer_and_editor_capabilities(self):
+        publisher = User.objects.create_user(
+            username="permission-publisher", email="permission-publisher@example.com", password="test-password",
+        )
+        self.grant(publisher, "publish_article")
+
+        self.client.force_authenticate(publisher)
+        response = self.client.get("/api/v1/articles/manage/capabilities/")
+        self.assertEqual(response.status_code, 200)
+        for capability in ("create", "edit_own", "view_all", "publish"):
+            self.assertTrue(response.data["permissions"][capability], capability)
+
     def test_publisher_group_inherits_writer_and_editor_capabilities(self):
         publisher = User.objects.create_user(
             username="cms-publisher", email="publisher@example.com", password="test-password",
