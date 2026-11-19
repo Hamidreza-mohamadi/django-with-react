@@ -39,12 +39,6 @@ class ArticleAdmin(admin.ModelAdmin):
         allowed = super().has_change_permission(request, obj)
         if not allowed:
             return False
-        return obj is None or obj.author_id == request.user.id or request.user.has_perm("article_module.view_all_articles")
-
-    def has_change_permission(self, request, obj=None):
-        allowed = super().has_change_permission(request, obj)
-        if not allowed:
-            return False
         # Status transitions and all non-draft edits must go through the CMS workflow.
         return obj is None or obj.status == Article.Status.DRAFT
 
