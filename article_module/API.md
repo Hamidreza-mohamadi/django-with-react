@@ -69,3 +69,41 @@ The article management serializer accepts category and tag ID arrays.
 | PATCH | manage/comments/<id>/ | review_article | Approve or reject a comment |
 
 Comments are submitted by authenticated users and are not public until approved. Replies are limited to one level. Anti-spam throttling and reporting are not yet implemented.
+
+
+## CMS roles and capabilities
+
+The CMS uses Django Groups and model permissions. Users may belong to multiple groups; Django combines the permissions granted by all assigned groups.
+
+Run the following after applying migrations:
+
+```bash
+python manage.py migrate
+python manage.py setup_article_roles
+```
+
+The command creates or updates these groups:
+
+- `نویسنده`: create and edit own drafts, submit for review.
+- `ویراستار`: all writer permissions, view all articles, review submissions.
+- `ناشر`: all editor permissions plus publish and schedule approved articles.
+- `مدیر محتوا`: all publisher permissions, delete articles, moderate comments, and manage CMS roles.
+- `ناظر کامنت‌ها`: moderate and delete article comments without article publishing permissions.
+
+The system administrator is a Django superuser. Assign one or more groups to a user from Django Admin → Users → Groups. A user's effective permissions are the union of all assigned groups.
+
+### Capability discovery
+
+`GET /api/v1/articles/manage/capabilities/` returns the authenticated user's effective CMS capabilities. The React dashboard uses this response to decide which sections and actions to display. Every mutation is independently permission-checked by the API.
+
+### Workflow actions
+
+- `POST /api/v1/articles/manage/{id}/submit/`: submit an owned draft for review.
+- `POST /api/v1/articles/review/{id}/decision/`: approve or reject a submitted article.
+- `POST /api/v1/articles/publish/{id}/`: publish or schedule an approved article.
+- `POST /api/v1/articles/publish/{id}/unpublish/`: unpublish an article; it returns to approved status.
+- `DELETE /api/v1/articles/manage/{id}/delete/`: delete an eligible draft or an article when the user has delete permission.
+- `PATCH /api/v1/articles/manage/comments/{id}/`: approve or reject a comment.
+- `DELETE /api/v1/articles/manage/comments/{id}/`: delete a comment.
+
+The public API continues to return only published articles whose publication time has arrived.
