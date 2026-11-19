@@ -41,38 +41,31 @@ class ArticleAdmin(admin.ModelAdmin):
             return False
         return obj is None or obj.author_id == request.user.id or request.user.has_perm("article_module.view_all_articles")
 
+    def has_change_permission(self, request, obj=None):
+        allowed = super().has_change_permission(request, obj)
+        if not allowed:
+            return False
+        # Status transitions and all non-draft edits must go through the CMS workflow.
+        return obj is None or obj.status == Article.Status.DRAFT
+
     def get_readonly_fields(self, request, obj=None):
         fields = list(super().get_readonly_fields(request, obj))
-        if not request.user.has_perm("article_module.publish_article"):
-            fields.append("scheduled_at")
-        if not (request.user.has_perm("article_module.review_article") or request.user.has_perm("article_module.publish_article")):
-            fields.append("status")
-        return tuple(fields)
+        fields.extend(("status", "scheduled_at"))
+        if not request.user.has_perm("article_module.view_all_articles"):
+            fields.append("author")
+        return tuple(dict.fromkeys(fields))
 
     def save_model(self, request, obj, form, change):
-        can_publish = request.user.has_perm("article_module.publish_article")
-        if not change and obj.author_id is None:
-            obj.author = request.user
-        if change:
+        if not change:
+            obj.author = obj.author or request.user
+            obj.status = Article.Status.DRAFT
+            obj.scheduled_at = None
+            obj.published_at = None
+        else:
             previous = Article.objects.get(pk=obj.pk)
-            can_review = request.user.has_perm("article_module.review_article")
-            approved_transition = obj.status == Article.Status.APPROVED and previous.status == Article.Status.REVIEW and can_review
-            if not can_publish:
-                if not approved_transition:
-                    obj.status = previous.status
-                obj.scheduled_at, obj.published_at = previous.scheduled_at, previous.published_at
-            elif obj.status == Article.Status.APPROVED and previous.status != Article.Status.APPROVED and not (can_review and previous.status == Article.Status.REVIEW):
-                obj.status, obj.scheduled_at, obj.published_at = previous.status, previous.scheduled_at, previous.published_at
-                self.message_user(request, "تأیید مقاله فقط در اختیار ویراستار است.", level=messages.ERROR)
-            elif obj.status == Article.Status.PUBLISHED and previous.status != Article.Status.APPROVED:
-                obj.status, obj.scheduled_at, obj.published_at = previous.status, previous.scheduled_at, previous.published_at
-                self.message_user(request, "انتشار مستقیم مجاز نیست؛ مقاله باید ابتدا توسط ویراستار تأیید شود.", level=messages.ERROR)
-            elif obj.scheduled_at and obj.status != Article.Status.APPROVED:
-                obj.status, obj.scheduled_at, obj.published_at = previous.status, previous.scheduled_at, previous.published_at
-                self.message_user(request, "فقط مقاله تأییدشده را می‌توان زمان‌بندی کرد.", level=messages.ERROR)
-        elif can_publish and (obj.status in (Article.Status.APPROVED, Article.Status.PUBLISHED) or obj.scheduled_at):
-            obj.status, obj.scheduled_at, obj.published_at = Article.Status.DRAFT, None, None
-            self.message_user(request, "مقاله جدید ابتدا باید از مسیر بررسی و تأیید عبور کند.", level=messages.ERROR)
+            obj.status = previous.status
+            obj.scheduled_at = previous.scheduled_at
+            obj.published_at = previous.published_at
         super().save_model(request, obj, form, change)
 
 
