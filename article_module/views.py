@@ -50,13 +50,34 @@ CMS_ROLE_PERMISSIONS = {
 
 def has_cms_perm(user, permission):
     codename = permission.rsplit(".", 1)[-1]
-    django_permission = permission if "." in permission else f"article_module.{codename}"
-    if user.is_superuser or user.has_perm(django_permission):
+    if user.is_superuser:
         return True
+
     inherited = set()
     for role_name in user.groups.values_list("name", flat=True):
         inherited.update(CMS_ROLE_PERMISSIONS.get(role_name, set()))
-    return codename in inherited
+
+    # Permission-based inheritance also covers users whose role was assigned
+    # through individual Django permissions instead of a named CMS group.
+    if user.has_perm("article_module.publish_article"):
+        inherited.update({
+            "add_article", "change_article", "view_article",
+            "view_all_articles", "publish_article",
+        })
+    if user.has_perm("article_module.delete_article"):
+        inherited.update({
+            "add_article", "change_article", "view_article", "delete_article",
+            "view_all_articles", "publish_article",
+        })
+    if user.has_perm("article_module.manage_article_roles"):
+        inherited.update({
+            "add_article", "change_article", "view_article", "delete_article",
+            "view_all_articles", "publish_article", "moderate_article_comments",
+            "manage_article_roles",
+        })
+
+    django_permission = permission if "." in permission else f"article_module.{codename}"
+    return codename in inherited or user.has_perm(django_permission)
 
 
 def require_perm(user, permission):
