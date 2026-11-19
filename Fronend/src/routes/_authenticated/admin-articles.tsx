@@ -70,7 +70,7 @@ function ArticleAdminPage() {
             <h1 className="text-3xl font-bold tracking-tight">داشبورد مقاله‌ها</h1>
             <p className="mt-2 text-sm text-muted-foreground">مدیریت نوشته‌ها، بررسی محتوا و نظارت بر دیدگاه‌ها</p>
           </div>
-          {permissions?.create && {permissions?.create && <Link to="/admin-article-editor/new" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
+          {permissions?.create && <Link to="/admin-article-editor/new" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
             <Plus className="h-4 w-4" /> ایجاد مقاله جدید
           </Link>}
         </div>
