@@ -39,8 +39,8 @@ class ArticleAdmin(admin.ModelAdmin):
         allowed = super().has_change_permission(request, obj)
         if not allowed:
             return False
-        # Status transitions and all non-draft edits must go through the CMS workflow.
-        return obj is None or obj.status == Article.Status.DRAFT
+        # Users with change permission can edit any unpublished article.
+        return obj is None or obj.status != Article.Status.PUBLISHED
 
     def get_readonly_fields(self, request, obj=None):
         fields = list(super().get_readonly_fields(request, obj))
