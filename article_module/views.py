@@ -22,14 +22,49 @@ def public_articles():
     return Article.objects.filter(status=Article.Status.PUBLISHED, published_at__isnull=False, published_at__lte=now).select_related("author").prefetch_related("category", "tags").order_by("-published_at", "-id")
 
 
+# دسترسی هر نقش شامل تمام قابلیت‌های نقش‌های پایین‌تر است.
+# این نگاشت در زمان بررسی مجوز هم اعمال می‌شود تا به اجرای دوباره
+# دستور setup_article_roles برای هر کاربر وابسته نباشیم.
+CMS_ROLE_PERMISSIONS = {
+    "نویسنده": {
+        "add_article", "change_article", "view_article",
+    },
+    "ویراستار": {
+        "add_article", "change_article", "view_article",
+        "view_all_articles", "publish_article",
+    },
+    "ناشر": {
+        "add_article", "change_article", "view_article", "delete_article",
+        "view_all_articles", "publish_article",
+    },
+    "مدیر محتوا": {
+        "add_article", "change_article", "view_article", "delete_article",
+        "view_all_articles", "publish_article", "moderate_article_comments",
+        "manage_article_roles",
+    },
+    "ناظر کامنت‌ها": {
+        "view_article", "moderate_article_comments",
+    },
+}
+
+
+def has_cms_perm(user, permission):
+    if user.is_superuser or user.has_perm(f"article_module.{permission}"):
+        return True
+    inherited = set()
+    for role_name in user.groups.values_list("name", flat=True):
+        inherited.update(CMS_ROLE_PERMISSIONS.get(role_name, set()))
+    return permission in inherited
+
+
 def require_perm(user, permission):
-    if not user.is_superuser and not user.has_perm(permission):
+    if not has_cms_perm(user, permission):
         raise PermissionDenied("شما مجوز انجام این عملیات را ندارید.")
 
 
 def managed_article_or_404(user, pk):
     queryset = Article.objects.select_related("author")
-    if not (user.is_superuser or user.has_perm("article_module.view_all_articles")):
+    if not (has_cms_perm(user, "view_all_articles")):
         queryset = queryset.filter(author=user)
     return get_object_or_404(queryset, pk=pk)
 
@@ -40,13 +75,13 @@ class ArticleCapabilitiesView(APIView):
     def get(self, request):
         user = request.user
         permissions = {
-            "create": user.is_superuser or user.has_perm("article_module.add_article"),
-            "edit_own": user.is_superuser or user.has_perm("article_module.change_article"),
-            "view_all": user.is_superuser or user.has_perm("article_module.view_all_articles"),
-            "publish": user.is_superuser or user.has_perm("article_module.publish_article"),
-            "delete": user.is_superuser or user.has_perm("article_module.delete_article"),
-            "moderate_comments": user.is_superuser or user.has_perm("article_module.moderate_article_comments"),
-            "manage_roles": user.is_superuser or user.has_perm("article_module.manage_article_roles"),
+            "create": has_cms_perm(user, "add_article"),
+            "edit_own": has_cms_perm(user, "change_article"),
+            "view_all": user.is_superuser or has_cms_perm(user, "view_all_articles"),
+            "publish": has_cms_perm(user, "publish_article"),
+            "delete": has_cms_perm(user, "delete_article"),
+            "moderate_comments": has_cms_perm(user, "moderate_article_comments"),
+            "manage_roles": has_cms_perm(user, "manage_article_roles"),
             "is_superuser": user.is_superuser,
         }
         return Response({"permissions": permissions, "groups": list(user.groups.values_list("name", flat=True))})
@@ -102,7 +137,7 @@ class ArticleManagementListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not (request.user.has_perm("article_module.add_article") or request.user.has_perm("article_module.change_article") or request.user.has_perm("article_module.view_all_articles")):
+        if not (has_cms_perm(request.user, "add_article") or has_cms_perm(request.user, "change_article") or has_cms_perm(request.user, "view_all_articles")):
             raise PermissionDenied("شما مجوز مشاهده مقالات مدیریتی را ندارید.")
         articles = Article.objects.all() if request.user.has_perm("article_module.view_all_articles") else Article.objects.filter(author=request.user)
         articles = articles.select_related("author").prefetch_related("category", "tags")
@@ -165,7 +200,7 @@ class ArticleManagementDeleteView(APIView):
 
     def delete(self, request, pk):
         article = managed_article_or_404(request.user, pk)
-        if article.status != Article.Status.DRAFT and not request.user.has_perm("article_module.delete_article"):
+        if article.status != Article.Status.DRAFT and not has_cms_perm(request.user, "delete_article"):
             raise PermissionDenied("فقط پیش‌نویس‌های خودتان را می‌توانید حذف کنید.")
         if article.author_id != request.user.id:
             require_perm(request.user, "article_module.delete_article")
