@@ -182,15 +182,26 @@ class ArticlePublicationView(APIView):
 
     def post(self, request, pk):
         require_perm(request.user, "article_module.publish_article")
-        article = get_object_or_404(Article, pk=pk, status=Article.Status.APPROVED)
+        user = request.user
+        if user.is_superuser:
+            article = get_object_or_404(Article, pk=pk)
+        else:
+            article = get_object_or_404(Article, pk=pk, status=Article.Status.APPROVED)
+
         scheduled_at = request.data.get("scheduled_at")
         if scheduled_at:
             from rest_framework.fields import DateTimeField
             scheduled_at = DateTimeField().run_validation(scheduled_at)
-            if scheduled_at > timezone.now():
-                article.scheduled_at = scheduled_at
-                article.save()
-                return Response(ArticleManagementSerializer(article, context={"request": request}).data)
+            if scheduled_at <= timezone.now():
+                raise ValidationError({"scheduled_at": "زمان انتشار باید در آینده باشد."})
+            # زمان‌بندی سوپر‌یوزر هم از مسیر وضعیت تأییدشده عبور می‌کند؛
+            # این وضعیت برای اجرای job انتشار زمان‌بندی‌شده استفاده می‌شود.
+            article.status = Article.Status.APPROVED
+            article.published_at = None
+            article.scheduled_at = scheduled_at
+            article.save()
+            return Response(ArticleManagementSerializer(article, context={"request": request}).data)
+
         article.publish()
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
 
