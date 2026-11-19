@@ -23,13 +23,13 @@ def public_articles():
 
 
 def require_perm(user, permission):
-    if not user.has_perm(permission):
+    if not user.is_superuser and not user.has_perm(permission):
         raise PermissionDenied("شما مجوز انجام این عملیات را ندارید.")
 
 
 def managed_article_or_404(user, pk):
     queryset = Article.objects.select_related("author")
-    if not user.has_perm("article_module.view_all_articles"):
+    if not (user.is_superuser or user.has_perm("article_module.view_all_articles")):
         queryset = queryset.filter(author=user)
     return get_object_or_404(queryset, pk=pk)
 
@@ -40,14 +40,14 @@ class ArticleCapabilitiesView(APIView):
     def get(self, request):
         user = request.user
         permissions = {
-            "create": user.has_perm("article_module.add_article"),
-            "edit_own": user.has_perm("article_module.change_article"),
-            "view_all": user.has_perm("article_module.view_all_articles"),
-            "review": user.has_perm("article_module.review_article"),
-            "publish": user.has_perm("article_module.publish_article"),
-            "delete": user.has_perm("article_module.delete_article"),
-            "moderate_comments": user.has_perm("article_module.moderate_article_comments"),
-            "manage_roles": user.has_perm("article_module.manage_article_roles"),
+            "create": user.is_superuser or user.has_perm("article_module.add_article"),
+            "edit_own": user.is_superuser or user.has_perm("article_module.change_article"),
+            "view_all": user.is_superuser or user.has_perm("article_module.view_all_articles"),
+            "review": user.is_superuser or user.has_perm("article_module.review_article"),
+            "publish": user.is_superuser or user.has_perm("article_module.publish_article"),
+            "delete": user.is_superuser or user.has_perm("article_module.delete_article"),
+            "moderate_comments": user.is_superuser or user.has_perm("article_module.moderate_article_comments"),
+            "manage_roles": user.is_superuser or user.has_perm("article_module.manage_article_roles"),
             "is_superuser": user.is_superuser,
         }
         return Response({"permissions": permissions, "groups": list(user.groups.values_list("name", flat=True))})
