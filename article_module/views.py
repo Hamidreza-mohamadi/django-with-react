@@ -128,8 +128,6 @@ class ArticleManagementDetailView(APIView):
     def patch(self, request, pk):
         require_perm(request.user, "article_module.change_article")
         article = managed_article_or_404(request.user, pk)
-        if article.status == Article.Status.PUBLISHED:
-            raise ValidationError("برای ویرایش مقاله منتشرشده ابتدا انتشار آن را لغو کنید.")
         serializer = ArticleManagementSerializer(article, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         article = serializer.save()
@@ -210,8 +208,6 @@ class ArticleManagementDeleteView(APIView):
 
     def delete(self, request, pk):
         article = managed_article_or_404(request.user, pk)
-        if article.status == Article.Status.PUBLISHED:
-            raise ValidationError("برای حذف مقاله منتشرشده ابتدا باید انتشار آن لغو شود.")
         if article.status != Article.Status.DRAFT and not request.user.has_perm("article_module.delete_article"):
             raise PermissionDenied("فقط پیش‌نویس‌های خودتان را می‌توانید حذف کنید.")
         if article.author_id != request.user.id:
@@ -240,8 +236,6 @@ class ArticleImageUploadView(APIView):
     def post(self, request, pk):
         require_perm(request.user, "article_module.change_article")
         article = managed_article_or_404(request.user, pk)
-        if article.status == Article.Status.PUBLISHED:
-            raise ValidationError("برای تغییر تصاویر مقاله منتشرشده ابتدا انتشار آن را لغو کنید.")
         serializer = ArticleImageUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         image = ArticleImage.objects.create(
