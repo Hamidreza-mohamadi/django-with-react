@@ -46,9 +46,14 @@ function QueryError({ message, retry }: { message: string; retry: () => void }) 
 }
 
 function ArticleAdminPage() {
-  const articles = useQuery({ queryKey: ["cms", "my-articles"], queryFn: () => getManagedArticles() });
-  const review = useQuery({ queryKey: ["cms", "review-queue"], queryFn: () => getArticleReviewQueue() });
-  const comments = useQuery({ queryKey: ["cms", "pending-comments"], queryFn: () => getPendingArticleComments() });
+  const queryClient = useQueryClient();
+  const capabilities = useQuery({ queryKey: ["cms", "capabilities"], queryFn: () => getArticleCmsCapabilities() });
+  const permissions = capabilities.data?.permissions;
+  const articles = useQuery({ queryKey: ["cms", "my-articles"], queryFn: () => getManagedArticles(), enabled: !!(permissions?.create || permissions?.edit_own || permissions?.view_all) });
+  const review = useQuery({ queryKey: ["cms", "review-queue"], queryFn: () => getArticleReviewQueue(), enabled: !!permissions?.review });
+  const comments = useQuery({ queryKey: ["cms", "pending-comments"], queryFn: () => getPendingArticleComments(), enabled: !!permissions?.moderate_comments });
+  const runReview = async (articleId: number, decision: "approve" | "reject") => { await decideArticleReview({ data: { articleId, decision } }); await queryClient.invalidateQueries({ queryKey: ["cms"] }); };
+  const runComment = async (commentId: number, status: "approved" | "rejected") => { await moderateArticleComment({ data: { commentId, status } }); await queryClient.invalidateQueries({ queryKey: ["cms"] }); };
 
   const own = articles.data ?? [];
   const waiting = review.data ?? [];
@@ -65,9 +70,9 @@ function ArticleAdminPage() {
             <h1 className="text-3xl font-bold tracking-tight">داشبورد مقاله‌ها</h1>
             <p className="mt-2 text-sm text-muted-foreground">مدیریت نوشته‌ها، بررسی محتوا و نظارت بر دیدگاه‌ها</p>
           </div>
-          {permissions?.create && <Link to="/admin-article-editor/new" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
+          {permissions?.create && {permissions?.create && <Link to="/admin-article-editor/new" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
             <Plus className="h-4 w-4" /> ایجاد مقاله جدید
-          </Link>
+          </Link>}
         </div>
 
         <nav className="mb-6 flex flex-wrap gap-2">
