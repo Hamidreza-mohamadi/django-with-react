@@ -139,7 +139,7 @@ class ArticleManagementListCreateView(APIView):
     def get(self, request):
         if not (has_cms_perm(request.user, "add_article") or has_cms_perm(request.user, "change_article") or has_cms_perm(request.user, "view_all_articles")):
             raise PermissionDenied("شما مجوز مشاهده مقالات مدیریتی را ندارید.")
-        articles = Article.objects.all() if request.user.has_perm("article_module.view_all_articles") else Article.objects.filter(author=request.user)
+        articles = Article.objects.all() if has_cms_perm(request.user, "view_all_articles") else Article.objects.filter(author=request.user)
         articles = articles.select_related("author").prefetch_related("category", "tags")
         return Response(ArticleManagementSerializer(articles, many=True, context={"request": request}).data)
 
