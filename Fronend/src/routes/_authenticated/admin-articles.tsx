@@ -17,7 +17,7 @@ const statusStyles: Record<string, string> = {
 
 function Metric({ title, value, icon: Icon, detail }: { title: string; value: number | string; icon: typeof FileText; detail: string }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{title}</span>
         <span className="rounded-xl bg-primary/10 p-2 text-primary"><Icon className="h-5 w-5" /></span>
@@ -58,20 +58,20 @@ function ArticleAdminPage() {
   const formatDate = (value: string) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium" }).format(new Date(value));
 
   return (
-    <main dir="rtl" className="min-h-screen bg-muted/30">
+    <main dir="rtl" className="min-h-screen bg-gradient-to-b from-muted/50 via-background to-background">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-border bg-card/90 p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div>
             <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground"><LayoutDashboard className="h-4 w-4" /> مدیریت محتوا</div>
-            <h1 className="text-3xl font-bold tracking-tight">داشبورد مقاله‌ها</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight">داشبورد مقاله‌ها</h1>
             <p className="mt-2 text-sm text-muted-foreground">مدیریت نوشته‌ها و نظارت بر دیدگاه‌ها</p>
           </div>
-          {permissions?.create && <Link to="/admin-article-editor/new" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
+          {permissions?.create && <Link to="/admin-article-editor/new" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-md shadow-primary/15 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/20">
             <Plus className="h-4 w-4" /> ایجاد مقاله جدید
           </Link>}
         </div>
 
-        <nav className="mb-6 flex flex-wrap gap-2">
+        <nav className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-border bg-card/70 p-2 shadow-sm">
           <span className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><LayoutDashboard className="h-4 w-4" /> داشبورد</span>
           <a href="#my-articles" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><FileText className="h-4 w-4" /> فهرست مقاله‌ها</a>
           <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground"><Tags className="h-4 w-4" /> دسته‌بندی و برچسب</span>
