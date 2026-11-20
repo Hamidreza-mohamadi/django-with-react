@@ -202,7 +202,7 @@ class ArticleWorkflowView(APIView):
 
     def post(self, request, pk):
         action = request.data.get("action")
-        article = get_object_or_404(Article, pk=pk)
+        article = managed_article_or_404(request.user, pk)
 
         if action == "save_draft":
             require_perm(request.user, "article_module.change_article")
