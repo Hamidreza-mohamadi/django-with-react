@@ -86,7 +86,7 @@ function ArticleAdminPage() {
           {permissions?.moderate_comments && <Metric title="دیدگاه‌های منتظر" value={comments.isLoading ? "…" : pendingComments.length} icon={MessageSquare} detail="در انتظار تأیید یا رد" />}
         </div>
 
-        <section className="mt-8 space-y-4">
+        {(permissions?.create || permissions?.edit_own || permissions?.view_all || permissions?.publish || permissions?.review) && <section className="mt-8 space-y-4">
           <div><h2 className="text-xl font-bold">صف‌های کاری مقاله‌ها</h2><p className="mt-1 text-sm text-muted-foreground">مقاله‌ها بر اساس وضعیت فعلی در بخش‌های جداگانه قرار گرفته‌اند.</p></div>
           <div className="grid gap-5 xl:grid-cols-3">
             {[
@@ -104,7 +104,7 @@ function ArticleAdminPage() {
               </div>
             </section>)}
           </div>
-        </section>
+        </section>}
 
         {(articles.isError || comments.isError) && (
           <div className="mt-6 space-y-3">
