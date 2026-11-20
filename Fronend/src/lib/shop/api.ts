@@ -822,7 +822,7 @@ export const uploadManagedArticleImage = createServerFn({ method: "POST" })
 export interface ArticleCmsCapabilities {
   permissions: {
     create: boolean; edit_own: boolean; view_all: boolean;
-    publish: boolean; delete: boolean; moderate_comments: boolean;
+    publish: boolean; review: boolean; delete: boolean; moderate_comments: boolean;
     manage_roles: boolean; is_superuser: boolean;
   };
   groups: string[];
@@ -830,6 +830,11 @@ export interface ArticleCmsCapabilities {
 export const getArticleCmsCapabilities = createServerFn({ method: "GET" }).handler(
   async () => djangoFetch<ArticleCmsCapabilities>("/articles/manage/capabilities/"),
 );
+export const updateManagedArticleWorkflow = createServerFn({ method: "POST" })
+  .validator((data: { articleId: number; action: "save_draft" | "submit_review" | "approve" }) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/manage/${data.articleId}/workflow/`, {
+    method: "POST", body: JSON.stringify({ action: data.action }),
+  }));
 export const publishManagedArticle = createServerFn({ method: "POST" })
   .validator((data: { articleId: number; scheduled_at?: string }) => data)
   .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/publish/${data.articleId}/`, { method: "POST", body: JSON.stringify(data.scheduled_at ? { scheduled_at: data.scheduled_at } : {}) }));
