@@ -831,7 +831,7 @@ export const getArticleCmsCapabilities = createServerFn({ method: "GET" }).handl
   async () => djangoFetch<ArticleCmsCapabilities>("/articles/manage/capabilities/"),
 );
 export const updateManagedArticleWorkflow = createServerFn({ method: "POST" })
-  .validator((data: { articleId: number; action: "save_draft" | "submit_review" | "approve" }) => data)
+  .validator((data: { articleId: number; action: "save_draft" | "submit_review" | "approve" | "reject" }) => data)
   .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/manage/${data.articleId}/workflow/`, {
     method: "POST", body: JSON.stringify({ action: data.action }),
   }));
