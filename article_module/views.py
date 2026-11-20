@@ -221,6 +221,13 @@ class ArticleWorkflowView(APIView):
             article.status = Article.Status.APPROVED
             article.scheduled_at = None
             article.published_at = None
+        elif action == "reject":
+            require_perm(request.user, "article_module.review_article")
+            if article.status != Article.Status.REVIEW:
+                raise ValidationError("فقط مقاله‌های در انتظار بررسی قابل رد هستند.")
+            article.status = Article.Status.DRAFT
+            article.scheduled_at = None
+            article.published_at = None
         else:
             raise ValidationError({"action": "عملیات گردش کار نامعتبر است."})
 
