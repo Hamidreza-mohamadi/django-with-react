@@ -4,7 +4,7 @@ from .views import (
     ArticleCapabilitiesView, ArticleCategoryDetailManagementView, ArticleCategoryManagementView,
     ArticleCommentModerationDetailView, ArticleCommentModerationListView,
     ArticleDetailGeneric, ArticleImageUploadView, ArticleManagementDetailView,
-    ArticleManagementListCreateView, ArticleManagementDeleteView, ArticleUnpublishView, ArticlePublicationView,
+    ArticleManagementListCreateView, ArticleManagementDeleteView, ArticleUnpublishView, ArticlePublicationView, ArticleWorkflowView,
     ArticleTagDetailManagementView, ArticleTagManagementView, LatestArticlesView,
     PublicArticleCommentListCreateView, PublicArticleListView,
 )
@@ -21,6 +21,7 @@ urlpatterns = [
     path("manage/tags/<int:pk>/", ArticleTagDetailManagementView.as_view(), name="article-tag-detail-manage"),
     path("manage/comments/", ArticleCommentModerationListView.as_view(), name="article-comment-moderation-list"),
     path("manage/comments/<int:pk>/", ArticleCommentModerationDetailView.as_view(), name="article-comment-moderation-detail"),
+    path("manage/<int:pk>/workflow/", ArticleWorkflowView.as_view(), name="article-workflow"),
     path("publish/<int:pk>/", ArticlePublicationView.as_view(), name="article-publish"),
     path("publish/<int:pk>/unpublish/", ArticleUnpublishView.as_view(), name="article-unpublish"),
     path("comments/<slug:slug>/", PublicArticleCommentListCreateView.as_view(), name="article-comments"),
