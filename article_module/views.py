@@ -31,15 +31,15 @@ CMS_ROLE_PERMISSIONS = {
     },
     "ویراستار": {
         "add_article", "change_article", "view_article",
-        "view_all_articles", "publish_article",
+        "view_all_articles", "publish_article", "review_article",
     },
     "ناشر": {
         "add_article", "change_article", "view_article", "delete_article",
-        "view_all_articles", "publish_article",
+        "view_all_articles", "publish_article", "review_article",
     },
     "مدیر محتوا": {
         "add_article", "change_article", "view_article", "delete_article",
-        "view_all_articles", "publish_article", "moderate_article_comments",
+        "view_all_articles", "publish_article", "review_article", "moderate_article_comments",
         "manage_article_roles",
     },
     "ناظر کامنت‌ها": {
@@ -59,20 +59,25 @@ def has_cms_perm(user, permission):
 
     # Permission-based inheritance also covers users whose role was assigned
     # through individual Django permissions instead of a named CMS group.
+    if user.has_perm("article_module.review_article"):
+        inherited.update({
+            "add_article", "change_article", "view_article",
+            "view_all_articles", "publish_article", "review_article",
+        })
     if user.has_perm("article_module.publish_article"):
         inherited.update({
             "add_article", "change_article", "view_article",
-            "view_all_articles", "publish_article",
+            "view_all_articles", "publish_article", "review_article",
         })
     if user.has_perm("article_module.delete_article"):
         inherited.update({
             "add_article", "change_article", "view_article", "delete_article",
-            "view_all_articles", "publish_article",
+            "view_all_articles", "publish_article", "review_article",
         })
     if user.has_perm("article_module.manage_article_roles"):
         inherited.update({
             "add_article", "change_article", "view_article", "delete_article",
-            "view_all_articles", "publish_article", "moderate_article_comments",
+            "view_all_articles", "publish_article", "review_article", "moderate_article_comments",
             "manage_article_roles",
         })
 
@@ -102,6 +107,7 @@ class ArticleCapabilitiesView(APIView):
             "edit_own": has_cms_perm(user, "change_article"),
             "view_all": user.is_superuser or has_cms_perm(user, "view_all_articles"),
             "publish": has_cms_perm(user, "publish_article"),
+            "review": has_cms_perm(user, "review_article"),
             "delete": has_cms_perm(user, "delete_article"),
             "moderate_comments": has_cms_perm(user, "moderate_article_comments"),
             "manage_roles": has_cms_perm(user, "manage_article_roles"),
@@ -188,6 +194,37 @@ class ArticleManagementDetailView(APIView):
         serializer = ArticleManagementSerializer(article, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         article = serializer.save()
+        return Response(ArticleManagementSerializer(article, context={"request": request}).data)
+
+
+class ArticleWorkflowView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        action = request.data.get("action")
+        article = get_object_or_404(Article, pk=pk)
+
+        if action == "save_draft":
+            require_perm(request.user, "article_module.change_article")
+            article.status = Article.Status.DRAFT
+            article.scheduled_at = None
+            article.published_at = None
+        elif action == "submit_review":
+            require_perm(request.user, "article_module.change_article")
+            article.status = Article.Status.REVIEW
+            article.scheduled_at = None
+            article.published_at = None
+        elif action == "approve":
+            require_perm(request.user, "article_module.review_article")
+            if article.status != Article.Status.REVIEW:
+                raise ValidationError("فقط مقاله‌های در انتظار بررسی قابل تأیید هستند.")
+            article.status = Article.Status.APPROVED
+            article.scheduled_at = None
+            article.published_at = None
+        else:
+            raise ValidationError({"action": "عملیات گردش کار نامعتبر است."})
+
+        article.save()
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
 
 
