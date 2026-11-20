@@ -149,7 +149,7 @@ function ArticleEditorPage() {
       setMessage(messages[action]);
       setArticleKey(saved.id);
       await queryClient.invalidateQueries({ queryKey: ["cms"] });
-      await article.refetch();
+      if (!isNew) await article.refetch();
     },
     onError: (error) => setMessage(error.message || "تغییر وضعیت مقاله ناموفق بود."),
   });
