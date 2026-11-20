@@ -136,7 +136,7 @@ function ArticleEditorPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: (action: "save_draft" | "submit_review" | "approve") => {
+    mutationFn: (action: "save_draft" | "submit_review" | "approve" | "reject") => {
       if (!articleKey) throw new Error("ابتدا مقاله را ذخیره کنید.");
       return updateManagedArticleWorkflow({ data: { articleId: articleKey, action } });
     },
@@ -144,7 +144,8 @@ function ArticleEditorPage() {
       const messages = {
         save_draft: "مقاله به‌صورت پیش‌نویس ذخیره شد.",
         submit_review: "مقاله برای بررسی ویراستار ارسال شد.",
-        approve: "مقاله توسط ویراستار تأیید شد.",
+        approve: "مقاله تأیید شد.",
+        reject: "مقاله رد شد و به پیش‌نویس برگشت."
       };
       setMessage(messages[action]);
       setArticleKey(saved.id);
@@ -154,7 +155,7 @@ function ArticleEditorPage() {
     onError: (error) => setMessage(error.message || "تغییر وضعیت مقاله ناموفق بود."),
   });
 
-  async function handleStatusAction(action: "save_draft" | "submit_review" | "approve") {
+  async function handleStatusAction(action: "save_draft" | "submit_review" | "approve" | "reject") {
     publishingNewArticle.current = true;
     try {
       const saved = await saveMutation.mutateAsync();
@@ -374,16 +375,16 @@ function ArticleEditorPage() {
         </div>
         <div className="flex flex-wrap items-end gap-3">
           {(isNew ? permissions?.create : permissions?.edit_own) && <button type="button" disabled={saveMutation.isPending || statusMutation.isPending || !form.title.trim()} onClick={() => void handleStatusAction("save_draft")} className="inline-flex items-center gap-2 rounded-xl border border-primary bg-primary/10 px-5 py-3 text-sm font-semibold text-primary disabled:opacity-50">{saveMutation.isPending || statusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره به‌عنوان پیش‌نویس</button>}
-          {(isNew ? permissions?.create : permissions?.edit_own) && <button type="button" disabled={saveMutation.isPending || statusMutation.isPending || !form.title.trim()} onClick={() => void handleStatusAction("submit_review")} className="rounded-xl border border-sky-500/40 px-4 py-3 text-sm font-semibold text-sky-700 disabled:opacity-50">ارسال برای بررسی ویراستار</button>}
-          {!isNew && article.data?.status === "review" && permissions?.review && <button type="button" disabled={saveMutation.isPending || statusMutation.isPending} onClick={() => void handleStatusAction("approve")} className="rounded-xl border border-emerald-500/40 px-4 py-3 text-sm font-semibold text-emerald-700 disabled:opacity-50">تأیید ویراستار</button>}
-          {!isNew && article.data?.status === "published" && permissions?.publish && <button type="button" disabled={unpublishMutation.isPending} onClick={() => { if (window.confirm("انتشار این مقاله لغو شود؟")) unpublishMutation.mutate(); }} className="rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold text-amber-700 disabled:opacity-50">لغو انتشار</button>}
-          {!isNew && (permissions?.delete || (article.data?.status === "draft" && permissions?.edit_own)) && <button type="button" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm("این مقاله برای همیشه حذف شود؟")) deleteMutation.mutate(); }} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-50">حذف مقاله</button>}
+          {(isNew ? permissions?.create : permissions?.edit_own) && <button type="button" disabled={saveMutation.isPending || statusMutation.isPending || !form.title.trim()} onClick={() => void handleStatusAction("submit_review")} className="rounded-xl border border-sky-500/40 px-4 py-3 text-sm font-semibold text-sky-700 transition-colors hover:bg-sky-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-50" title="مقاله را برای بررسی و تصمیم ویراستار به وضعیت در انتظار بررسی می‌برد." aria-label="ارسال برای بررسی">ارسال برای بررسی</button>}
+          {!isNew && article.data?.status === "review" && permissions?.review && <button type="button" disabled={saveMutation.isPending || statusMutation.isPending} onClick={() => void handleStatusAction("approve")} className="rounded-xl border border-emerald-500/40 px-4 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50" title="بررسی مقاله را تأیید می‌کند و آن را برای انتشار آماده می‌سازد." aria-label="تأیید مقاله">تأیید مقاله</button><button type="button" disabled={saveMutation.isPending || statusMutation.isPending} onClick={() => void handleStatusAction("reject")} title="مقاله را رد می‌کند و برای اصلاح به پیش‌نویس برمی‌گرداند." aria-label="رد مقاله" className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50">رد مقاله</button>}
+          {!isNew && article.data?.status === "published" && permissions?.publish && <button type="button" disabled={unpublishMutation.isPending} onClick={() => { if (window.confirm("انتشار این مقاله لغو شود؟")) unpublishMutation.mutate(); }} className="rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50">لغو انتشار</button>}
+          {!isNew && (permissions?.delete || (article.data?.status === "draft" && permissions?.edit_own)) && <button type="button" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm("این مقاله برای همیشه حذف شود؟")) deleteMutation.mutate(); }} className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50">حذف مقاله</button>}
           {permissions?.publish && (isNew || article.data?.status !== "published") && <>
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               زمان انتشار (اختیاری)
               <input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
             </label>
-            <button type="button" disabled={workflowMutation.isPending || saveMutation.isPending || statusMutation.isPending} onClick={() => void handlePublish()} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{scheduledAt ? "زمان‌بندی انتشار" : "انتشار مستقیم مقاله"}</button>
+            <button type="button" disabled={workflowMutation.isPending || saveMutation.isPending || statusMutation.isPending} onClick={() => void handlePublish()} className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50">{scheduledAt ? "زمان‌بندی انتشار" : "انتشار مستقیم مقاله"}</button>
           </>}
           {!permissions?.create && !permissions?.edit_own && !permissions?.publish && <p className="text-sm text-muted-foreground">نقش شما دسترسی ویرایش یا انتشار مقاله را ندارد.</p>}
         </div>
