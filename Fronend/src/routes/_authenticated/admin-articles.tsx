@@ -51,6 +51,9 @@ function ArticleAdminPage() {
 
   const own = articles.data ?? [];
   const pendingComments = comments.data ?? [];
+  const waitingPublish = own.filter((article) => article.status === "approved");
+  const waitingReview = own.filter((article) => article.status === "review");
+  const drafts = own.filter((article) => article.status === "draft");
   const unpublishedCount = own.filter((article) => article.status !== "published" && article.status !== "archived").length;
   const formatDate = (value: string) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium" }).format(new Date(value));
 
@@ -82,6 +85,26 @@ function ArticleAdminPage() {
           <Metric title="مقاله‌های منتشرنشده" value={articles.isLoading ? "…" : unpublishedCount} icon={Clock3} detail="قابل انتشار مستقیم بر اساس سطح دسترسی" />
           {permissions?.moderate_comments && <Metric title="دیدگاه‌های منتظر" value={comments.isLoading ? "…" : pendingComments.length} icon={MessageSquare} detail="در انتظار تأیید یا رد" />}
         </div>
+
+        <section className="mt-8 space-y-4">
+          <div><h2 className="text-xl font-bold">صف‌های کاری مقاله‌ها</h2><p className="mt-1 text-sm text-muted-foreground">مقاله‌ها بر اساس وضعیت فعلی در بخش‌های جداگانه قرار گرفته‌اند.</p></div>
+          <div className="grid gap-5 xl:grid-cols-3">
+            {[
+              { key: "approved", title: "در انتظار انتشار", items: waitingPublish, color: "border-emerald-500/30 bg-emerald-500/[0.04]" },
+              { key: "review", title: "در انتظار بررسی", items: waitingReview, color: "border-sky-500/30 bg-sky-500/[0.04]" },
+              { key: "draft", title: "پیش‌نویس‌ها", items: drafts, color: "border-border bg-card" },
+            ].map((queue) => <section key={queue.key} className={"overflow-hidden rounded-2xl border shadow-sm " + queue.color}>
+              <header className="flex items-center justify-between border-b border-border/70 px-5 py-4"><h3 className="font-bold">{queue.title}</h3><span className="rounded-full bg-background px-3 py-1 text-sm font-bold">{queue.items.length}</span></header>
+              <div className="max-h-[400px] divide-y divide-border/70 overflow-y-auto">
+                {articles.isLoading ? <p className="p-5 text-sm text-muted-foreground">در حال دریافت…</p> : queue.items.length === 0 ? <p className="p-7 text-center text-sm text-muted-foreground">مقاله‌ای در این بخش وجود ندارد.</p> : queue.items.map((article) => <article key={article.id} className="p-4 transition hover:bg-background/70">
+                  <Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="block"><h4 className="text-sm font-semibold leading-6 hover:text-primary">{article.title || "بدون عنوان"}</h4><p className="mt-1 text-xs text-muted-foreground">{article.author?.username || "نویسنده"} · {formatDate(article.updated_at)}</p></Link>
+                  {queue.key === "approved" && article.scheduled_at && <p className="mt-2 text-xs text-emerald-700">زمان‌بندی‌شده برای انتشار</p>}
+                  <div className="mt-3 flex flex-wrap gap-2"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-muted">مشاهده و ویرایش</Link>{queue.key === "approved" && permissions?.publish && <button onClick={() => runPublish(article.id)} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">انتشار فوری</button>}{queue.key === "review" && permissions?.review && <Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-500/15">بررسی مقاله</Link>}</div>
+                </article>)}
+              </div>
+            </section>)}
+          </div>
+        </section>
 
         {(articles.isError || comments.isError) && (
           <div className="mt-6 space-y-3">
@@ -116,7 +139,7 @@ function ArticleAdminPage() {
                 <tbody className="divide-y divide-border">
                   {own.map((article) => <tr key={article.id} className="hover:bg-muted/30">
                     <td className="max-w-sm px-5 py-4"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="group block"><div className="flex items-center gap-2 truncate font-medium text-primary group-hover:underline">{article.title || "بدون عنوان"} <Pencil className="h-3.5 w-3.5 shrink-0" /></div><div className="mt-1 truncate text-xs text-muted-foreground">{article.short_description}</div></Link></td>
-                    <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[article.status] || "bg-muted"}`}>{article.status === "published" ? "منتشر شده" : article.status === "archived" ? "بایگانی" : article.scheduled_at ? "زمان‌بندی‌شده" : "منتشر نشده"}</span></td>
+                    <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[article.status] || "bg-muted"}`}>{article.status === "published" ? "منتشر شده" : article.status === "archived" ? "بایگانی" : article.status === "review" ? "در انتظار بررسی" : article.status === "approved" ? (article.scheduled_at ? "زمان‌بندی‌شده" : "آماده انتشار") : "پیش‌نویس"}</span></td>
                     <td className="px-5 py-4 text-muted-foreground">{formatDate(article.updated_at)}</td>
                     <td className="px-5 py-4"><div className="flex flex-wrap gap-2"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted">جزئیات</Link>{article.status !== "published" && permissions?.publish && <button onClick={() => runPublish(article.id)} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground">انتشار</button>}{article.status === "published" && permissions?.publish && <button onClick={() => runUnpublish(article.id)} className="rounded-lg border border-border px-3 py-1.5 text-xs">لغو انتشار</button>}{(permissions?.delete || (article.status === "draft" && permissions?.edit_own)) && <button onClick={() => runDeleteArticle(article.id)} className="rounded-lg border border-destructive/40 px-3 py-1.5 text-xs text-destructive">حذف</button>}</div></td>
                   </tr>)}
