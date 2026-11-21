@@ -161,7 +161,7 @@ class ArticleManagementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
         fields = ("id", "title", "slug", "short_description", "content", "content_json", "image", "image_alt", "author", "category", "tags", "status", "scheduled_at", "published_at", "created_at", "updated_at", "meta_title", "meta_description")
-        read_only_fields = ("id", "slug", "author", "status", "scheduled_at", "published_at", "created_at", "updated_at")
+        read_only_fields = ("id", "author", "status", "scheduled_at", "published_at", "created_at", "updated_at")
 
     def validate_content_json(self, value):
         allowed = set()
