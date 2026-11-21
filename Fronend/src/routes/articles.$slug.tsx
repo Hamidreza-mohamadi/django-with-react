@@ -16,20 +16,23 @@ import { useEffect, useMemo, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import { getArticle, getArticles, getArticleComments, createArticleComment } from "@/lib/shop/api";
+import { getArticle, getArticles, getArticleComments, createArticleComment, getManagedArticle } from "@/lib/shop/api";
+import type { Article } from "@/lib/shop/types";
 import { Button } from "@/components/ui/button";
 import type { ArticleComment } from "@/lib/shop/types";
 
-const articleQueryOptions = (slug: string) =>
+const articleQueryOptions = (slug: string, previewId?: number) =>
   queryOptions({
-    queryKey: ["articles", "detail", slug],
-    queryFn: () => getArticle({ data: { slug } }),
+    queryKey: ["articles", "detail", slug, previewId ?? null],
+    queryFn: async () => previewId
+      ? await getManagedArticle({ data: { articleId: previewId } }) as unknown as Article
+      : getArticle({ data: { slug } }),
   });
 
-const commentsQueryOptions = (id: number) =>
+const commentsQueryOptions = (id: number, preview = false) =>
   queryOptions({
-    queryKey: ["articles", "comments", id],
-    queryFn: () => getArticleComments({ data: { articleId: id } }),
+    queryKey: ["articles", "comments", id, preview],
+    queryFn: () => preview ? Promise.resolve([]) : getArticleComments({ data: { articleId: id } }),
   });
 
 const articlesListQueryOptions = queryOptions({
@@ -38,9 +41,14 @@ const articlesListQueryOptions = queryOptions({
 });
 
 export const Route = createFileRoute("/articles/$slug")({
-  loader: async ({ context, params }) => {
-    const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug));
-    context.queryClient.ensureQueryData(commentsQueryOptions(article.id));
+  validateSearch: (search: Record<string, unknown>) => ({
+    previewId: typeof search.previewId === "string" && /^\\d+$/.test(search.previewId)
+      ? Number(search.previewId)
+      : typeof search.previewId === "number" && Number.isInteger(search.previewId) ? search.previewId : undefined,
+  }),
+  loader: async ({ context, params, search }) => {
+    const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug, search.previewId));
+    if (!search.previewId) context.queryClient.ensureQueryData(commentsQueryOptions(article.id));
     context.queryClient.ensureQueryData(articlesListQueryOptions);
     return article;
   },
@@ -116,15 +124,17 @@ function useReadingProgress() {
 
 function ArticleDetailPage() {
   const { slug } = Route.useParams();
-  const { data: article } = useSuspenseQuery(articleQueryOptions(slug));
+  const { previewId } = Route.useSearch();
+  const isPreview = !!previewId;
+  const { data: article } = useSuspenseQuery(articleQueryOptions(slug, previewId));
   if (!article) throw notFound();
 
-  const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.id));
+  const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.id, isPreview));
   const { data: allArticles } = useSuspenseQuery(articlesListQueryOptions);
   const progress = useReadingProgress();
   const [copied, setCopied] = useState(false);
 
-  const categoryName = typeof article.category === "string"
+  const categoryName = isPreview ? "پیش‌نمایش" : typeof article.category === "string"
     ? article.category
     : Array.isArray(article.category)
       ? article.category[0]?.title ?? "بدون دسته‌بندی"
@@ -166,6 +176,7 @@ function ArticleDetailPage() {
 
   return (
     <div dir="rtl">
+      {isPreview && <div className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-900">پیش‌نمایش مقاله — این صفحه فقط برای بررسی مدیران است و مقاله هنوز در سایت منتشر نشده است.</div>}
       {/* نوار پیشرفت مطالعه */}
       <div className="fixed inset-x-0 top-0 z-50 h-0.5 bg-transparent">
         <div className="h-full bg-primary transition-[width] duration-150" style={{ width: `${progress}%` }} />
@@ -309,7 +320,7 @@ function ArticleDetailPage() {
                 </section>
               )}
 
-              <CommentsSection articleId={article.id} comments={comments} />
+              {!isPreview && <CommentsSection articleId={article.id} comments={comments} />}
 
             </article>
           </div>
