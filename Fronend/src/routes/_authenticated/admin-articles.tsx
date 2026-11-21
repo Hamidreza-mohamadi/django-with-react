@@ -156,7 +156,7 @@ function ArticleAdminPage() {
               </table>
             </div>}
           </section>)}
-        </section>
+        </section>}
 
         <p className="mt-5 text-xs leading-6 text-muted-foreground">دسترسی هر عملیات توسط مجوزهای سمت سرور کنترل می‌شود؛ هر نقش فقط امکانات مجاز خودش و نقش‌های پایین‌تر را دارد.</p>
       </div>
