@@ -46,10 +46,12 @@ export const Route = createFileRoute("/articles/$slug")({
       ? Number(search.previewId)
       : typeof search.previewId === "number" && Number.isInteger(search.previewId) ? search.previewId : undefined,
   }),
-  loader: async ({ context, params, search }) => {
-    const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug, search.previewId));
-    if (!search.previewId) context.queryClient.ensureQueryData(commentsQueryOptions(article.id));
-    if (!search.previewId) await context.queryClient.ensureQueryData(articlesListQueryOptions());
+  loaderDeps: ({ search }) => ({ previewId: search.previewId }),
+  loader: async ({ context, params, deps }) => {
+    const previewId = deps.previewId;
+    const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug, previewId));
+    if (!previewId) context.queryClient.ensureQueryData(commentsQueryOptions(article.id));
+    if (!previewId) await context.queryClient.ensureQueryData(articlesListQueryOptions());
     return article;
   },
   head: ({ loaderData }) =>
