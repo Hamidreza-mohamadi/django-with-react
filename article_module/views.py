@@ -174,6 +174,8 @@ class ArticleManagementListCreateView(APIView):
 
     def post(self, request):
         require_perm(request.user, "article_module.add_article")
+        if "slug" in request.data and not has_cms_perm(request.user, "manage_article_roles"):
+            raise PermissionDenied("فقط مدیر محتوا می‌تواند نشانی مقاله را تعیین کند.")
         serializer = ArticleManagementSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         article = serializer.save(author=request.user, status=Article.Status.DRAFT)
@@ -191,6 +193,8 @@ class ArticleManagementDetailView(APIView):
     def patch(self, request, pk):
         require_perm(request.user, "article_module.change_article")
         article = managed_article_or_404(request.user, pk)
+        if "slug" in request.data and not has_cms_perm(request.user, "manage_article_roles"):
+            raise PermissionDenied("فقط مدیر محتوا می‌تواند نشانی مقاله را ویرایش کند.")
         serializer = ArticleManagementSerializer(article, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         article = serializer.save()
