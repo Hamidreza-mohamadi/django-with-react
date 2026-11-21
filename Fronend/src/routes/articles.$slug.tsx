@@ -42,7 +42,7 @@ const articlesListQueryOptions = queryOptions({
 
 export const Route = createFileRoute("/articles/$slug")({
   validateSearch: (search: Record<string, unknown>) => ({
-    previewId: typeof search.previewId === "string" && /^\\d+$/.test(search.previewId)
+    previewId: typeof search.previewId === "string" && /^\d+$/.test(search.previewId)
       ? Number(search.previewId)
       : typeof search.previewId === "number" && Number.isInteger(search.previewId) ? search.previewId : undefined,
   }),
