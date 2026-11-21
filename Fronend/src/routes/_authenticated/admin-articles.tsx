@@ -54,6 +54,7 @@ function ArticleAdminPage() {
   const waitingPublish = own.filter((article) => article.status === "approved");
   const waitingReview = own.filter((article) => article.status === "review");
   const drafts = own.filter((article) => article.status === "draft");
+  const archived = own.filter((article) => article.status === "archived");
   const unpublishedCount = own.filter((article) => article.status !== "published" && article.status !== "archived").length;
   const formatDate = (value: string) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium" }).format(new Date(value));
 
@@ -137,6 +138,7 @@ function ArticleAdminPage() {
             { key: "approved", title: "در انتظار انتشار", items: waitingPublish },
             { key: "review", title: "در انتظار بررسی", items: waitingReview },
             { key: "draft", title: "پیش‌نویس‌ها", items: drafts },
+            { key: "archived", title: "بایگانی", items: archived },
           ].map((queue) => <section key={queue.key} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
               <div><h3 className="font-semibold">{queue.title}</h3><p className="mt-1 text-xs text-muted-foreground">وضعیت و زمان آخرین تغییر مقاله‌ها</p></div>
@@ -148,7 +150,7 @@ function ArticleAdminPage() {
                 <tbody className="divide-y divide-border">
                   {queue.items.map((article) => <tr key={article.id} className="hover:bg-muted/30">
                     <td className="max-w-sm px-5 py-4"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="group block"><div className="flex items-center gap-2 truncate font-medium text-primary group-hover:underline">{article.title || "بدون عنوان"} <Pencil className="h-3.5 w-3.5 shrink-0" /></div><div className="mt-1 truncate text-xs text-muted-foreground">{article.short_description}</div></Link></td>
-                    <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[article.status] || "bg-muted"}`}>{article.status === "approved" ? (article.scheduled_at ? "زمان‌بندی‌شده" : "آماده انتشار") : article.status === "review" ? "در انتظار بررسی" : "پیش‌نویس"}</span></td>
+                    <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[article.status] || "bg-muted"}`}>{article.status === "approved" ? (article.scheduled_at ? "زمان‌بندی‌شده" : "آماده انتشار") : article.status === "review" ? "در انتظار بررسی" : article.status === "archived" ? "بایگانی" : "پیش‌نویس"}</span></td>
                     <td className="px-5 py-4 text-muted-foreground">{formatDate(article.updated_at)}</td>
                     <td className="px-5 py-4"><div className="flex flex-wrap gap-2"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted">جزئیات</Link>{queue.key === "approved" && permissions?.publish && <button onClick={() => runPublish(article.id)} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground">منتشر کردن</button>}{queue.key === "review" && permissions?.review && <Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-sky-500/30 px-3 py-1.5 text-xs text-sky-700 hover:bg-sky-500/10">بررسی مقاله</Link>}</div></td>
                   </tr>)}
