@@ -285,8 +285,7 @@ class ArticleUnpublishView(APIView):
     def post(self, request, pk):
         require_perm(request.user, "article_module.publish_article")
         article = get_object_or_404(Article, pk=pk, status=Article.Status.PUBLISHED)
-        article.status = Article.Status.APPROVED
-        article.published_at = None
+        article.status = Article.Status.ARCHIVED
         article.scheduled_at = None
         article.save()
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
