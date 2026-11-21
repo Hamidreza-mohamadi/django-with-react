@@ -194,7 +194,7 @@ function ArticleEditorPage() {
       return unpublishManagedArticle({ data: { articleId: articleKey } });
     },
     onSuccess: async () => {
-      setMessage("انتشار مقاله لغو شد.");
+      setMessage("مقاله به بایگانی منتقل شد.");
       await queryClient.invalidateQueries({ queryKey: ["cms"] });
       await article.refetch();
     },
@@ -355,11 +355,13 @@ function ArticleEditorPage() {
             <h2 className="mb-3 font-semibold">دسته‌بندی‌ها</h2>
             <div className="flex gap-2"><input value={categorySearch} onChange={(event) => setCategorySearch(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" disabled={!categorySearch.trim() || !!categories.data?.some((item) => item.is_active && (item.title.trim().toLocaleLowerCase() === categorySearch.trim().toLocaleLowerCase()))} onClick={async () => { try { const item = await createArticleCategory({ data: { title: categorySearch.trim() } }); await queryClient.invalidateQueries({ queryKey: ["cms", "categories"] }); setForm((p) => ({ ...p, category: [...new Set([...p.category, item.id])] })); setCategorySearch(""); } catch (err) { setMessage(err instanceof Error ? err.message : "ایجاد دسته‌بندی ناموفق بود."); } }} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">+</button></div>
             <div className="mt-3 max-h-44 space-y-2 overflow-y-auto rounded-lg border border-border p-3">{categories.data?.filter((item) => item.is_active && (item.title.toLocaleLowerCase().startsWith(categorySearch.trim().toLocaleLowerCase()))).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.category.includes(item.id)} onChange={(event) => toggleCategory(item.id, event.target.checked)} />{item.title}</label>)}</div>
+             <Link to="/admin-taxonomies" className="mt-3 inline-flex text-xs text-primary hover:underline">مدیریت دسته‌بندی‌ها</Link>
           </section>
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 font-semibold">برچسب‌ها</h2>
             <div className="flex gap-2"><input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" disabled={!tagSearch.trim() || !!tags.data?.some((item) => item.is_active && (item.title.trim().toLocaleLowerCase() === tagSearch.trim().toLocaleLowerCase()))} onClick={async () => { try { const item = await createArticleTag({ data: { title: tagSearch.trim() } }); await queryClient.invalidateQueries({ queryKey: ["cms", "tags"] }); setForm((p) => ({ ...p, tags: [...new Set([...p.tags, item.id])] })); setTagSearch(""); } catch (err) { setMessage(err instanceof Error ? err.message : "ایجاد برچسب ناموفق بود."); } }} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">+</button></div>
             <div className="mt-3 max-h-44 space-y-2 overflow-y-auto rounded-lg border border-border p-3">{tags.data?.filter((item) => item.is_active && (item.title.toLocaleLowerCase().startsWith(tagSearch.trim().toLocaleLowerCase()))).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.tags.includes(item.id)} onChange={(event) => setForm((p) => ({ ...p, tags: event.target.checked ? [...p.tags, item.id] : p.tags.filter((id) => id !== item.id) }))} />{item.title}</label>)}</div>
+             <Link to="/admin-taxonomies" className="mt-3 inline-flex text-xs text-primary hover:underline">مدیریت برچسب‌ها</Link>
           </section>
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 font-semibold">اطلاعات مقاله</h2>
