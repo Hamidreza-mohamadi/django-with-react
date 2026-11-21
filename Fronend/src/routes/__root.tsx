@@ -55,6 +55,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">
           مشکلی در سمت ما پیش آمده. می‌توانید دوباره تلاش کنید یا به خانه بازگردید.
         </p>
+        {import.meta.env.DEV && <pre dir="ltr" className="mt-4 max-h-40 overflow-auto rounded-lg bg-muted p-3 text-left text-xs text-destructive">{error.message}</pre>}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
