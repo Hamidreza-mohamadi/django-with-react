@@ -59,8 +59,6 @@ function ArticleEditorPage() {
   const [slug, setSlug] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
   const [tagSearch, setTagSearch] = useState("");
-  const [newCategoryTitle, setNewCategoryTitle] = useState("");
-  const [newTagTitle, setNewTagTitle] = useState("");
   const [uploading, setUploading] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const coverImageInput = useRef<HTMLInputElement>(null);
