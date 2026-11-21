@@ -74,7 +74,7 @@ function ArticleAdminPage() {
         <nav className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-border bg-card/70 p-2 shadow-sm">
           <span className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><LayoutDashboard className="h-4 w-4" /> داشبورد</span>
           <a href="#my-articles" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><FileText className="h-4 w-4" /> فهرست مقاله‌ها</a>
-          <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground"><Tags className="h-4 w-4" /> دسته‌بندی و برچسب</span>
+          <Link to="/admin-taxonomies" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><Tags className="h-4 w-4" /> دسته‌بندی و برچسب</Link>
           <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground"><MessageSquare className="h-4 w-4" /> دیدگاه‌ها</span>
         </nav>
 
