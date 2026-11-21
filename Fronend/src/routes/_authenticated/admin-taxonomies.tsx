@@ -18,8 +18,8 @@ function TaxonomyManagementPage() {
   const tags = useQuery({ queryKey: ["cms", "tags"], queryFn: () => getArticleTags() });
   const canCreate = !!capabilities.data?.permissions.create;
   const canDelete = !!capabilities.data?.permissions.delete;
-  const categoryExists = useMemo(() => categories.data?.some((item) => normalize(item.title).includes(normalize(categorySearch))), [categories.data, categorySearch]);
-  const tagExists = useMemo(() => tags.data?.some((item) => normalize(item.title).includes(normalize(tagSearch))), [tags.data, tagSearch]);
+  const categoryExists = useMemo(() => categories.data?.some((item) => normalize(item.title).startsWith(normalize(categorySearch)) || normalize(categorySearch).startsWith(normalize(item.title))), [categories.data, categorySearch]);
+  const tagExists = useMemo(() => tags.data?.some((item) => normalize(item.title).startsWith(normalize(tagSearch)) || normalize(tagSearch).startsWith(normalize(item.title))), [tags.data, tagSearch]);
 
   async function createCategory() {
     if (!categorySearch.trim() || categoryExists) return;
@@ -32,12 +32,12 @@ function TaxonomyManagementPage() {
     catch (error) { setMessage(error instanceof Error ? error.message : "ایجاد برچسب ناموفق بود."); }
   }
   async function removeCategory(id: number, title: string) {
-    if (!window.confirm(`دسته‌بندی «${title}» حذف شود؟ اگر به مقاله یا زیر‌دسته‌ای متصل باشد، حذف انجام نمی‌شود.`)) return;
+    if (!window.confirm(`دسته‌بندی «${title}» حذف شود؟ ارتباطش با مقاله‌ها حذف می‌شود؛ خود مقاله‌ها باقی می‌مانند. اگر زیر‌دسته داشته باشد، ابتدا باید آن‌ها را منتقل کنید.`)) return;
     try { await deleteArticleCategory({ data: { categoryId: id } }); setMessage("دسته‌بندی حذف شد."); await queryClient.invalidateQueries({ queryKey: ["cms", "categories"] }); }
     catch (error) { setMessage(error instanceof Error ? error.message : "حذف دسته‌بندی ممکن نشد؛ ممکن است هنوز به مقاله‌ای متصل باشد."); }
   }
   async function removeTag(id: number, title: string) {
-    if (!window.confirm(`برچسب «${title}» حذف شود؟ اگر به مقاله‌ای متصل باشد، حذف انجام نمی‌شود.`)) return;
+    if (!window.confirm(`برچسب «${title}» حذف شود؟ ارتباطش با مقاله‌ها حذف می‌شود؛ خود مقاله‌ها باقی می‌مانند.`)) return;
     try { await deleteArticleTag({ data: { tagId: id } }); setMessage("برچسب حذف شد."); await queryClient.invalidateQueries({ queryKey: ["cms", "tags"] }); }
     catch (error) { setMessage(error instanceof Error ? error.message : "حذف برچسب ممکن نشد؛ ممکن است هنوز به مقاله‌ای متصل باشد."); }
   }
