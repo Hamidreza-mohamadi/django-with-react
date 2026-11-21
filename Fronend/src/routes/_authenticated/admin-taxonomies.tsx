@@ -54,7 +54,6 @@ function TaxonomyManagementPage() {
           <div className="max-h-[480px] space-y-2 overflow-y-auto">{categories.data?.filter((item) => item.title.toLocaleLowerCase().includes(categorySearch.toLocaleLowerCase())).map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.is_active ? "فعال" : "غیرفعال"}</p></div>{canDelete && <button onClick={() => void removeCategory(item.id, item.title)} title="حذف دسته‌بندی" className="rounded-md p-2 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>}</div>)}</div>
           {categories.isLoading && <p className="text-sm text-muted-foreground">در حال دریافت…</p>}
           {categories.data?.length === 0 && <p className="text-sm text-muted-foreground">دسته‌بندی‌ای ثبت نشده است.</p>}
-          <Link to="/admin-taxonomies" className="mt-4 inline-flex text-xs text-primary hover:underline">مدیریت دسته‌بندی‌ها و برچسب‌ها</Link>
         </section>
         <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-4 flex items-center gap-2 font-semibold"><Tags className="h-4 w-4" /> برچسب‌ها</h2>
@@ -62,7 +61,6 @@ function TaxonomyManagementPage() {
           <div className="max-h-[480px] space-y-2 overflow-y-auto">{tags.data?.filter((item) => item.title.toLocaleLowerCase().includes(tagSearch.toLocaleLowerCase())).map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.is_active ? "فعال" : "غیرفعال"}</p></div>{canDelete && <button onClick={() => void removeTag(item.id, item.title)} title="حذف برچسب" className="rounded-md p-2 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>}</div>)}</div>
           {tags.isLoading && <p className="text-sm text-muted-foreground">در حال دریافت…</p>}
           {tags.data?.length === 0 && <p className="text-sm text-muted-foreground">برچسبی ثبت نشده است.</p>}
-          <Link to="/admin-taxonomies" className="mt-4 inline-flex text-xs text-primary hover:underline">مدیریت دسته‌بندی‌ها و برچسب‌ها</Link>
         </section>
       </div>
       {!canDelete && capabilities.data && <p className="mt-5 text-xs text-muted-foreground">حذف دسته‌بندی و برچسب فقط برای نقش‌های دارای مجوز حذف مقاله فعال است.</p>}
