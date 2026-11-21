@@ -35,9 +35,9 @@ const commentsQueryOptions = (id: number, preview = false) =>
     queryFn: () => preview ? Promise.resolve([]) : getArticleComments({ data: { articleId: id } }),
   });
 
-const articlesListQueryOptions = queryOptions({
-  queryKey: ["articles", "list"],
-  queryFn: () => getArticles({ data: {} }),
+const articlesListQueryOptions = (preview = false) => queryOptions({
+  queryKey: ["articles", "list", preview],
+  queryFn: () => preview ? Promise.resolve([]) : getArticles({ data: {} }),
 });
 
 export const Route = createFileRoute("/articles/$slug")({
@@ -49,7 +49,7 @@ export const Route = createFileRoute("/articles/$slug")({
   loader: async ({ context, params, search }) => {
     const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug, search.previewId));
     if (!search.previewId) context.queryClient.ensureQueryData(commentsQueryOptions(article.id));
-    context.queryClient.ensureQueryData(articlesListQueryOptions);
+    if (!search.previewId) await context.queryClient.ensureQueryData(articlesListQueryOptions());
     return article;
   },
   head: ({ loaderData }) =>
@@ -130,7 +130,7 @@ function ArticleDetailPage() {
   if (!article) throw notFound();
 
   const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.id, isPreview));
-  const { data: allArticles } = useSuspenseQuery(articlesListQueryOptions);
+  const { data: allArticles } = useSuspenseQuery(articlesListQueryOptions(isPreview));
   const progress = useReadingProgress();
   const [copied, setCopied] = useState(false);
 
