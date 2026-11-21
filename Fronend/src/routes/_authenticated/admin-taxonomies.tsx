@@ -18,8 +18,8 @@ function TaxonomyManagementPage() {
   const tags = useQuery({ queryKey: ["cms", "tags"], queryFn: () => getArticleTags() });
   const canCreate = !!capabilities.data?.permissions.create;
   const canDelete = !!capabilities.data?.permissions.delete;
-  const categoryExists = useMemo(() => categories.data?.some((item) => normalize(item.title).startsWith(normalize(categorySearch)) || normalize(categorySearch).startsWith(normalize(item.title))), [categories.data, categorySearch]);
-  const tagExists = useMemo(() => tags.data?.some((item) => normalize(item.title).startsWith(normalize(tagSearch)) || normalize(tagSearch).startsWith(normalize(item.title))), [tags.data, tagSearch]);
+  const categoryExists = useMemo(() => !!categorySearch.trim() && categories.data?.some((item) => normalize(item.title) === normalize(categorySearch)), [categories.data, categorySearch]);
+  const tagExists = useMemo(() => !!tagSearch.trim() && tags.data?.some((item) => normalize(item.title) === normalize(tagSearch)), [tags.data, tagSearch]);
 
   async function createCategory() {
     if (!categorySearch.trim() || categoryExists) return;
@@ -51,18 +51,18 @@ function TaxonomyManagementPage() {
         <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-4 flex items-center gap-2 font-semibold"><Tags className="h-4 w-4" /> دسته‌بندی‌ها</h2>
           {canCreate && <div className="mb-4 flex gap-2"><input value={categorySearch} onChange={(event) => setCategorySearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void createCategory(); }} placeholder="جست‌وجو یا ایجاد دسته‌بندی…" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button onClick={() => void createCategory()} disabled={!categorySearch.trim() || !!categoryExists} title={categoryExists ? "این دسته‌بندی از قبل وجود دارد" : "ایجاد دسته‌بندی"} className="rounded-lg bg-primary px-3 text-primary-foreground disabled:opacity-40"><Plus className="h-4 w-4" /></button></div>}
-          {categoryExists && categorySearch.trim() && <p className="mb-2 text-xs text-amber-600">این نام قبلاً ثبت شده است.</p>}
           <div className="max-h-[480px] space-y-2 overflow-y-auto">{categories.data?.filter((item) => item.title.toLocaleLowerCase().includes(categorySearch.toLocaleLowerCase())).map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.is_active ? "فعال" : "غیرفعال"}</p></div>{canDelete && <button onClick={() => void removeCategory(item.id, item.title)} title="حذف دسته‌بندی" className="rounded-md p-2 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>}</div>)}</div>
           {categories.isLoading && <p className="text-sm text-muted-foreground">در حال دریافت…</p>}
           {categories.data?.length === 0 && <p className="text-sm text-muted-foreground">دسته‌بندی‌ای ثبت نشده است.</p>}
+          <Link to="/admin-taxonomies" className="mt-4 inline-flex text-xs text-primary hover:underline">مدیریت دسته‌بندی‌ها و برچسب‌ها</Link>
         </section>
         <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-4 flex items-center gap-2 font-semibold"><Tags className="h-4 w-4" /> برچسب‌ها</h2>
           {canCreate && <div className="mb-4 flex gap-2"><input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void createTag(); }} placeholder="جست‌وجو یا ایجاد برچسب…" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button onClick={() => void createTag()} disabled={!tagSearch.trim() || !!tagExists} title={tagExists ? "این برچسب از قبل وجود دارد" : "ایجاد برچسب"} className="rounded-lg bg-primary px-3 text-primary-foreground disabled:opacity-40"><Plus className="h-4 w-4" /></button></div>}
-          {tagExists && tagSearch.trim() && <p className="mb-2 text-xs text-amber-600">این نام قبلاً ثبت شده است.</p>}
           <div className="max-h-[480px] space-y-2 overflow-y-auto">{tags.data?.filter((item) => item.title.toLocaleLowerCase().includes(tagSearch.toLocaleLowerCase())).map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.is_active ? "فعال" : "غیرفعال"}</p></div>{canDelete && <button onClick={() => void removeTag(item.id, item.title)} title="حذف برچسب" className="rounded-md p-2 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>}</div>)}</div>
           {tags.isLoading && <p className="text-sm text-muted-foreground">در حال دریافت…</p>}
           {tags.data?.length === 0 && <p className="text-sm text-muted-foreground">برچسبی ثبت نشده است.</p>}
+          <Link to="/admin-taxonomies" className="mt-4 inline-flex text-xs text-primary hover:underline">مدیریت دسته‌بندی‌ها و برچسب‌ها</Link>
         </section>
       </div>
       {!canDelete && capabilities.data && <p className="mt-5 text-xs text-muted-foreground">حذف دسته‌بندی و برچسب فقط برای نقش‌های دارای مجوز حذف مقاله فعال است.</p>}
