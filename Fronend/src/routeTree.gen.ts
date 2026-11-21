@@ -168,7 +168,6 @@ export interface FileRoutesByFullPath {
   '/orders': typeof AuthenticatedOrdersRoute
   '/admin-articles': typeof AuthenticatedAdminArticlesRoute
   '/admin-taxonomies': typeof AuthenticatedAdminTaxonomiesRoute
-  '/admin-taxonomies': typeof AuthenticatedAdminTaxonomiesRoute
   '/admin-article-editor/$articleId': typeof AuthenticatedAdminArticleEditorArticleIdRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -190,6 +189,7 @@ export interface FileRoutesByTo {
   '/checkout': typeof AuthenticatedCheckoutRoute
   '/orders': typeof AuthenticatedOrdersRoute
   '/admin-articles': typeof AuthenticatedAdminArticlesRoute
+  '/admin-taxonomies': typeof AuthenticatedAdminTaxonomiesRoute
   '/admin-article-editor/$articleId': typeof AuthenticatedAdminArticleEditorArticleIdRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/products/$productId': typeof ProductsProductIdRoute
