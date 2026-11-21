@@ -859,3 +859,10 @@ export const deleteManagedArticle = createServerFn({ method: "POST" })
 export const deleteArticleComment = createServerFn({ method: "POST" })
   .validator((data: { commentId: number }) => data)
   .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/comments/${data.commentId}/`, { method: "DELETE" }));
+
+export const deleteArticleCategory = createServerFn({ method: "POST" })
+  .validator((data: { categoryId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/categories/${data.categoryId}/`, { method: "DELETE" }));
+export const deleteArticleTag = createServerFn({ method: "POST" })
+  .validator((data: { tagId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/tags/${data.tagId}/`, { method: "DELETE" }));
