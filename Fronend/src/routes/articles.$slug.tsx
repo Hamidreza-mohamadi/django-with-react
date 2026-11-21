@@ -13,32 +13,43 @@ import {
   Tag,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getArticle, getArticles, getArticleComments, createArticleComment } from "@/lib/shop/api";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
+import { getArticle, getArticles, getArticleComments, createArticleComment, getManagedArticle } from "@/lib/shop/api";
+import type { Article } from "@/lib/shop/types";
 import { Button } from "@/components/ui/button";
 import type { ArticleComment } from "@/lib/shop/types";
 
-const articleQueryOptions = (slug: string) =>
+const articleQueryOptions = (slug: string, previewId?: number) =>
   queryOptions({
-    queryKey: ["articles", "detail", slug],
-    queryFn: () => getArticle({ data: { slug } }),
+    queryKey: ["articles", "detail", slug, previewId ?? null],
+    queryFn: async () => previewId
+      ? await getManagedArticle({ data: { articleId: previewId } }) as unknown as Article
+      : getArticle({ data: { slug } }),
   });
 
-const commentsQueryOptions = (id: number) =>
+const commentsQueryOptions = (id: number, preview = false) =>
   queryOptions({
-    queryKey: ["articles", "comments", id],
-    queryFn: () => getArticleComments({ data: { articleId: id } }),
+    queryKey: ["articles", "comments", id, preview],
+    queryFn: () => preview ? Promise.resolve([]) : getArticleComments({ data: { articleId: id } }),
   });
 
-const articlesListQueryOptions = queryOptions({
-  queryKey: ["articles", "list"],
-  queryFn: () => getArticles({ data: {} }),
+const articlesListQueryOptions = (preview = false) => queryOptions({
+  queryKey: ["articles", "list", preview],
+  queryFn: () => preview ? Promise.resolve([]) : getArticles({ data: {} }),
 });
 
 export const Route = createFileRoute("/articles/$slug")({
-  loader: async ({ context, params }) => {
-    const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug));
-    context.queryClient.ensureQueryData(commentsQueryOptions(article.id));
-    context.queryClient.ensureQueryData(articlesListQueryOptions);
+  validateSearch: (search: Record<string, unknown>) => ({
+    previewId: typeof search.previewId === "string" && /^\d+$/.test(search.previewId)
+      ? Number(search.previewId)
+      : typeof search.previewId === "number" && Number.isInteger(search.previewId) ? search.previewId : undefined,
+  }),
+  loader: async ({ context, params, search }) => {
+    const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug, search.previewId));
+    if (!search.previewId) context.queryClient.ensureQueryData(commentsQueryOptions(article.id));
+    if (!search.previewId) await context.queryClient.ensureQueryData(articlesListQueryOptions());
     return article;
   },
   head: ({ loaderData }) =>
@@ -68,8 +79,31 @@ export const Route = createFileRoute("/articles/$slug")({
   ),
 });
 
-const formatDate = (d: string) =>
-  new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d));
+const formatDate = (d?: string) => d ? new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d)) : "تاریخ نامشخص";
+const MEDIA_BASE_URL = (import.meta.env.VITE_MEDIA_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
+
+function mapArticleImages(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(mapArticleImages);
+  if (!value || typeof value !== "object") return value;
+  const node = value as Record<string, unknown>;
+  const mapped = Object.fromEntries(Object.entries(node).map(([key, item]) => [key, mapArticleImages(item)]));
+  if (mapped.type === "image" && mapped.attrs && typeof mapped.attrs === "object") {
+    const attrs = mapped.attrs as Record<string, unknown>;
+    if (typeof attrs.src === "string" && attrs.src.startsWith("/")) mapped.attrs = { ...attrs, src: `${MEDIA_BASE_URL}${attrs.src}` };
+  }
+  return mapped;
+}
+
+function RichArticleBody({ content }: { content: Record<string, unknown> }) {
+  const editor = useEditor({
+    extensions: [StarterKit.configure({ heading: { levels: [2, 3, 4] } }), Image.configure({ inline: false, allowBase64: false })],
+    content: mapArticleImages(content) as never,
+    editable: false,
+    immediatelyRender: false,
+    editorProps: { attributes: { dir: "rtl", class: "prose prose-lg max-w-none text-right leading-9 prose-a:text-primary prose-img:rounded-xl" } },
+  });
+  return <EditorContent editor={editor} />;
+}
 
 const toFa = (n: number) => new Intl.NumberFormat("fa-IR").format(n);
 
@@ -90,15 +124,24 @@ function useReadingProgress() {
 
 function ArticleDetailPage() {
   const { slug } = Route.useParams();
-  const { data: article } = useSuspenseQuery(articleQueryOptions(slug));
+  const { previewId } = Route.useSearch();
+  const isPreview = !!previewId;
+  const { data: article } = useSuspenseQuery(articleQueryOptions(slug, previewId));
   if (!article) throw notFound();
 
-  const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.id));
-  const { data: allArticles } = useSuspenseQuery(articlesListQueryOptions);
+  const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.id, isPreview));
+  const { data: allArticles } = useSuspenseQuery(articlesListQueryOptions(isPreview));
   const progress = useReadingProgress();
   const [copied, setCopied] = useState(false);
 
-  const categoryName = typeof article.category === "string" ? article.category : article.category.title;
+  const categoryName = isPreview ? "پیش‌نمایش" : typeof article.category === "string"
+    ? article.category
+    : Array.isArray(article.category)
+      ? article.category[0]?.title ?? "بدون دسته‌بندی"
+      : article.category?.title ?? "بدون دسته‌بندی";
+  const authorName = typeof article.author === "string"
+    ? article.author
+    : [article.author.first_name, article.author.last_name].filter(Boolean).join(" ") || article.author.username;
 
   const paragraphs = useMemo(
     () => article.content.split("\n\n").map((p) => p.trim()).filter(Boolean),
@@ -109,7 +152,7 @@ function ArticleDetailPage() {
   const related = allArticles
     .filter((a) => a.slug !== article.slug)
     .sort((a) => {
-      const cat = typeof a.category === "string" ? a.category : a.category.title;
+      const cat = typeof a.category === "string" ? a.category : Array.isArray(a.category) ? a.category[0]?.title : a.category?.title;
       return cat === categoryName ? -1 : 1;
     })
     .slice(0, 4);
@@ -133,6 +176,7 @@ function ArticleDetailPage() {
 
   return (
     <div dir="rtl">
+      {isPreview && <div className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-900">پیش‌نمایش مقاله — این صفحه فقط برای بررسی مدیران است و مقاله هنوز در سایت منتشر نشده است.</div>}
       {/* نوار پیشرفت مطالعه */}
       <div className="fixed inset-x-0 top-0 z-50 h-0.5 bg-transparent">
         <div className="h-full bg-primary transition-[width] duration-150" style={{ width: `${progress}%` }} />
@@ -171,11 +215,11 @@ function ArticleDetailPage() {
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <UserIcon className="h-4 w-4" />
                   </span>
-                  {article.author.last_name}
+                  {authorName}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
-                  {formatDate(article.pub_date)}
+                  {formatDate(article.pub_date || article.published_at || article.created_at)}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-4 w-4" />
@@ -213,15 +257,18 @@ function ArticleDetailPage() {
           {/* متن مقاله */}
           <div className="min-w-0">
             <article className="max-w-3xl">
-              <p className="border-r-4 border-primary bg-secondary/50 px-5 py-4 text-base leading-8 text-foreground">
-                {paragraphs[0] ?? article.short_description}
-              </p>
-
-              <div className="mt-6 space-y-5 text-base leading-9 text-foreground/90">
-                {paragraphs.slice(1).map((p, i) => (
-                  <p key={i}>{p}</p>
-                ))}
-              </div>
+              {article.content_json ? (
+                <RichArticleBody content={article.content_json} />
+              ) : (
+                <>
+                  <p className="border-r-4 border-primary bg-secondary/50 px-5 py-4 text-base leading-8 text-foreground">
+                    {paragraphs[0] ?? article.short_description}
+                  </p>
+                  <div className="mt-6 space-y-5 text-base leading-9 text-foreground/90">
+                    {paragraphs.slice(1).map((p, i) => <p key={i}>{p}</p>)}
+                  </div>
+                </>
+              )}
 
               <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center gap-3">
@@ -229,7 +276,7 @@ function ArticleDetailPage() {
                     <UserIcon className="h-5 w-5" />
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-foreground">{article.author.last_name}</p>
+                    <p className="text-sm font-bold text-foreground">{authorName}</p>
                     <p className="text-xs text-muted-foreground">نویسنده در مجله فروشگاه</p>
                   </div>
                 </div>
@@ -264,7 +311,7 @@ function ArticleDetailPage() {
                             {a.title}
                           </p>
                           <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            {formatDate(a.pub_date)}
+                            {formatDate(a.pub_date || a.published_at || a.created_at)}
                           </p>
                         </div>
                       </Link>
@@ -273,7 +320,7 @@ function ArticleDetailPage() {
                 </section>
               )}
 
-              <CommentsSection articleId={article.id} comments={comments} />
+              {!isPreview && <CommentsSection articleId={article.id} comments={comments} />}
 
             </article>
           </div>

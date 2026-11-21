@@ -23,8 +23,12 @@ export const Route = createFileRoute("/articles/")({
 
 function ArticlesListPage() {
   const { data: articles } = useSuspenseQuery(articlesQueryOptions);
-  const formatDate = (d: string) =>
-    new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d));
+  const formatDate = (d?: string) =>
+    d ? new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d)) : "به‌تازگی";
+  const authorName = (author: typeof articles[number]["author"]) =>
+    typeof author === "string" ? author : [author.first_name, author.last_name].filter(Boolean).join(" ") || author.username;
+  const categoryName = (category: typeof articles[number]["category"]) =>
+    typeof category === "string" ? category : Array.isArray(category) ? category[0]?.title ?? "بدون دسته‌بندی" : category?.title ?? "بدون دسته‌بندی";
 
   return (
     <div className="container-shop py-8" dir="rtl">
@@ -56,7 +60,7 @@ function ArticlesListPage() {
               </div>
               <div className="flex flex-1 flex-col p-5">
                 <span className="text-xs font-medium text-primary">
-                  {typeof article.category === "string" ? article.category : article.category.title}
+                  {categoryName(article.category)}
                 </span>
                 <h2 className="mt-2 text-lg font-semibold leading-snug text-foreground group-hover:text-primary">
                   {article.title}
@@ -66,11 +70,11 @@ function ArticlesListPage() {
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                       <UserIcon className="h-3 w-3" />
-                      {article.author.last_name}
+                      {authorName(article.author)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {formatDate(article.pub_date)}
+                      {formatDate(article.pub_date || article.published_at || article.created_at)}
                     </span>
                   </div>
                   <ArrowLeft className="h-4 w-4 text-primary transition-transform group-hover:-translate-x-1" />

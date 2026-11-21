@@ -24,6 +24,9 @@ import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedCheckoutRouteImport } from './routes/_authenticated/checkout'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
+import { Route as AuthenticatedAdminArticlesRouteImport } from './routes/_authenticated/admin-articles'
+import { Route as AuthenticatedAdminTaxonomiesRouteImport } from './routes/_authenticated/admin-taxonomies'
+import { Route as AuthenticatedAdminArticleEditorArticleIdRouteImport } from './routes/_authenticated/admin-article-editor.$articleId'
 import { Route as ArticlesIndexRouteImport } from './routes/articles.index'
 import { Route as ArticlesSlugRouteImport } from './routes/articles.$slug'
 import { Route as ProductsIndexRouteImport } from './routes/products.index'
@@ -106,6 +109,21 @@ const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
   path: '/orders',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminArticlesRoute = AuthenticatedAdminArticlesRouteImport.update({
+  id: '/admin-articles',
+  path: '/admin-articles',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminTaxonomiesRoute = AuthenticatedAdminTaxonomiesRouteImport.update({
+  id: '/admin-taxonomies',
+  path: '/admin-taxonomies',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminArticleEditorArticleIdRoute = AuthenticatedAdminArticleEditorArticleIdRouteImport.update({
+  id: '/admin-article-editor/$articleId',
+  path: '/admin-article-editor/$articleId',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const ArticlesIndexRoute = ArticlesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -148,6 +166,9 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/checkout': typeof AuthenticatedCheckoutRoute
   '/orders': typeof AuthenticatedOrdersRoute
+  '/admin-articles': typeof AuthenticatedAdminArticlesRoute
+  '/admin-taxonomies': typeof AuthenticatedAdminTaxonomiesRoute
+  '/admin-article-editor/$articleId': typeof AuthenticatedAdminArticleEditorArticleIdRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/articles/': typeof ArticlesIndexRoute
@@ -167,6 +188,9 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/checkout': typeof AuthenticatedCheckoutRoute
   '/orders': typeof AuthenticatedOrdersRoute
+  '/admin-articles': typeof AuthenticatedAdminArticlesRoute
+  '/admin-taxonomies': typeof AuthenticatedAdminTaxonomiesRoute
+  '/admin-article-editor/$articleId': typeof AuthenticatedAdminArticleEditorArticleIdRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/articles': typeof ArticlesIndexRoute
@@ -190,6 +214,9 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/checkout': typeof AuthenticatedCheckoutRoute
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
+  '/_authenticated/admin-articles': typeof AuthenticatedAdminArticlesRoute
+  '/_authenticated/admin-taxonomies': typeof AuthenticatedAdminTaxonomiesRoute
+  '/_authenticated/admin-article-editor/$articleId': typeof AuthenticatedAdminArticleEditorArticleIdRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/articles/': typeof ArticlesIndexRoute
@@ -213,6 +240,9 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/checkout'
     | '/orders'
+    | '/admin-articles'
+    | '/admin-taxonomies'
+    | '/admin-article-editor/$articleId'
     | '/articles/$slug'
     | '/products/$productId'
     | '/articles/'
@@ -232,6 +262,9 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/checkout'
     | '/orders'
+    | '/admin-articles'
+    | '/admin-taxonomies'
+    | '/admin-article-editor/$articleId'
     | '/articles/$slug'
     | '/products/$productId'
     | '/articles'
@@ -254,6 +287,9 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/checkout'
     | '/_authenticated/orders'
+    | '/_authenticated/admin-articles'
+    | '/_authenticated/admin-taxonomies'
+    | '/_authenticated/admin-article-editor/$articleId'
     | '/articles/$slug'
     | '/products/$productId'
     | '/articles/'
@@ -385,6 +421,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrdersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin-articles': {
+      id: '/_authenticated/admin-articles'
+      path: '/admin-articles'
+      fullPath: '/admin-articles'
+      preLoaderRoute: typeof AuthenticatedAdminArticlesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin-taxonomies': {
+      id: '/_authenticated/admin-taxonomies'
+      path: '/admin-taxonomies'
+      fullPath: '/admin-taxonomies'
+      preLoaderRoute: typeof AuthenticatedAdminTaxonomiesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin-article-editor/$articleId': {
+      id: '/_authenticated/admin-article-editor/$articleId'
+      path: '/admin-article-editor/$articleId'
+      fullPath: '/admin-article-editor/$articleId'
+      preLoaderRoute: typeof AuthenticatedAdminArticleEditorArticleIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/articles/': {
       id: '/articles/'
       path: '/'
@@ -426,11 +483,17 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedCheckoutRoute: typeof AuthenticatedCheckoutRoute
   AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
+  AuthenticatedAdminArticlesRoute: typeof AuthenticatedAdminArticlesRoute
+  AuthenticatedAdminTaxonomiesRoute: typeof AuthenticatedAdminTaxonomiesRoute
+  AuthenticatedAdminArticleEditorArticleIdRoute: typeof AuthenticatedAdminArticleEditorArticleIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCheckoutRoute: AuthenticatedCheckoutRoute,
   AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
+  AuthenticatedAdminArticlesRoute: AuthenticatedAdminArticlesRoute,
+  AuthenticatedAdminTaxonomiesRoute: AuthenticatedAdminTaxonomiesRoute,
+  AuthenticatedAdminArticleEditorArticleIdRoute: AuthenticatedAdminArticleEditorArticleIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

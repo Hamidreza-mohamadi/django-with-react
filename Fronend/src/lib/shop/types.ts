@@ -181,12 +181,17 @@ export interface ApiError {
 export interface Article {
   id: number;
   title: string;
-  author: string;
+  author: PublicUser | string;
   content: string;
+  content_json?: Record<string, unknown> | null;
   short_description: string;
   pub_date: string;
-  category: Category | string;
-  image?: string;
+  published_at?: string | null;
+  created_at?: string;
+  category: Category[] | Category | string;
+  tags?: { id: number; title: string; slug: string }[];
+  image?: string | null;
+  image_alt?: string;
   is_published: boolean;
   slug: string;
 }
