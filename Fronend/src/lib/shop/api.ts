@@ -768,6 +768,7 @@ export interface ManagedArticleInput {
   meta_title: string;
   meta_description: string;
   image_alt: string;
+  slug?: string;
 }
 export const getManagedArticle = createServerFn({ method: "GET" })
   .validator((data: { articleId: number }) => data)
@@ -779,6 +780,13 @@ export const getArticleCategories = createServerFn({ method: "GET" }).handler(
 export const getArticleTags = createServerFn({ method: "GET" }).handler(
   async () => djangoFetch<ArticleTagOption[]>("/articles/manage/tags/"),
 );
+export const createArticleCategory = createServerFn({ method: "POST" })
+  .validator((data: { title: string }) => data)
+  .handler(async ({ data }) => djangoFetch<ArticleCategoryOption>("/articles/manage/categories/", { method: "POST", body: JSON.stringify(data) }));
+export const createArticleTag = createServerFn({ method: "POST" })
+  .validator((data: { title: string }) => data)
+  .handler(async ({ data }) => djangoFetch<ArticleTagOption>("/articles/manage/tags/", { method: "POST", body: JSON.stringify(data) }));
+
 export const createManagedArticle = createServerFn({ method: "POST" })
   .validator((data: ManagedArticleInput) => data)
   .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>("/articles/manage/", {
