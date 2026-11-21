@@ -339,8 +339,10 @@ class ArticleCategoryDetailManagementView(APIView):
     def delete(self, request, pk):
         require_perm(request.user, "article_module.delete_article")
         category = get_object_or_404(ArticleCategory, pk=pk)
-        if category.articles.exists() or category.children.exists():
-            raise ValidationError("ابتدا مقاله‌ها و زیر‌دسته‌ها را از این دسته‌بندی جدا کنید.")
+        if category.children.exists():
+            raise ValidationError("ابتدا زیر‌دسته‌ها را به دسته‌بندی دیگری منتقل یا حذف کنید.")
+        # حذف دسته‌بندی، فقط ارتباط آن را از مقاله‌ها جدا می‌کند و خود مقاله‌ها باقی می‌مانند.
+        category.articles.clear()
         category.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -372,8 +374,8 @@ class ArticleTagDetailManagementView(APIView):
     def delete(self, request, pk):
         require_perm(request.user, "article_module.delete_article")
         tag = get_object_or_404(ArticleTag, pk=pk)
-        if tag.articles.exists():
-            raise ValidationError("ابتدا این برچسب را از مقاله‌ها جدا کنید.")
+        # حذف برچسب، فقط ارتباط آن را از مقاله‌ها جدا می‌کند و خود مقاله‌ها باقی می‌مانند.
+        tag.articles.clear()
         tag.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
