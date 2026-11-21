@@ -740,6 +740,7 @@ export interface ArticleCategoryOption {
   id: number;
   title: string;
   slug: string;
+  parent: number | null;
   is_active: boolean;
 }
 export interface ArticleTagOption {
