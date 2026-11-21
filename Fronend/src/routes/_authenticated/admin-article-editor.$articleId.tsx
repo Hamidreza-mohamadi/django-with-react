@@ -205,7 +205,8 @@ function ArticleEditorPage() {
       const payload: ManagedArticleInput = {
         title: form.title.trim(), short_description: form.short_description,
         content: form.content, content_json: mapImageSources(editor?.getJSON() ?? form.content_json, (src) => src.startsWith(MEDIA_BASE_URL) ? src.slice(MEDIA_BASE_URL.length) : src) as Record<string, unknown>,
-        category: form.category, tags: form.tags, slug: slug.trim(),
+        category: form.category, tags: form.tags,
+        ...(permissions?.manage_roles ? { slug: slug.trim() } : {}),
         meta_title: form.meta_title, meta_description: form.meta_description, image_alt: form.image_alt,
       };
       if (articleKey) return updateManagedArticle({ data: { ...payload, articleId: articleKey } });
