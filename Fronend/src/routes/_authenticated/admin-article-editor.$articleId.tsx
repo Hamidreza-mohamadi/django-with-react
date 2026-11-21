@@ -109,6 +109,34 @@ function ArticleEditorPage() {
     }
   }, [editor, article.data]);
 
+  function toggleCategory(categoryId: number, checked: boolean) {
+    const options = categories.data ?? [];
+    const selected = new Set(form.category);
+    if (checked) {
+      selected.add(categoryId);
+      let current = options.find((item) => item.id === categoryId);
+      while (current?.parent) {
+        selected.add(current.parent);
+        const parentId = current.parent;
+        current = options.find((item) => item.id === parentId);
+      }
+    } else {
+      const removed = new Set<number>([categoryId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const item of options) {
+          if (item.parent && removed.has(item.parent) && !removed.has(item.id)) {
+            removed.add(item.id);
+            changed = true;
+          }
+        }
+      }
+      for (const id of removed) selected.delete(id);
+    }
+    setForm((previous) => ({ ...previous, category: Array.from(selected) }));
+  }
+
   const workflowMutation = useMutation({
     mutationFn: async () => {
       if (!articleKey) throw new Error("ابتدا مقاله را ذخیره کنید.");
@@ -200,7 +228,8 @@ function ArticleEditorPage() {
     onSuccess: async (saved) => {
       setArticleKey(saved.id);
       setMessage("مقاله با موفقیت ذخیره شد.");
-      await queryClient.invalidateQueries({ queryKey: ["cms", "my-articles"] });
+      await queryClient.invalidateQueries({ queryKey: ["cms"] });
+      if (!isNew) await article.refetch();
       if (isNew && !publishingNewArticle.current) navigate({ to: "/admin-article-editor/$articleId", params: { articleId: String(saved.id) }, replace: true });
     },
     onError: (error) => setMessage(error.message || "ذخیره مقاله ناموفق بود."),
@@ -324,13 +353,13 @@ function ArticleEditorPage() {
         <aside className="space-y-5">
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 font-semibold">دسته‌بندی‌ها</h2>
-            <div className="flex gap-2"><input value={categorySearch} onChange={(event) => setCategorySearch(event.target.value)} placeholder="جست‌وجو یا ایجاد دسته‌بندی…" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" disabled={!categorySearch.trim() || !!categories.data?.some((item) => item.is_active && (item.title.trim().toLocaleLowerCase() === categorySearch.trim().toLocaleLowerCase()))} onClick={async () => { try { const item = await createArticleCategory({ data: { title: categorySearch.trim() } }); await queryClient.invalidateQueries({ queryKey: ["cms", "categories"] }); setForm((p) => ({ ...p, category: [...new Set([...p.category, item.id])] })); setCategorySearch(""); } catch (err) { setMessage(err instanceof Error ? err.message : "ایجاد دسته‌بندی ناموفق بود."); } }} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">+</button></div>
-            <div className="mt-3 max-h-44 space-y-2 overflow-y-auto rounded-lg border border-border p-3">{categories.data?.filter((item) => item.is_active && (item.title.toLocaleLowerCase().startsWith(categorySearch.trim().toLocaleLowerCase()) || categorySearch.trim().toLocaleLowerCase().startsWith(item.title.toLocaleLowerCase()))).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.category.includes(item.id)} onChange={(event) => setForm((p) => ({ ...p, category: event.target.checked ? [...p.category, item.id] : p.category.filter((id) => id !== item.id) }))} />{item.title}</label>)}</div>
+            <div className="flex gap-2"><input value={categorySearch} onChange={(event) => setCategorySearch(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" disabled={!categorySearch.trim() || !!categories.data?.some((item) => item.is_active && (item.title.trim().toLocaleLowerCase() === categorySearch.trim().toLocaleLowerCase()))} onClick={async () => { try { const item = await createArticleCategory({ data: { title: categorySearch.trim() } }); await queryClient.invalidateQueries({ queryKey: ["cms", "categories"] }); setForm((p) => ({ ...p, category: [...new Set([...p.category, item.id])] })); setCategorySearch(""); } catch (err) { setMessage(err instanceof Error ? err.message : "ایجاد دسته‌بندی ناموفق بود."); } }} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">+</button></div>
+            <div className="mt-3 max-h-44 space-y-2 overflow-y-auto rounded-lg border border-border p-3">{categories.data?.filter((item) => item.is_active && (item.title.toLocaleLowerCase().startsWith(categorySearch.trim().toLocaleLowerCase()))).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.category.includes(item.id)} onChange={(event) => toggleCategory(item.id, event.target.checked)} />{item.title}</label>)}</div>
           </section>
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 font-semibold">برچسب‌ها</h2>
-            <div className="flex gap-2"><input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="جست‌وجو یا ایجاد برچسب…" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" disabled={!tagSearch.trim() || !!tags.data?.some((item) => item.is_active && (item.title.trim().toLocaleLowerCase() === tagSearch.trim().toLocaleLowerCase()))} onClick={async () => { try { const item = await createArticleTag({ data: { title: tagSearch.trim() } }); await queryClient.invalidateQueries({ queryKey: ["cms", "tags"] }); setForm((p) => ({ ...p, tags: [...new Set([...p.tags, item.id])] })); setTagSearch(""); } catch (err) { setMessage(err instanceof Error ? err.message : "ایجاد برچسب ناموفق بود."); } }} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">+</button></div>
-            <div className="mt-3 max-h-44 space-y-2 overflow-y-auto rounded-lg border border-border p-3">{tags.data?.filter((item) => item.is_active && (item.title.toLocaleLowerCase().startsWith(tagSearch.trim().toLocaleLowerCase()) || tagSearch.trim().toLocaleLowerCase().startsWith(item.title.toLocaleLowerCase()))).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.tags.includes(item.id)} onChange={(event) => setForm((p) => ({ ...p, tags: event.target.checked ? [...p.tags, item.id] : p.tags.filter((id) => id !== item.id) }))} />{item.title}</label>)}</div>
+            <div className="flex gap-2"><input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" disabled={!tagSearch.trim() || !!tags.data?.some((item) => item.is_active && (item.title.trim().toLocaleLowerCase() === tagSearch.trim().toLocaleLowerCase()))} onClick={async () => { try { const item = await createArticleTag({ data: { title: tagSearch.trim() } }); await queryClient.invalidateQueries({ queryKey: ["cms", "tags"] }); setForm((p) => ({ ...p, tags: [...new Set([...p.tags, item.id])] })); setTagSearch(""); } catch (err) { setMessage(err instanceof Error ? err.message : "ایجاد برچسب ناموفق بود."); } }} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">+</button></div>
+            <div className="mt-3 max-h-44 space-y-2 overflow-y-auto rounded-lg border border-border p-3">{tags.data?.filter((item) => item.is_active && (item.title.toLocaleLowerCase().startsWith(tagSearch.trim().toLocaleLowerCase()))).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.tags.includes(item.id)} onChange={(event) => setForm((p) => ({ ...p, tags: event.target.checked ? [...p.tags, item.id] : p.tags.filter((id) => id !== item.id) }))} />{item.title}</label>)}</div>
           </section>
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 font-semibold">اطلاعات مقاله</h2>
@@ -357,13 +386,14 @@ function ArticleEditorPage() {
       <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
         <h2 className="mb-4 font-semibold">عملیات مقاله</h2>
         <div className="flex flex-wrap items-end justify-start gap-3">
-          {(isNew ? permissions?.create : permissions?.edit_own) && <button type="button" disabled={saveMutation.isPending || statusMutation.isPending || !form.title.trim()} onClick={() => void handleStatusAction("save_draft")} title="مقاله را به‌صورت پیش‌نویس ذخیره می‌کند و منتشر نمی‌کند." aria-label="ذخیره به‌عنوان پیش‌نویس" className="inline-flex items-center gap-2 rounded-xl border border-primary bg-primary/10 px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">{saveMutation.isPending || statusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره به‌عنوان پیش‌نویس</button>}
+          {(isNew ? permissions?.create : permissions?.edit_own) && (isNew || !["published", "archived"].includes(article.data?.status ?? "")) && <button type="button" disabled={saveMutation.isPending || statusMutation.isPending || !form.title.trim()} onClick={() => void handleStatusAction("save_draft")} title="مقاله را به‌صورت پیش‌نویس ذخیره می‌کند و منتشر نمی‌کند." aria-label="ذخیره به‌عنوان پیش‌نویس" className="inline-flex items-center gap-2 rounded-xl border border-primary bg-primary/10 px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">{saveMutation.isPending || statusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ذخیره به‌عنوان پیش‌نویس</button>}
           {(isNew || article.data?.status !== "review") && (isNew ? permissions?.create : permissions?.edit_own) && <button type="button" disabled={saveMutation.isPending || statusMutation.isPending || !form.title.trim()} onClick={() => void handleStatusAction("submit_review")} className="rounded-xl border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm font-semibold text-sky-700 transition-colors hover:border-sky-500/60 hover:bg-sky-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-50" title="مقاله را برای بررسی و تصمیم ویراستار به وضعیت در انتظار بررسی می‌برد." aria-label="ارسال برای بررسی">ارسال برای بررسی</button>}
           {!isNew && article.data?.status === "review" && permissions?.review && <>
             <button type="button" disabled={saveMutation.isPending || statusMutation.isPending} onClick={() => void handleStatusAction("approve")} title="بررسی مقاله را تأیید می‌کند و آن را برای انتشار آماده می‌سازد." aria-label="تأیید مقاله" className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:border-emerald-500/60 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50">تأیید مقاله</button>
             <button type="button" disabled={saveMutation.isPending || statusMutation.isPending} onClick={() => void handleStatusAction("reject")} title="مقاله را رد می‌کند و برای اصلاح به پیش‌نویس برمی‌گرداند." aria-label="رد مقاله" className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50">رد مقاله</button>
           </>}
-          {!isNew && article.data?.status === "published" && permissions?.publish && <button type="button" disabled={unpublishMutation.isPending} onClick={() => { if (window.confirm("انتشار این مقاله لغو شود؟")) unpublishMutation.mutate(); }} title="نمایش عمومی مقاله را متوقف می‌کند؛ مقاله حذف نمی‌شود." aria-label="لغو انتشار" className="rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50">لغو انتشار</button>}
+          {!isNew && article.data?.status === "published" && permissions?.publish && <button type="button" disabled={unpublishMutation.isPending} onClick={() => { if (window.confirm("این مقاله از سایت خارج و به بایگانی منتقل شود؟")) unpublishMutation.mutate(); }} title="نمایش عمومی مقاله را متوقف می‌کند و آن را در صف بایگانی قرار می‌دهد." aria-label="انتقال به بایگانی" className="rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50">انتقال به بایگانی</button>}
+          {!isNew && ["published", "archived"].includes(article.data?.status ?? "") && permissions?.edit_own && <button type="button" disabled={saveMutation.isPending || !form.title.trim()} onClick={() => { void saveMutation.mutateAsync().then(() => article.refetch()).catch((error) => setMessage(error instanceof Error ? error.message : "ذخیره تغییرات ناموفق بود.")); }} title="تغییرات مقاله را بدون تغییر وضعیت انتشار ذخیره می‌کند." aria-label="ذخیره تغییرات" className="rounded-xl border border-primary bg-primary/10 px-5 py-3 text-sm font-semibold text-primary hover:bg-primary/15 disabled:opacity-50">{saveMutation.isPending ? "در حال ذخیره…" : "ذخیره تغییرات"}</button>}
           {!isNew && (permissions?.delete || (article.data?.status === "draft" && permissions?.edit_own)) && <button type="button" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm("این مقاله برای همیشه حذف شود؟")) deleteMutation.mutate(); }} title="مقاله را برای همیشه حذف می‌کند." aria-label="حذف مقاله" className="rounded-xl border border-destructive/40 px-4 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50">حذف مقاله</button>}
           {permissions?.publish && (isNew || article.data?.status !== "published") && <>
             <label className="flex flex-col gap-2 rounded-xl border border-border bg-background p-3 text-xs font-medium text-muted-foreground">
