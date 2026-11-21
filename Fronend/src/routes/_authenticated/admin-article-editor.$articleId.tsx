@@ -7,7 +7,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { ArrowRight, Bold, Eye, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Save, Strikethrough, Underline as UnderlineIcon, X } from "lucide-react";
 import {
-  createManagedArticle, getArticleCategories, getArticleTags, getManagedArticle,
+  createManagedArticle, createArticleCategory, createArticleTag, getArticleCategories, getArticleTags, getManagedArticle,
   updateManagedArticle, uploadManagedArticleImage, getArticleCmsCapabilities,
   publishManagedArticle,
   unpublishManagedArticle, deleteManagedArticle, updateManagedArticleWorkflow,
@@ -56,6 +56,11 @@ function ArticleEditorPage() {
   const [articleKey, setArticleKey] = useState<number | null>(isNew ? null : id);
   const [message, setMessage] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [slug, setSlug] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
+  const [tagSearch, setTagSearch] = useState("");
+  const [newCategoryTitle, setNewCategoryTitle] = useState("");
+  const [newTagTitle, setNewTagTitle] = useState("");
   const [uploading, setUploading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
@@ -81,6 +86,7 @@ function ArticleEditorPage() {
         meta_title: value.meta_title ?? "", meta_description: value.meta_description ?? "",
         image_alt: value.image_alt ?? "",
         });
+      setSlug(value.slug ?? "");
       setCoverImageUrl(value.image ?? null);
       setArticleKey(value.id);
     }
@@ -199,7 +205,7 @@ function ArticleEditorPage() {
       const payload: ManagedArticleInput = {
         title: form.title.trim(), short_description: form.short_description,
         content: form.content, content_json: mapImageSources(editor?.getJSON() ?? form.content_json, (src) => src.startsWith(MEDIA_BASE_URL) ? src.slice(MEDIA_BASE_URL.length) : src) as Record<string, unknown>,
-        category: form.category, tags: form.tags,
+        category: form.category, tags: form.tags, slug: slug.trim(),
         meta_title: form.meta_title, meta_description: form.meta_description, image_alt: form.image_alt,
       };
       if (articleKey) return updateManagedArticle({ data: { ...payload, articleId: articleKey } });
@@ -278,6 +284,24 @@ function ArticleEditorPage() {
   }
 
   const field = (key: keyof EditorState, value: string) => setForm((previous) => ({ ...previous, [key]: value }));
+  async function addCategory() {
+    const title = newCategoryTitle.trim(); if (!title) return;
+    try {
+      const created = await createArticleCategory({ data: { title } });
+      await queryClient.invalidateQueries({ queryKey: ["cms", "categories"] });
+      setForm((previous) => ({ ...previous, category: [...new Set([...previous.category, created.id])] }));
+      setNewCategoryTitle(""); setCategorySearch(""); setMessage("دسته‌بندی جدید ایجاد و انتخاب شد.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "ایجاد دسته‌بندی ناموفق بود."); }
+  }
+  async function addTag() {
+    const title = newTagTitle.trim(); if (!title) return;
+    try {
+      const created = await createArticleTag({ data: { title } });
+      await queryClient.invalidateQueries({ queryKey: ["cms", "tags"] });
+      setForm((previous) => ({ ...previous, tags: [...new Set([...previous.tags, created.id])] }));
+      setNewTagTitle(""); setTagSearch(""); setMessage("برچسب جدید ایجاد و انتخاب شد.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "ایجاد برچسب ناموفق بود."); }
+  }
   if (!isNew && article.isLoading) return <main dir="rtl" className="mx-auto max-w-5xl p-8 text-center text-muted-foreground">در حال دریافت مقاله…</main>;
   if (!isNew && article.isError) return <main dir="rtl" className="mx-auto max-w-5xl p-8"><p className="text-destructive">{article.error.message}</p><Link to="/admin-articles" className="mt-4 inline-block text-primary">بازگشت به فهرست</Link></main>;
 
@@ -349,13 +373,26 @@ function ArticleEditorPage() {
         <aside className="space-y-5">
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 font-semibold">دسته‌بندی‌ها</h2>
-            {categories.isError ? <p className="text-sm text-destructive">{categories.error.message}</p> : categories.data?.filter((item) => item.is_active).map((item) => <label key={item.id} className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={form.category.includes(item.id)} onChange={(event) => setForm((previous) => ({ ...previous, category: event.target.checked ? [...previous.category, item.id] : previous.category.filter((id) => id !== item.id) }))} />{item.title}</label>)}
-            {categories.data?.length === 0 && <p className="text-xs text-muted-foreground">دسته‌بندی فعالی ثبت نشده است.</p>}
+            <input value={categorySearch} onChange={(event) => setCategorySearch(event.target.value)} placeholder="جست‌وجوی دسته‌بندی؛ مثلاً تکن…" className="mb-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
+            {categories.isError ? <p className="text-sm text-destructive">{categories.error.message}</p> : <div className="max-h-48 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-border p-3">{categories.data?.filter((item) => item.is_active && item.title.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase())).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.category.includes(item.id)} onChange={(event) => setForm((previous) => ({ ...previous, category: event.target.checked ? [...previous.category, item.id] : previous.category.filter((id) => id !== item.id) }))} />{item.title}</label>)}{!categories.data?.some((item) => item.is_active && item.title.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase())) && <p className="text-xs text-muted-foreground">موردی پیدا نشد؛ می‌توانید دسته‌بندی جدید بسازید.</p>}</div>}
+            {permissions?.create && <div className="mt-3 flex gap-2"><input value={newCategoryTitle} onChange={(event) => setNewCategoryTitle(event.target.value)} placeholder="نام دسته‌بندی جدید" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" onClick={() => void addCategory()} disabled={!newCategoryTitle.trim()} className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">ایجاد</button></div>}
           </section>
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 font-semibold">برچسب‌ها</h2>
-            {tags.isError ? <p className="text-sm text-destructive">{tags.error.message}</p> : tags.data?.filter((item) => item.is_active).map((item) => <label key={item.id} className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={form.tags.includes(item.id)} onChange={(event) => setForm((previous) => ({ ...previous, tags: event.target.checked ? [...previous.tags, item.id] : previous.tags.filter((id) => id !== item.id) }))} />{item.title}</label>)}
-            {tags.data?.length === 0 && <p className="text-xs text-muted-foreground">برچسب فعالی ثبت نشده است.</p>}
+            <input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="جست‌وجوی برچسب؛ مثلاً تکن…" className="mb-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
+            {tags.isError ? <p className="text-sm text-destructive">{tags.error.message}</p> : <div className="max-h-48 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-border p-3">{tags.data?.filter((item) => item.is_active && item.title.toLocaleLowerCase().includes(tagSearch.trim().toLocaleLowerCase())).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.tags.includes(item.id)} onChange={(event) => setForm((previous) => ({ ...previous, tags: event.target.checked ? [...previous.tags, item.id] : previous.tags.filter((id) => id !== item.id) }))} />{item.title}</label>)}{!tags.data?.some((item) => item.is_active && item.title.toLocaleLowerCase().includes(tagSearch.trim().toLocaleLowerCase())) && <p className="text-xs text-muted-foreground">موردی پیدا نشد؛ می‌توانید برچسب جدید بسازید.</p>}</div>}
+            {permissions?.create && <div className="mt-3 flex gap-2"><input value={newTagTitle} onChange={(event) => setNewTagTitle(event.target.value)} placeholder="نام برچسب جدید" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" onClick={() => void addTag()} disabled={!newTagTitle.trim()} className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">ایجاد</button></div>}
+          </section>
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="mb-3 font-semibold">اطلاعات مقاله</h2>
+            <dl className="space-y-3 text-sm">
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">تاریخ انتشار</dt><dd className="text-left">{article.data?.published_at ? new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(article.data.published_at)) : "هنوز منتشر نشده"}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">آخرین ویرایش</dt><dd className="text-left">{article.data?.updated_at ? new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(article.data.updated_at)) : "پس از ذخیره"}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">بازدید</dt><dd className="text-left">آمار ثبت نمی‌شود</dd></div>
+            </dl>
+            <label className="mb-2 mt-4 block text-sm font-medium">عنوان در URL (Slug)</label>
+            <input value={slug} onChange={(event) => setSlug(event.target.value)} disabled={!permissions?.manage_roles} dir="ltr" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-sm disabled:opacity-70" placeholder="article-url-title" />
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{permissions?.manage_roles ? "فقط مدیر محتوا می‌تواند این آدرس را تغییر دهد. برای تولید خودکار، خالی بگذارید." : "این آدرس فقط‌خواندنی است و توسط مدیر محتوا قابل ویرایش است."}</p>
           </section>
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 font-semibold">تصویر اصلی مقاله</h2>
