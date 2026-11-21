@@ -95,11 +95,29 @@ class ArticleCategorySerializer(serializers.ModelSerializer):
         model = ArticleCategory
         fields = ("id", "title", "slug", "about", "image", "parent", "is_active")
 
+    def validate_title(self, value):
+        normalized = value.strip().casefold()
+        matches = ArticleCategory.objects.filter(title__iexact=normalized)
+        if self.instance:
+            matches = matches.exclude(pk=self.instance.pk)
+        if matches.exists():
+            raise serializers.ValidationError("دسته‌بندی با این نام از قبل وجود دارد.")
+        return value.strip()
+
 
 class ArticleTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArticleTag
         fields = ("id", "title", "slug", "is_active")
+
+    def validate_title(self, value):
+        normalized = value.strip().casefold()
+        matches = ArticleTag.objects.filter(title__iexact=normalized)
+        if self.instance:
+            matches = matches.exclude(pk=self.instance.pk)
+        if matches.exists():
+            raise serializers.ValidationError("برچسب با این نام از قبل وجود دارد.")
+        return value.strip()
 
 
 class ArticleImageSerializer(serializers.ModelSerializer):
