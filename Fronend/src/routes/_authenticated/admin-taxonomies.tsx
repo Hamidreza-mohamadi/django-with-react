@@ -18,8 +18,8 @@ function TaxonomyManagementPage() {
   const tags = useQuery({ queryKey: ["cms", "tags"], queryFn: () => getArticleTags() });
   const canCreate = !!capabilities.data?.permissions.create;
   const canDelete = !!capabilities.data?.permissions.delete;
-  const categoryExists = useMemo(() => categories.data?.some((item) => normalize(item.title) === normalize(categorySearch)), [categories.data, categorySearch]);
-  const tagExists = useMemo(() => tags.data?.some((item) => normalize(item.title) === normalize(tagSearch)), [tags.data, tagSearch]);
+  const categoryExists = useMemo(() => categories.data?.some((item) => normalize(item.title).includes(normalize(categorySearch))), [categories.data, categorySearch]);
+  const tagExists = useMemo(() => tags.data?.some((item) => normalize(item.title).includes(normalize(tagSearch))), [tags.data, tagSearch]);
 
   async function createCategory() {
     if (!categorySearch.trim() || categoryExists) return;
