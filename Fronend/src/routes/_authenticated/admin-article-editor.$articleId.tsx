@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import { ArrowRight, Bold, Eye, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Save, Strikethrough, Underline as UnderlineIcon, X } from "lucide-react";
+import { ArrowRight, Bold, Eye, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Save, Strikethrough, Underline as UnderlineIcon } from "lucide-react";
 import {
   createManagedArticle, createArticleCategory, createArticleTag, getArticleCategories, getArticleTags, getManagedArticle,
   updateManagedArticle, uploadManagedArticleImage, getArticleCmsCapabilities,
@@ -62,7 +62,6 @@ function ArticleEditorPage() {
   const [newCategoryTitle, setNewCategoryTitle] = useState("");
   const [newTagTitle, setNewTagTitle] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const coverImageInput = useRef<HTMLInputElement>(null);
   const publishingNewArticle = useRef(false);
@@ -105,18 +104,6 @@ function ArticleEditorPage() {
     editorProps: { attributes: { dir: "rtl", class: "prose prose-sm max-w-none min-h-[360px] px-5 py-4 text-right outline-none focus:outline-none" } },
     onUpdate: ({ editor: current }) => setForm((previous) => ({ ...previous, content_json: current.getJSON() as Record<string, unknown> })),
   });
-  const previewEditor = useEditor({
-    extensions,
-    content: form.content_json,
-    editable: false,
-    immediatelyRender: false,
-    editorProps: { attributes: { dir: "rtl", class: "prose prose-lg max-w-none text-right leading-9" } },
-  });
-  useEffect(() => {
-    if (previewOpen && previewEditor) {
-      previewEditor.commands.setContent((editor?.getJSON() ?? form.content_json) as never);
-    }
-  }, [previewOpen, previewEditor, editor, form.content_json]);
   useEffect(() => {
     if (editor && article.data?.content_json) {
       const content = mapImageSources(article.data.content_json, (src) => src.startsWith("http") ? src : `${MEDIA_BASE_URL}${src}`);
@@ -285,24 +272,14 @@ function ArticleEditorPage() {
   }
 
   const field = (key: keyof EditorState, value: string) => setForm((previous) => ({ ...previous, [key]: value }));
-  async function addCategory() {
-    const title = newCategoryTitle.trim(); if (!title) return;
-    try {
-      const created = await createArticleCategory({ data: { title } });
-      await queryClient.invalidateQueries({ queryKey: ["cms", "categories"] });
-      setForm((previous) => ({ ...previous, category: [...new Set([...previous.category, created.id])] }));
-      setNewCategoryTitle(""); setCategorySearch(""); setMessage("دسته‌بندی جدید ایجاد و انتخاب شد.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "ایجاد دسته‌بندی ناموفق بود."); }
+  async function openArticlePreview() {
+    const previewTab = window.open("about:blank", "_blank");
+    if (!previewTab) { setMessage("مرورگر اجازه باز کردن زبانه جدید را نداد؛ پنجره‌های بازشو را فعال کنید."); return; }
+    previewTab.document.write("<p dir='rtl' style='font-family:sans-serif;padding:2rem'>در حال آماده‌سازی پیش‌نمایش مقاله…</p>");
+    try { const saved = await saveMutation.mutateAsync(); previewTab.location.href = `/articles/${encodeURIComponent(saved.slug)}?previewId=${saved.id}`; }
+    catch { previewTab.close(); }
   }
-  async function addTag() {
-    const title = newTagTitle.trim(); if (!title) return;
-    try {
-      const created = await createArticleTag({ data: { title } });
-      await queryClient.invalidateQueries({ queryKey: ["cms", "tags"] });
-      setForm((previous) => ({ ...previous, tags: [...new Set([...previous.tags, created.id])] }));
-      setNewTagTitle(""); setTagSearch(""); setMessage("برچسب جدید ایجاد و انتخاب شد.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "ایجاد برچسب ناموفق بود."); }
-  }
+
   if (!isNew && article.isLoading) return <main dir="rtl" className="mx-auto max-w-5xl p-8 text-center text-muted-foreground">در حال دریافت مقاله…</main>;
   if (!isNew && article.isError) return <main dir="rtl" className="mx-auto max-w-5xl p-8"><p className="text-destructive">{article.error.message}</p><Link to="/admin-articles" className="mt-4 inline-block text-primary">بازگشت به فهرست</Link></main>;
 
@@ -311,34 +288,9 @@ function ArticleEditorPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div><Link to="/admin-articles" className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"><ArrowRight className="h-4 w-4" /> بازگشت به داشبورد مقاله‌ها</Link><h1 className="text-2xl font-bold">{isNew ? "ایجاد مقاله جدید" : "ویرایش مقاله"}</h1><p className="mt-1 text-sm text-muted-foreground">محتوا را بنویسید، ذخیره کنید یا در صورت داشتن مجوز مستقیماً منتشر کنید.</p></div>
-        <button type="button" onClick={() => setPreviewOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted"><Eye className="h-4 w-4" /> پیش‌نمایش در سایت</button>
+        <button type="button" onClick={() => void openArticlePreview()} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted"><Eye className="h-4 w-4" /> پیش‌نمایش در سایت</button>
       </div>
       {message && <p role="status" className={`mb-4 rounded-xl border p-3 text-sm ${message.includes("موفقیت") || message.includes("اضافه شد") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}>{message}</p>}
-      {previewOpen && (
-        <div className="fixed inset-0 z-[100] overflow-y-auto bg-background" dir="rtl">
-          <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
-            <div><p className="font-semibold">پیش‌نمایش مقاله در قالب سایت</p><p className="text-xs text-muted-foreground">این نمایش فقط برای بررسی است و مقاله را منتشر نمی‌کند.</p></div>
-            <button type="button" onClick={() => setPreviewOpen(false)} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted"><X className="h-4 w-4" /> بستن پیش‌نمایش</button>
-          </div>
-          <header className="border-b border-border bg-secondary/40">
-            <div className="container-shop py-8">
-              <div className={coverImageUrl ? "grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center" : "max-w-4xl"}>
-                <div>
-                  <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">پیش‌نمایش مقاله</span>
-                  <h1 className="mt-4 text-3xl font-bold leading-tight text-foreground md:text-4xl">{form.title || "عنوان مقاله"}</h1>
-                  <p className="mt-4 max-w-2xl text-base leading-8 text-muted-foreground">{form.short_description || "خلاصه مقاله در این قسمت نمایش داده می‌شود."}</p>
-                </div>
-                {coverImageUrl && <div className="overflow-hidden rounded-2xl border border-border bg-secondary"><img src={coverImageUrl} alt={form.image_alt || form.title} className="aspect-[16/10] w-full object-cover" /></div>}
-              </div>
-            </div>
-          </header>
-          <main className="container-shop py-10">
-            <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-8">
-              {previewEditor ? <EditorContent editor={previewEditor} /> : <p className="text-muted-foreground">در حال آماده‌سازی پیش‌نمایش…</p>}
-            </div>
-          </main>
-        </div>
-      )}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="space-y-5">
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
@@ -373,16 +325,16 @@ function ArticleEditorPage() {
         </section>
         <aside className="space-y-5">
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-3 font-semibold">دسته‌بندی‌ها</h2>
-            <input value={categorySearch} onChange={(event) => setCategorySearch(event.target.value)} placeholder="جست‌وجوی دسته‌بندی؛ مثلاً تکن…" className="mb-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
-            {categories.isError ? <p className="text-sm text-destructive">{categories.error.message}</p> : <div className="max-h-48 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-border p-3">{categories.data?.filter((item) => item.is_active && item.title.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase())).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.category.includes(item.id)} onChange={(event) => setForm((previous) => ({ ...previous, category: event.target.checked ? [...previous.category, item.id] : previous.category.filter((id) => id !== item.id) }))} />{item.title}</label>)}{!categories.data?.some((item) => item.is_active && item.title.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase())) && <p className="text-xs text-muted-foreground">موردی پیدا نشد؛ می‌توانید دسته‌بندی جدید بسازید.</p>}</div>}
-            {permissions?.create && <div className="mt-3 flex gap-2"><input value={newCategoryTitle} onChange={(event) => setNewCategoryTitle(event.target.value)} placeholder="نام دسته‌بندی جدید" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" onClick={() => void addCategory()} disabled={!newCategoryTitle.trim()} className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">ایجاد</button></div>}
+            <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">دسته‌بندی‌ها</h2><Link to="/admin-taxonomies" className="text-xs text-primary hover:underline">مدیریت</Link></div>
+            <div className="flex gap-2"><input value={categorySearch} onChange={(event) => setCategorySearch(event.target.value)} placeholder="جست‌وجو یا ایجاد دسته‌بندی…" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" disabled={!categorySearch.trim() || !!categories.data?.some((item) => item.title.trim().toLocaleLowerCase() === categorySearch.trim().toLocaleLowerCase())} onClick={async () => { try { const item = await createArticleCategory({ data: { title: categorySearch.trim() } }); await queryClient.invalidateQueries({ queryKey: ["cms", "categories"] }); setForm((p) => ({ ...p, category: [...new Set([...p.category, item.id])] })); setCategorySearch(""); } catch (err) { setMessage(err instanceof Error ? err.message : "ایجاد دسته‌بندی ناموفق بود."); } }} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">+</button></div>
+            {categories.data?.some((item) => item.title.trim().toLocaleLowerCase() === categorySearch.trim().toLocaleLowerCase()) && categorySearch.trim() && <p className="mt-2 text-xs text-amber-600">از قبل وجود دارد؛ از فهرست انتخاب کنید.</p>}
+            <div className="mt-3 max-h-44 space-y-2 overflow-y-auto rounded-lg border border-border p-3">{categories.data?.filter((item) => item.is_active && item.title.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase())).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.category.includes(item.id)} onChange={(event) => setForm((p) => ({ ...p, category: event.target.checked ? [...p.category, item.id] : p.category.filter((id) => id !== item.id) }))} />{item.title}</label>)}</div>
           </section>
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-3 font-semibold">برچسب‌ها</h2>
-            <input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="جست‌وجوی برچسب؛ مثلاً تکن…" className="mb-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
-            {tags.isError ? <p className="text-sm text-destructive">{tags.error.message}</p> : <div className="max-h-48 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-border p-3">{tags.data?.filter((item) => item.is_active && item.title.toLocaleLowerCase().includes(tagSearch.trim().toLocaleLowerCase())).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.tags.includes(item.id)} onChange={(event) => setForm((previous) => ({ ...previous, tags: event.target.checked ? [...previous.tags, item.id] : previous.tags.filter((id) => id !== item.id) }))} />{item.title}</label>)}{!tags.data?.some((item) => item.is_active && item.title.toLocaleLowerCase().includes(tagSearch.trim().toLocaleLowerCase())) && <p className="text-xs text-muted-foreground">موردی پیدا نشد؛ می‌توانید برچسب جدید بسازید.</p>}</div>}
-            {permissions?.create && <div className="mt-3 flex gap-2"><input value={newTagTitle} onChange={(event) => setNewTagTitle(event.target.value)} placeholder="نام برچسب جدید" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" onClick={() => void addTag()} disabled={!newTagTitle.trim()} className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">ایجاد</button></div>}
+            <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">برچسب‌ها</h2><Link to="/admin-taxonomies" className="text-xs text-primary hover:underline">مدیریت</Link></div>
+            <div className="flex gap-2"><input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="جست‌وجو یا ایجاد برچسب…" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" /><button type="button" disabled={!tagSearch.trim() || !!tags.data?.some((item) => item.title.trim().toLocaleLowerCase() === tagSearch.trim().toLocaleLowerCase())} onClick={async () => { try { const item = await createArticleTag({ data: { title: tagSearch.trim() } }); await queryClient.invalidateQueries({ queryKey: ["cms", "tags"] }); setForm((p) => ({ ...p, tags: [...new Set([...p.tags, item.id])] })); setTagSearch(""); } catch (err) { setMessage(err instanceof Error ? err.message : "ایجاد برچسب ناموفق بود."); } }} className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">+</button></div>
+            {tags.data?.some((item) => item.title.trim().toLocaleLowerCase() === tagSearch.trim().toLocaleLowerCase()) && tagSearch.trim() && <p className="mt-2 text-xs text-amber-600">از قبل وجود دارد؛ از فهرست انتخاب کنید.</p>}
+            <div className="mt-3 max-h-44 space-y-2 overflow-y-auto rounded-lg border border-border p-3">{tags.data?.filter((item) => item.is_active && item.title.toLocaleLowerCase().includes(tagSearch.trim().toLocaleLowerCase())).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={form.tags.includes(item.id)} onChange={(event) => setForm((p) => ({ ...p, tags: event.target.checked ? [...p.tags, item.id] : p.tags.filter((id) => id !== item.id) }))} />{item.title}</label>)}</div>
           </section>
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 font-semibold">اطلاعات مقاله</h2>
