@@ -86,25 +86,7 @@ function ArticleAdminPage() {
           {permissions?.moderate_comments && <Metric title="دیدگاه‌های منتظر" value={comments.isLoading ? "…" : pendingComments.length} icon={MessageSquare} detail="در انتظار تأیید یا رد" />}
         </div>
 
-        {(permissions?.create || permissions?.edit_own || permissions?.view_all || permissions?.publish || permissions?.review) && <section className="mt-8 space-y-4">
-          <div><h2 className="text-xl font-bold">صف‌های کاری مقاله‌ها</h2><p className="mt-1 text-sm text-muted-foreground">مقاله‌ها بر اساس وضعیت فعلی در بخش‌های جداگانه قرار گرفته‌اند.</p></div>
-          <div className="grid gap-5 xl:grid-cols-3">
-            {[
-              { key: "approved", title: "در انتظار انتشار", items: waitingPublish, color: "border-emerald-500/30 bg-emerald-500/[0.04]" },
-              { key: "review", title: "در انتظار بررسی", items: waitingReview, color: "border-sky-500/30 bg-sky-500/[0.04]" },
-              { key: "draft", title: "پیش‌نویس‌ها", items: drafts, color: "border-border bg-card" },
-            ].map((queue) => <section key={queue.key} className={"overflow-hidden rounded-2xl border shadow-sm " + queue.color}>
-              <header className="flex items-center justify-between border-b border-border/70 px-5 py-4"><h3 className="font-bold">{queue.title}</h3><span className="rounded-full bg-background px-3 py-1 text-sm font-bold">{queue.items.length}</span></header>
-              <div className="max-h-[400px] divide-y divide-border/70 overflow-y-auto">
-                {articles.isLoading ? <p className="p-5 text-sm text-muted-foreground">در حال دریافت…</p> : queue.items.length === 0 ? <p className="p-7 text-center text-sm text-muted-foreground">مقاله‌ای در این بخش وجود ندارد.</p> : queue.items.map((article) => <article key={article.id} className="p-4 transition hover:bg-background/70">
-                  <Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="block"><h4 className="text-sm font-semibold leading-6 hover:text-primary">{article.title || "بدون عنوان"}</h4><p className="mt-1 text-xs text-muted-foreground">{article.author?.username || "نویسنده"} · {formatDate(article.updated_at)}</p></Link>
-                  {queue.key === "approved" && article.scheduled_at && <p className="mt-2 text-xs text-emerald-700">زمان‌بندی‌شده برای انتشار</p>}
-                  <div className="mt-3 flex flex-wrap gap-2"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-muted">مشاهده و ویرایش</Link>{queue.key === "approved" && permissions?.publish && <button onClick={() => runPublish(article.id)} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">انتشار فوری</button>}{queue.key === "review" && permissions?.review && <Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-500/15">بررسی مقاله</Link>}</div>
-                </article>)}
-              </div>
-            </section>)}
-          </div>
-        </section>}
+
 
         {(articles.isError || comments.isError) && (
           <div className="mt-6 space-y-3">
@@ -148,6 +130,33 @@ function ArticleAdminPage() {
             </div>
           )}
         </section>}
+
+        {(permissions?.create || permissions?.edit_own || permissions?.view_all || permissions?.publish || permissions?.review) && <section className="mt-8 space-y-5">
+          <div><h2 className="text-xl font-bold">صف‌های کاری مقاله‌ها</h2><p className="mt-1 text-sm text-muted-foreground">هر بخش مانند فهرست همه مقاله‌ها، در یک جدول مستقل نمایش داده می‌شود.</p></div>
+          {[
+            { key: "approved", title: "در انتظار انتشار", items: waitingPublish },
+            { key: "review", title: "در انتظار بررسی", items: waitingReview },
+            { key: "draft", title: "پیش‌نویس‌ها", items: drafts },
+          ].map((queue) => <section key={queue.key} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+              <div><h3 className="font-semibold">{queue.title}</h3><p className="mt-1 text-xs text-muted-foreground">وضعیت و زمان آخرین تغییر مقاله‌ها</p></div>
+              <span className="rounded-full bg-muted px-3 py-1 text-sm font-semibold">{queue.items.length}</span>
+            </div>
+            {articles.isLoading ? <div className="p-10 text-center text-sm text-muted-foreground">در حال دریافت مقاله‌ها…</div> : queue.items.length === 0 ? <div className="p-8 text-center text-sm text-muted-foreground">مقاله‌ای در این بخش وجود ندارد.</div> : <div className="overflow-x-auto">
+              <table className="w-full min-w-[620px] text-right text-sm">
+                <thead className="bg-muted/50 text-xs text-muted-foreground"><tr><th className="px-5 py-3 font-medium">عنوان</th><th className="px-5 py-3 font-medium">وضعیت</th><th className="px-5 py-3 font-medium">آخرین تغییر</th><th className="px-5 py-3 font-medium">عملیات</th></tr></thead>
+                <tbody className="divide-y divide-border">
+                  {queue.items.map((article) => <tr key={article.id} className="hover:bg-muted/30">
+                    <td className="max-w-sm px-5 py-4"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="group block"><div className="flex items-center gap-2 truncate font-medium text-primary group-hover:underline">{article.title || "بدون عنوان"} <Pencil className="h-3.5 w-3.5 shrink-0" /></div><div className="mt-1 truncate text-xs text-muted-foreground">{article.short_description}</div></Link></td>
+                    <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[article.status] || "bg-muted"}`}>{article.status === "approved" ? (article.scheduled_at ? "زمان‌بندی‌شده" : "آماده انتشار") : article.status === "review" ? "در انتظار بررسی" : "پیش‌نویس"}</span></td>
+                    <td className="px-5 py-4 text-muted-foreground">{formatDate(article.updated_at)}</td>
+                    <td className="px-5 py-4"><div className="flex flex-wrap gap-2"><Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted">جزئیات</Link>{queue.key === "approved" && permissions?.publish && <button onClick={() => runPublish(article.id)} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground">منتشر کردن</button>}{queue.key === "review" && permissions?.review && <Link to="/admin-article-editor/$articleId" params={{ articleId: String(article.id) }} className="rounded-lg border border-sky-500/30 px-3 py-1.5 text-xs text-sky-700 hover:bg-sky-500/10">بررسی مقاله</Link>}</div></td>
+                  </tr>)}
+                </tbody>
+              </table>
+            </div>}
+          </section>)}
+        </section>
 
         <p className="mt-5 text-xs leading-6 text-muted-foreground">دسترسی هر عملیات توسط مجوزهای سمت سرور کنترل می‌شود؛ هر نقش فقط امکانات مجاز خودش و نقش‌های پایین‌تر را دارد.</p>
       </div>
