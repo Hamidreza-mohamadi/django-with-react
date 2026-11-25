@@ -1,11 +1,4 @@
-/* esl
-    '/_authenticated/admin-comments': {
-      id: '/_authenticated/admin-comments'
-      path: '/admin-comments'
-      fullPath: '/admin-comments'
-      preLoaderRoute: typeof AuthenticatedAdminCommentsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    },int-disable */
+/* eslint-disable */
 
 // @ts-nocheck
 
@@ -204,6 +197,7 @@ export interface FileRoutesByTo {
   '/orders': typeof AuthenticatedOrdersRoute
   '/admin-articles': typeof AuthenticatedAdminArticlesRoute
   '/admin-taxonomies': typeof AuthenticatedAdminTaxonomiesRoute
+  '/admin-comments': typeof AuthenticatedAdminCommentsRoute
   '/admin-article-editor/$articleId': typeof AuthenticatedAdminArticleEditorArticleIdRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -280,6 +274,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/admin-articles'
     | '/admin-taxonomies'
+    | '/admin-comments'
     | '/admin-article-editor/$articleId'
     | '/articles/$slug'
     | '/products/$productId'
@@ -451,7 +446,14 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin-taxonomies'
       preLoaderRoute: typeof AuthenticatedAdminTaxonomiesRouteImport
       parentRoute: typeof AuthenticatedRoute
-    }
+    },
+    '/_authenticated/admin-comments': {
+      id: '/_authenticated/admin-comments'
+      path: '/admin-comments'
+      fullPath: '/admin-comments'
+      preLoaderRoute: typeof AuthenticatedAdminCommentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    },
     '/_authenticated/admin-article-editor/$articleId': {
       id: '/_authenticated/admin-article-editor/$articleId'
       path: '/admin-article-editor/$articleId'
