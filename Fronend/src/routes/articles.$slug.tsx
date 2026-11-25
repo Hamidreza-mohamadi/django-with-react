@@ -407,7 +407,18 @@ function CommentsSection({ slug, articleId, comments, canManageComments }: { slu
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
-  const totalComments = comments.reduce((total, comment) => total + 1 + comment.replies.length, 0);
+  const countComments = (items: ArticleComment[]): number =>
+    items.reduce((total, item) => total + 1 + countComments(item.replies ?? []), 0);
+  const totalComments = countComments(comments);
+  const findComment = (items: ArticleComment[], id: number): ArticleComment | undefined => {
+    for (const item of items) {
+      if (item.id === id) return item;
+      const nested = findComment(item.replies ?? [], id);
+      if (nested) return nested;
+    }
+    return undefined;
+  };
+  const replyTarget = replyTo === null ? undefined : findComment(comments, replyTo);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -456,7 +467,11 @@ function CommentsSection({ slug, articleId, comments, canManageComments }: { slu
       <form onSubmit={submit} className="mt-6">
         {replyTo && (
           <div className="mb-2 flex items-center justify-between rounded-md bg-secondary px-3 py-2 text-xs">
-            <span>در حال پاسخ به دیدگاه #{toFa(replyTo)}</span>
+            <span>
+              در حال پاسخ به {replyTarget
+                ? ([replyTarget.user.first_name, replyTarget.user.last_name].filter(Boolean).join(" ") || replyTarget.user.username) + " (@" + replyTarget.user.username + ")"
+                : `دیدگاه #${toFa(replyTo)}`}
+            </span>
             <button type="button" onClick={() => setReplyTo(null)} className="text-primary hover:underline">
               انصراف
             </button>
@@ -490,20 +505,26 @@ function CommentsSection({ slug, articleId, comments, canManageComments }: { slu
           <p className="text-sm text-muted-foreground">هنوز دیدگاهی ثبت نشده. اولین نفر باشید.</p>
         ) : (
           comments.map((comment) => (
-            <div key={comment.id} className="space-y-3">
-              <CommentItem c={comment} onReply={() => setReplyTo(comment.id)} />
-              {comment.replies.length > 0 && (
-                <div className="mr-8 space-y-3 border-r-2 border-border pr-4">
-                  {comment.replies.map((reply) => (
-                    <CommentItem key={reply.id} c={reply} onReply={() => setReplyTo(comment.id)} />
-                  ))}
-                </div>
-              )}
-            </div>
+            <CommentThread key={comment.id} comment={comment} onReply={setReplyTo} />
           ))
         )}
       </div>
     </section>
+  );
+}
+
+function CommentThread({ comment, onReply }: { comment: ArticleComment; onReply: (id: number) => void }) {
+  return (
+    <div className="space-y-3">
+      <CommentItem c={comment} onReply={() => onReply(comment.id)} />
+      {comment.replies?.length > 0 && (
+        <div className="mr-8 space-y-3 border-r-2 border-border pr-4">
+          {comment.replies.map((reply) => (
+            <CommentThread key={reply.id} comment={reply} onReply={onReply} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
