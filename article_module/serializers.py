@@ -158,6 +158,11 @@ class ArticleCommentSerializer(serializers.ModelSerializer):
             return None
         return PublicUserSerializer(obj.parent.user).data
 
+    def get_parent_user(self, obj):
+        if not obj.parent_id:
+            return None
+        return PublicUserSerializer(obj.parent.user).data
+
     def get_replies(self, obj):
         if obj.parent_id:
             return []
