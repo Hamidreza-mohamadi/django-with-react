@@ -204,6 +204,7 @@ export interface ArticleComment {
   create_date: string;
   status: "pending" | "approved" | "rejected";
   parent: number | null;
+  parent_user?: { id: number; username: string; first_name?: string; last_name?: string } | null;
   replies: ArticleComment[];
 }
 
