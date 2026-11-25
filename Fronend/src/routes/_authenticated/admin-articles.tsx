@@ -76,7 +76,7 @@ function ArticleAdminPage() {
           <span className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><LayoutDashboard className="h-4 w-4" /> داشبورد</span>
           <a href="#my-articles" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><FileText className="h-4 w-4" /> فهرست مقاله‌ها</a>
           <Link to="/admin-taxonomies" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><Tags className="h-4 w-4" /> دسته‌بندی و برچسب</Link>
-          <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground"><MessageSquare className="h-4 w-4" /> دیدگاه‌ها</span>
+          <Link to="/admin-comments" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><MessageSquare className="h-4 w-4" /> مدیریت دیدگاه‌ها</Link>
         </nav>
 
         {capabilities.isLoading && <p className="mb-5 text-sm text-muted-foreground">در حال دریافت سطح دسترسی…</p>}
@@ -96,7 +96,7 @@ function ArticleAdminPage() {
           </div>
         )}
 
-        {permissions?.moderate_comments && <section className="mt-6 overflow-hidden rounded-2xl border border-border bg-card shadow-sm"><div className="border-b border-border px-5 py-4"><h2 className="font-semibold">مدیریت دیدگاه‌ها</h2><p className="mt-1 text-xs text-muted-foreground">تأیید یا رد دیدگاه‌های کاربران</p></div>{pendingComments.length === 0 ? <p className="p-6 text-sm text-muted-foreground">دیدگاه در انتظار تأیید وجود ندارد.</p> : <div className="divide-y divide-border">{pendingComments.map((comment) => <div key={comment.id} className="flex flex-wrap items-start justify-between gap-3 p-5"><div className="min-w-0 flex-1"><p className="text-sm leading-7">{comment.text}</p><p className="mt-1 text-xs text-muted-foreground">{comment.user?.username || "کاربر"} · مقاله #{comment.article}</p></div><div className="flex gap-2"><button onClick={() => runComment(comment.id, "approved")} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">تأیید</button><button onClick={() => runComment(comment.id, "rejected")} className="rounded-lg border border-destructive/40 px-3 py-2 text-xs font-semibold text-destructive">رد</button><button onClick={() => runDeleteComment(comment.id)} className="rounded-lg border border-border px-3 py-2 text-xs">حذف</button></div></div>)}</div>}</section>}
+
 
         {(permissions?.create || permissions?.edit_own || permissions?.view_all) && <section id="my-articles" className="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
