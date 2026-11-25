@@ -736,7 +736,7 @@ export const getManagedArticleComments = createServerFn({ method: "GET" })
   });
 
 export const getPendingArticleComments = createServerFn({ method: "GET" }).handler(
-  async () => (await djangoFetch<ManagedArticleCommentsPage>("/articles/manage/comments/")).results,
+  async () => djangoFetch<ManagedArticleCommentsPage>("/articles/manage/comments/"),
 );
 
 
