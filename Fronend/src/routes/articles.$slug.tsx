@@ -108,6 +108,7 @@ function RichArticleBody({ content }: { content: Record<string, unknown> }) {
 }
 
 const toFa = (n: number) => new Intl.NumberFormat("fa-IR").format(n);
+const countArticleComments = (items: ArticleComment[]): number => items.reduce((total, item) => total + 1 + countArticleComments(item.replies ?? []), 0);
 
 function useReadingProgress() {
   const [progress, setProgress] = useState(0);
@@ -237,7 +238,7 @@ function ArticleDetailPage() {
                   className="flex items-center gap-1.5 font-medium text-primary hover:underline"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  {toFa(comments.reduce((total, comment) => total + 1 + comment.replies.length, 0))} دیدگاه
+                  {toFa(countArticleComments(comments))} دیدگاه
                 </button>
 
               </div>
@@ -407,9 +408,7 @@ function CommentsSection({ slug, articleId, comments, canManageComments }: { slu
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
-  const countComments = (items: ArticleComment[]): number =>
-    items.reduce((total, item) => total + 1 + countComments(item.replies ?? []), 0);
-  const totalComments = countComments(comments);
+  const totalComments = countArticleComments(comments);
   const findComment = (items: ArticleComment[], id: number): ArticleComment | undefined => {
     for (const item of items) {
       if (item.id === id) return item;
@@ -513,14 +512,14 @@ function CommentsSection({ slug, articleId, comments, canManageComments }: { slu
   );
 }
 
-function CommentThread({ comment, onReply }: { comment: ArticleComment; onReply: (id: number) => void }) {
+function CommentThread({ comment, onReply, isNested = false }: { comment: ArticleComment; onReply: (id: number) => void; isNested?: boolean }) {
   return (
     <div className="space-y-3">
       <CommentItem c={comment} onReply={() => onReply(comment.id)} />
       {comment.replies?.length > 0 && (
-        <div className="mr-8 space-y-3 border-r-2 border-border pr-4">
+        <div className={`${isNested ? "" : "mr-8"} space-y-3 border-r-2 border-border pr-4`}>
           {comment.replies.map((reply) => (
-            <CommentThread key={reply.id} comment={reply} onReply={onReply} />
+            <CommentThread key={reply.id} comment={reply} onReply={onReply} isNested />
           ))}
         </div>
       )}
