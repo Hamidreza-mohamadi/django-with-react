@@ -250,6 +250,8 @@ class ArticleCommentAdminSerializer(serializers.ModelSerializer):
         return {
             "id": parent_user.id,
             "username": parent_user.username,
+            "first_name": parent_user.first_name,
+            "last_name": parent_user.last_name,
             "display_name": display_name,
         }
 
