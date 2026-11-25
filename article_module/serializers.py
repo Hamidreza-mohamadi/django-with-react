@@ -153,6 +153,11 @@ class ArticleCommentSerializer(serializers.ModelSerializer):
         fields = ("id", "article", "user", "text", "parent", "status", "create_date", "replies")
         read_only_fields = fields
 
+    def get_parent_user(self, obj):
+        if not obj.parent_id:
+            return None
+        return PublicUserSerializer(obj.parent.user).data
+
     def get_replies(self, obj):
         if obj.parent_id:
             return []
@@ -223,10 +228,11 @@ class ArticleCommentAdminSerializer(serializers.ModelSerializer):
     article_title = serializers.CharField(source="article.title", read_only=True)
     article_slug = serializers.CharField(source="article.slug", read_only=True)
     replies = serializers.SerializerMethodField()
+    parent_user = serializers.SerializerMethodField()
 
     class Meta:
         model = ArticleComment
-        fields = ("id", "article", "article_title", "article_slug", "user", "text", "parent", "status", "create_date", "replies")
+        fields = ("id", "article", "article_title", "article_slug", "user", "text", "parent", "parent_user", "status", "create_date", "replies")
         read_only_fields = fields
 
     def get_replies(self, obj):
