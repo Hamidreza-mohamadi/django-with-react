@@ -23,7 +23,6 @@ import type {
 } from "./types";
 import {
   mockArticles,
-  mockArticleComments,
   mockProductComments,
   mockProducts,
   mockSiteSetting,
@@ -512,43 +511,24 @@ export const getArticle = createServerFn({ method: "GET" })
   });
 
 export const getArticleComments = createServerFn({ method: "GET" })
-  .validator((data: { articleId: number }) => data)
-  .handler(async ({ data }) => {
-    // MOCK DATA — comment/remove this block when using Django.
-    if (USE_MOCK()) {
-      return mockArticleComments.filter(
-        (comment) =>
-          comment.article === data.articleId && comment.is_approved,
-      );
-    }
-    return djangoFetch<ArticleComment[]>(
-      `/articles/${data.articleId}/comments/`,
-    );
-  });
+  .validator((data: { slug: string }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<ArticleComment[]>(
+      `/articles/comments/${encodeURIComponent(data.slug)}/`,
+    ),
+  );
 
 export const createArticleComment = createServerFn({ method: "POST" })
-  .validator(
-    (data: { article: number; text: string; parent?: number | null }) => data,
-  )
-  .handler(async ({ data }) => {
-    // MOCK DATA — comment/remove this block when using Django.
-    if (USE_MOCK()) {
-      return {
-        id: Date.now(),
-        ...data,
-        user: "شما",
-        create_date: new Date().toISOString(),
-        is_approved: true,
-      } as ArticleComment;
-    }
-    return djangoFetch<ArticleComment>(
-      `/articles/${data.article}/comments/`,
+  .validator((data: { slug: string; text: string; parent?: number | null }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<{ id: number; status: "pending"; detail: string }>(
+      `/articles/comments/${encodeURIComponent(data.slug)}/`,
       {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ text: data.text, parent: data.parent ?? null }),
       },
-    );
-  });
+    ),
+  );
 
 export const getProductComments = createServerFn({ method: "GET" })
   .validator((data: { productId: number }) => data)
