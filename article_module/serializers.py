@@ -213,8 +213,8 @@ class ArticleCommentModerationSerializer(serializers.ModelSerializer):
         fields = ("status",)
 
     def validate_status(self, value):
-        if value not in (ArticleComment.Status.APPROVED, ArticleComment.Status.REJECTED):
-            raise serializers.ValidationError("وضعیت باید approved یا rejected باشد.")
+        if value not in (ArticleComment.Status.PENDING, ArticleComment.Status.APPROVED, ArticleComment.Status.REJECTED):
+            raise serializers.ValidationError("وضعیت باید pending، approved یا rejected باشد.")
         return value
 
 
