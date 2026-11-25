@@ -443,10 +443,19 @@ class ArticleCommentModerationListView(APIView):
                 | Q(article__title__icontains=search)
             )
 
-        matched_rows = matching.values_list("id", "parent_id")
+        matched_ids = set(matching.values_list("id", flat=True))
+        parent_map = dict(ArticleComment.objects.values_list("id", "parent_id"))
         root_ids = set()
-        for comment_id, parent_id in matched_rows:
-            root_ids.add(parent_id or comment_id)
+        for comment_id in matched_ids:
+            current_id = comment_id
+            visited = set()
+            while current_id and current_id not in visited:
+                visited.add(current_id)
+                parent_id = parent_map.get(current_id)
+                if parent_id is None:
+                    root_ids.add(current_id)
+                    break
+                current_id = parent_id
 
         roots = ArticleComment.objects.filter(
             parent__isnull=True, id__in=root_ids
