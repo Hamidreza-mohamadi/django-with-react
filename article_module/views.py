@@ -98,10 +98,16 @@ def managed_article_or_404(user, pk):
 
 
 class ArticleCapabilitiesView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         user = request.user
+        if not user.is_authenticated:
+            return Response({"permissions": {
+                "create": False, "edit_own": False, "view_all": False,
+                "publish": False, "review": False, "delete": False,
+                "moderate_comments": False, "manage_roles": False, "is_superuser": False,
+            }, "groups": []})
         permissions = {
             "create": has_cms_perm(user, "add_article"),
             "edit_own": has_cms_perm(user, "change_article"),
