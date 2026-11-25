@@ -82,7 +82,7 @@ function AdminCommentsPage() {
             <span className={`rounded-full px-2 py-1 text-[11px] ${comment.status === "pending" ? "bg-amber-100 text-amber-800" : comment.status === "approved" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
               {statusLabels[comment.status]}
             </span>
-            {isReply && <span className="text-xs text-muted-foreground">پاسخ به دیدگاه #{comment.parent}</span>}
+            {isReply && <span className="text-xs text-muted-foreground">پاسخ به {comment.parent_user ? ([comment.parent_user.first_name, comment.parent_user.last_name].filter(Boolean).join(" ") || comment.parent_user.username) + " (@" + comment.parent_user.username + ")" : "دیدگاه #" + comment.parent}</span>}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{formatDate(comment.create_date)}</p>
         </div>
