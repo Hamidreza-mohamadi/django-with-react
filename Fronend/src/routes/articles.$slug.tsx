@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useSuspenseQuery, queryOptions, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, queryOptions, useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Calendar,
   User as UserIcon,
@@ -16,7 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import { getArticle, getArticles, getArticleComments, createArticleComment, getManagedArticle } from "@/lib/shop/api";
+import { getArticle, getArticles, getArticleComments, createArticleComment, getManagedArticle, getArticleCmsCapabilities } from "@/lib/shop/api";
 import type { Article } from "@/lib/shop/types";
 import { Button } from "@/components/ui/button";
 import type { ArticleComment } from "@/lib/shop/types";
@@ -133,6 +133,8 @@ function ArticleDetailPage() {
 
   const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.slug, isPreview));
   const { data: allArticles } = useSuspenseQuery(articlesListQueryOptions(isPreview));
+  const capabilities = useQuery({ queryKey: ["cms", "capabilities"], queryFn: () => getArticleCmsCapabilities(), enabled: !isPreview });
+  const canManageComments = !!capabilities.data?.permissions.moderate_comments;
   const progress = useReadingProgress();
   const [copied, setCopied] = useState(false);
 
@@ -322,7 +324,7 @@ function ArticleDetailPage() {
                 </section>
               )}
 
-              {!isPreview && <CommentsSection slug={article.slug} comments={comments} />}
+              {!isPreview && <CommentsSection slug={article.slug} articleId={article.id} comments={comments} canManageComments={canManageComments} />}
 
             </article>
           </div>
@@ -398,7 +400,7 @@ function ArticleDetailPage() {
   );
 }
 
-function CommentsSection({ slug, comments }: { slug: string; comments: ArticleComment[] }) {
+function CommentsSection({ slug, articleId, comments, canManageComments }: { slug: string; articleId: number; comments: ArticleComment[]; canManageComments: boolean }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<number | null>(null);
@@ -435,10 +437,21 @@ function CommentsSection({ slug, comments }: { slug: string; comments: ArticleCo
 
   return (
     <section id="comments" className="mt-14 scroll-mt-28 border-t border-border pt-10">
-      <h2 className="flex items-center gap-2 text-xl font-bold">
-        <MessageCircle className="h-5 w-5" />
-        دیدگاه‌ها ({toFa(totalComments)})
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-xl font-bold">
+          <MessageCircle className="h-5 w-5" />
+          دیدگاه‌ها ({toFa(totalComments)})
+        </h2>
+        {canManageComments && (
+          <Link
+            to="/admin-comments"
+            search={{ article: articleId }}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            مدیریت دیدگاه‌های این مقاله
+          </Link>
+        )}
+      </div>
 
       <form onSubmit={submit} className="mt-6">
         {replyTo && (
