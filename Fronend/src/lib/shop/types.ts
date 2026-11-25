@@ -199,12 +199,12 @@ export interface Article {
 export interface ArticleComment {
   id: number;
   article: number;
-  user: string;
+  user: { id: number; username: string; first_name?: string; last_name?: string };
   text: string;
   create_date: string;
-  is_approved: boolean;
-  parent?: number | null;
-  replies?: ArticleComment[];
+  status: "pending" | "approved" | "rejected";
+  parent: number | null;
+  replies: ArticleComment[];
 }
 
 export interface ProductComment {
