@@ -146,11 +146,12 @@ class ArticleImageUploadSerializer(serializers.Serializer):
 
 class ArticleCommentSerializer(serializers.ModelSerializer):
     user = PublicUserSerializer(read_only=True)
+    parent_user = PublicUserSerializer(source="parent.user", read_only=True)
     replies = serializers.SerializerMethodField()
 
     class Meta:
         model = ArticleComment
-        fields = ("id", "article", "user", "text", "parent", "status", "create_date", "replies")
+        fields = ("id", "article", "user", "text", "parent", "parent_user", "status", "create_date", "replies")
         read_only_fields = fields
 
     def get_parent_user(self, obj):
@@ -166,7 +167,7 @@ class ArticleCommentSerializer(serializers.ModelSerializer):
     def get_replies(self, obj):
         if obj.parent_id:
             return []
-        replies = obj.children.filter(status=ArticleComment.Status.APPROVED).select_related("user")
+        replies = obj.children.filter(status=ArticleComment.Status.APPROVED).select_related("user", "parent__user")
         return ArticleCommentSerializer(replies, many=True, context=self.context).data
 
 
