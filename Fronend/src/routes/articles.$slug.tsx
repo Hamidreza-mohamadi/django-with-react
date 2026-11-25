@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useSuspenseQuery, queryOptions, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, queryOptions, useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Calendar,
   User as UserIcon,
@@ -13,32 +13,45 @@ import {
   Tag,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getArticle, getArticles, getArticleComments, createArticleComment } from "@/lib/shop/api";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
+import { getArticle, getArticles, getArticleComments, createArticleComment, getManagedArticle, getArticleCmsCapabilities } from "@/lib/shop/api";
+import type { Article } from "@/lib/shop/types";
 import { Button } from "@/components/ui/button";
 import type { ArticleComment } from "@/lib/shop/types";
 
-const articleQueryOptions = (slug: string) =>
+const articleQueryOptions = (slug: string, previewId?: number) =>
   queryOptions({
-    queryKey: ["articles", "detail", slug],
-    queryFn: () => getArticle({ data: { slug } }),
+    queryKey: ["articles", "detail", slug, previewId ?? null],
+    queryFn: async () => previewId
+      ? await getManagedArticle({ data: { articleId: previewId } }) as unknown as Article
+      : getArticle({ data: { slug } }),
   });
 
-const commentsQueryOptions = (id: number) =>
+const commentsQueryOptions = (slug: string, preview = false) =>
   queryOptions({
-    queryKey: ["articles", "comments", id],
-    queryFn: () => getArticleComments({ data: { articleId: id } }),
+    queryKey: ["articles", "comments", slug, preview],
+    queryFn: () => preview ? Promise.resolve([]) : getArticleComments({ data: { slug } }),
   });
 
-const articlesListQueryOptions = queryOptions({
-  queryKey: ["articles", "list"],
-  queryFn: () => getArticles({ data: {} }),
+const articlesListQueryOptions = (preview = false) => queryOptions({
+  queryKey: ["articles", "list", preview],
+  queryFn: () => preview ? Promise.resolve([]) : getArticles({ data: {} }),
 });
 
 export const Route = createFileRoute("/articles/$slug")({
-  loader: async ({ context, params }) => {
-    const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug));
-    context.queryClient.ensureQueryData(commentsQueryOptions(article.id));
-    context.queryClient.ensureQueryData(articlesListQueryOptions);
+  validateSearch: (search: Record<string, unknown>) => ({
+    previewId: typeof search.previewId === "string" && /^\d+$/.test(search.previewId)
+      ? Number(search.previewId)
+      : typeof search.previewId === "number" && Number.isInteger(search.previewId) ? search.previewId : undefined,
+  }),
+  loaderDeps: ({ search }) => ({ previewId: search.previewId }),
+  loader: async ({ context, params, deps }) => {
+    const previewId = deps.previewId;
+    const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug, previewId));
+    if (!previewId) context.queryClient.ensureQueryData(commentsQueryOptions(article.slug));
+    if (!previewId) await context.queryClient.ensureQueryData(articlesListQueryOptions());
     return article;
   },
   head: ({ loaderData }) =>
@@ -68,8 +81,31 @@ export const Route = createFileRoute("/articles/$slug")({
   ),
 });
 
-const formatDate = (d: string) =>
-  new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d));
+const formatDate = (d?: string) => d ? new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d)) : "تاریخ نامشخص";
+const MEDIA_BASE_URL = (import.meta.env.VITE_MEDIA_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
+
+function mapArticleImages(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(mapArticleImages);
+  if (!value || typeof value !== "object") return value;
+  const node = value as Record<string, unknown>;
+  const mapped = Object.fromEntries(Object.entries(node).map(([key, item]) => [key, mapArticleImages(item)]));
+  if (mapped.type === "image" && mapped.attrs && typeof mapped.attrs === "object") {
+    const attrs = mapped.attrs as Record<string, unknown>;
+    if (typeof attrs.src === "string" && attrs.src.startsWith("/")) mapped.attrs = { ...attrs, src: `${MEDIA_BASE_URL}${attrs.src}` };
+  }
+  return mapped;
+}
+
+function RichArticleBody({ content }: { content: Record<string, unknown> }) {
+  const editor = useEditor({
+    extensions: [StarterKit.configure({ heading: { levels: [2, 3, 4] } }), Image.configure({ inline: false, allowBase64: false })],
+    content: mapArticleImages(content) as never,
+    editable: false,
+    immediatelyRender: false,
+    editorProps: { attributes: { dir: "rtl", class: "prose prose-lg max-w-none text-right leading-9 prose-a:text-primary prose-img:rounded-xl" } },
+  });
+  return <EditorContent editor={editor} />;
+}
 
 const toFa = (n: number) => new Intl.NumberFormat("fa-IR").format(n);
 
@@ -90,15 +126,26 @@ function useReadingProgress() {
 
 function ArticleDetailPage() {
   const { slug } = Route.useParams();
-  const { data: article } = useSuspenseQuery(articleQueryOptions(slug));
+  const { previewId } = Route.useSearch();
+  const isPreview = !!previewId;
+  const { data: article } = useSuspenseQuery(articleQueryOptions(slug, previewId));
   if (!article) throw notFound();
 
-  const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.id));
-  const { data: allArticles } = useSuspenseQuery(articlesListQueryOptions);
+  const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.slug, isPreview));
+  const { data: allArticles } = useSuspenseQuery(articlesListQueryOptions(isPreview));
+  const capabilities = useQuery({ queryKey: ["cms", "capabilities"], queryFn: () => getArticleCmsCapabilities(), enabled: !isPreview });
+  const canManageComments = !!capabilities.data?.permissions.moderate_comments;
   const progress = useReadingProgress();
   const [copied, setCopied] = useState(false);
 
-  const categoryName = typeof article.category === "string" ? article.category : article.category.title;
+  const categoryName = isPreview ? "پیش‌نمایش" : typeof article.category === "string"
+    ? article.category
+    : Array.isArray(article.category)
+      ? article.category[0]?.title ?? "بدون دسته‌بندی"
+      : article.category?.title ?? "بدون دسته‌بندی";
+  const authorName = typeof article.author === "string"
+    ? article.author
+    : [article.author.first_name, article.author.last_name].filter(Boolean).join(" ") || article.author.username;
 
   const paragraphs = useMemo(
     () => article.content.split("\n\n").map((p) => p.trim()).filter(Boolean),
@@ -109,7 +156,7 @@ function ArticleDetailPage() {
   const related = allArticles
     .filter((a) => a.slug !== article.slug)
     .sort((a) => {
-      const cat = typeof a.category === "string" ? a.category : a.category.title;
+      const cat = typeof a.category === "string" ? a.category : Array.isArray(a.category) ? a.category[0]?.title : a.category?.title;
       return cat === categoryName ? -1 : 1;
     })
     .slice(0, 4);
@@ -133,6 +180,7 @@ function ArticleDetailPage() {
 
   return (
     <div dir="rtl">
+      {isPreview && <div className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-900">پیش‌نمایش مقاله — این صفحه فقط برای بررسی مدیران است و مقاله هنوز در سایت منتشر نشده است.</div>}
       {/* نوار پیشرفت مطالعه */}
       <div className="fixed inset-x-0 top-0 z-50 h-0.5 bg-transparent">
         <div className="h-full bg-primary transition-[width] duration-150" style={{ width: `${progress}%` }} />
@@ -171,11 +219,11 @@ function ArticleDetailPage() {
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <UserIcon className="h-4 w-4" />
                   </span>
-                  {article.author.last_name}
+                  {authorName}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
-                  {formatDate(article.pub_date)}
+                  {formatDate(article.pub_date || article.published_at || article.created_at)}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-4 w-4" />
@@ -189,7 +237,7 @@ function ArticleDetailPage() {
                   className="flex items-center gap-1.5 font-medium text-primary hover:underline"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  {toFa(comments.length)} دیدگاه
+                  {toFa(comments.reduce((total, comment) => total + 1 + comment.replies.length, 0))} دیدگاه
                 </button>
 
               </div>
@@ -213,15 +261,18 @@ function ArticleDetailPage() {
           {/* متن مقاله */}
           <div className="min-w-0">
             <article className="max-w-3xl">
-              <p className="border-r-4 border-primary bg-secondary/50 px-5 py-4 text-base leading-8 text-foreground">
-                {paragraphs[0] ?? article.short_description}
-              </p>
-
-              <div className="mt-6 space-y-5 text-base leading-9 text-foreground/90">
-                {paragraphs.slice(1).map((p, i) => (
-                  <p key={i}>{p}</p>
-                ))}
-              </div>
+              {article.content_json ? (
+                <RichArticleBody content={article.content_json} />
+              ) : (
+                <>
+                  <p className="border-r-4 border-primary bg-secondary/50 px-5 py-4 text-base leading-8 text-foreground">
+                    {paragraphs[0] ?? article.short_description}
+                  </p>
+                  <div className="mt-6 space-y-5 text-base leading-9 text-foreground/90">
+                    {paragraphs.slice(1).map((p, i) => <p key={i}>{p}</p>)}
+                  </div>
+                </>
+              )}
 
               <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center gap-3">
@@ -229,7 +280,7 @@ function ArticleDetailPage() {
                     <UserIcon className="h-5 w-5" />
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-foreground">{article.author.last_name}</p>
+                    <p className="text-sm font-bold text-foreground">{authorName}</p>
                     <p className="text-xs text-muted-foreground">نویسنده در مجله فروشگاه</p>
                   </div>
                 </div>
@@ -264,7 +315,7 @@ function ArticleDetailPage() {
                             {a.title}
                           </p>
                           <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            {formatDate(a.pub_date)}
+                            {formatDate(a.pub_date || a.published_at || a.created_at)}
                           </p>
                         </div>
                       </Link>
@@ -273,7 +324,7 @@ function ArticleDetailPage() {
                 </section>
               )}
 
-              <CommentsSection articleId={article.id} comments={comments} />
+              {!isPreview && <CommentsSection slug={article.slug} articleId={article.id} comments={comments} canManageComments={canManageComments} />}
 
             </article>
           </div>
@@ -349,24 +400,47 @@ function ArticleDetailPage() {
   );
 }
 
-function CommentsSection({ articleId, comments }: { articleId: number; comments: ArticleComment[] }) {
+function CommentsSection({ slug, articleId, comments, canManageComments }: { slug: string; articleId: number; comments: ArticleComment[]; canManageComments: boolean }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
-  const topLevel = comments.filter((c) => !c.parent);
-  const repliesOf = (id: number) => comments.filter((c) => c.parent === id);
+  const countComments = (items: ArticleComment[]): number =>
+    items.reduce((total, item) => total + 1 + countComments(item.replies ?? []), 0);
+  const totalComments = countComments(comments);
+  const findComment = (items: ArticleComment[], id: number): ArticleComment | undefined => {
+    for (const item of items) {
+      if (item.id === id) return item;
+      const nested = findComment(item.replies ?? [], id);
+      if (nested) return nested;
+    }
+    return undefined;
+  };
+  const replyTarget = replyTo === null ? undefined : findComment(comments, replyTo);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    const cleanText = text.trim();
+    if (!cleanText || submitting) return;
     setSubmitting(true);
+    setFeedback(null);
     try {
-      await createArticleComment({ data: { article: articleId, text: text.trim(), parent: replyTo } });
+      const result = await createArticleComment({
+        data: { slug, text: cleanText, parent: replyTo },
+      });
       setText("");
       setReplyTo(null);
-      await qc.invalidateQueries({ queryKey: ["articles", "comments", articleId] });
+      setFeedback({ kind: "success", message: result.detail || "دیدگاه شما ثبت شد و پس از بررسی نمایش داده می‌شود." });
+      await qc.invalidateQueries({ queryKey: ["articles", "comments", slug] });
+    } catch (error) {
+      setFeedback({
+        kind: "error",
+        message: error instanceof Error
+          ? error.message
+          : "ثبت دیدگاه انجام نشد. لطفاً دوباره تلاش کنید.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -374,15 +448,30 @@ function CommentsSection({ articleId, comments }: { articleId: number; comments:
 
   return (
     <section id="comments" className="mt-14 scroll-mt-28 border-t border-border pt-10">
-      <h2 className="flex items-center gap-2 text-xl font-bold">
-        <MessageCircle className="h-5 w-5" />
-        دیدگاه‌ها ({toFa(comments.length)})
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-xl font-bold">
+          <MessageCircle className="h-5 w-5" />
+          دیدگاه‌ها ({toFa(totalComments)})
+        </h2>
+        {canManageComments && (
+          <Link
+            to="/admin-comments"
+            search={{ article: articleId }}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            مدیریت دیدگاه‌های این مقاله
+          </Link>
+        )}
+      </div>
 
       <form onSubmit={submit} className="mt-6">
         {replyTo && (
           <div className="mb-2 flex items-center justify-between rounded-md bg-secondary px-3 py-2 text-xs">
-            <span>در حال پاسخ به دیدگاه #{toFa(replyTo)}</span>
+            <span>
+              در حال پاسخ به {replyTarget
+                ? ([replyTarget.user.first_name, replyTarget.user.last_name].filter(Boolean).join(" ") || replyTarget.user.username) + " (@" + replyTarget.user.username + ")"
+                : `دیدگاه #${toFa(replyTo)}`}
+            </span>
             <button type="button" onClick={() => setReplyTo(null)} className="text-primary hover:underline">
               انصراف
             </button>
@@ -390,11 +479,20 @@ function CommentsSection({ articleId, comments }: { articleId: number; comments:
         )}
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (feedback) setFeedback(null);
+          }}
           placeholder="دیدگاه خود را بنویسید..."
           rows={3}
+          maxLength={2000}
           className="w-full resize-none rounded-md border border-input bg-background p-3 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
+        {feedback && (
+          <p role="status" className={`mt-2 text-sm ${feedback.kind === "success" ? "text-emerald-600" : "text-destructive"}`}>
+            {feedback.message}
+          </p>
+        )}
         <div className="mt-3 flex justify-end">
           <Button type="submit" size="sm" className="rounded-md" disabled={submitting || !text.trim()}>
             {submitting ? "در حال ارسال..." : "ثبت دیدگاه"}
@@ -403,24 +501,30 @@ function CommentsSection({ articleId, comments }: { articleId: number; comments:
       </form>
 
       <div className="mt-8 space-y-6">
-        {topLevel.length === 0 ? (
+        {comments.length === 0 ? (
           <p className="text-sm text-muted-foreground">هنوز دیدگاهی ثبت نشده. اولین نفر باشید.</p>
         ) : (
-          topLevel.map((c) => (
-            <div key={c.id} className="space-y-3">
-              <CommentItem c={c} onReply={() => setReplyTo(c.id)} />
-              {repliesOf(c.id).length > 0 && (
-                <div className="mr-8 space-y-3 border-r-2 border-border pr-4">
-                  {repliesOf(c.id).map((r) => (
-                    <CommentItem key={r.id} c={r} onReply={() => setReplyTo(c.id)} />
-                  ))}
-                </div>
-              )}
-            </div>
+          comments.map((comment) => (
+            <CommentThread key={comment.id} comment={comment} onReply={setReplyTo} />
           ))
         )}
       </div>
     </section>
+  );
+}
+
+function CommentThread({ comment, onReply }: { comment: ArticleComment; onReply: (id: number) => void }) {
+  return (
+    <div className="space-y-3">
+      <CommentItem c={comment} onReply={() => onReply(comment.id)} />
+      {comment.replies?.length > 0 && (
+        <div className="mr-8 space-y-3 border-r-2 border-border pr-4">
+          {comment.replies.map((reply) => (
+            <CommentThread key={reply.id} comment={reply} onReply={onReply} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -430,10 +534,10 @@ function CommentItem({ c, onReply }: { c: ArticleComment; onReply: () => void })
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-            {c.user.charAt(0).toUpperCase()}
+            {(c.user.first_name || c.user.username || "ک").charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-sm font-medium">{c.user}</p>
+            <p className="text-sm font-medium">{[c.user.first_name, c.user.last_name].filter(Boolean).join(" ") || c.user.username}</p>
             <p className="text-xs text-muted-foreground">{formatDate(c.create_date)}</p>
           </div>
         </div>
@@ -446,6 +550,14 @@ function CommentItem({ c, onReply }: { c: ArticleComment; onReply: () => void })
           پاسخ
         </button>
       </div>
+      {c.parent_user && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          در پاسخ به <span className="font-medium text-primary">
+            {[c.parent_user.first_name, c.parent_user.last_name].filter(Boolean).join(" ") || c.parent_user.username}
+          </span>
+          <span dir="ltr" className="mr-1">(@{c.parent_user.username})</span>
+        </p>
+      )}
       <p className="mt-3 text-sm leading-relaxed">{c.text}</p>
     </div>
   );

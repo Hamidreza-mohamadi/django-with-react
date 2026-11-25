@@ -102,7 +102,7 @@ class Article(models.Model):
         verbose_name = "مقاله"
         verbose_name_plural = "مقاله‌ها"
         ordering = ["-published_at", "-id"]
-        permissions = [("publish_article", "Can publish or schedule article"), ("review_article", "Can review submitted articles")]
+        permissions = [("publish_article", "Can publish or schedule article"), ("review_article", "Can review submitted articles"), ("view_all_articles", "Can view and manage all authors articles"), ("moderate_article_comments", "Can moderate article comments"), ("manage_article_roles", "Can assign article CMS roles")]
 
     def clean(self):
         super().clean()
@@ -160,6 +160,7 @@ class ArticleComment(models.Model):
     parent = models.ForeignKey("self", verbose_name="دیدگاه والد", null=True, blank=True, related_name="children", on_delete=models.CASCADE)
 
     class Meta:
+        permissions = [("moderate_article_comments", "Can moderate article comments")]
         verbose_name = "دیدگاه"
         verbose_name_plural = "دیدگاه‌ها"
         ordering = ["create_date", "id"]
@@ -171,8 +172,6 @@ class ArticleComment(models.Model):
                 raise ValidationError({"parent": "پاسخ باید متعلق به همان مقاله باشد."})
             if self.parent_id == self.pk:
                 raise ValidationError({"parent": "یک دیدگاه نمی‌تواند والد خودش باشد."})
-            if self.parent.parent_id:
-                raise ValidationError({"parent": "عمق پاسخ‌ها حداکثر یک سطح است."})
 
     def __str__(self):
         return f"{self.user} - {self.article}"

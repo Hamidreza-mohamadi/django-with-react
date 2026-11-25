@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from .models import Article, ArticleCategory, ArticleComment, ArticleImage, ArticleTag
 from .serializers import (
     ArticleCategorySerializer, ArticleCommentCreateSerializer, ArticleCommentModerationSerializer,
-    ArticleCommentSerializer, ArticleImageSerializer, ArticleManagementSerializer,
+    ArticleCommentAdminSerializer, ArticleCommentSerializer, ArticleImageSerializer, ArticleManagementSerializer,
     ArticleImageUploadSerializer, ArticleSerializer, ArticleTagSerializer,
 )
 
@@ -22,13 +22,104 @@ def public_articles():
     return Article.objects.filter(status=Article.Status.PUBLISHED, published_at__isnull=False, published_at__lte=now).select_related("author").prefetch_related("category", "tags").order_by("-published_at", "-id")
 
 
+# دسترسی هر نقش شامل تمام قابلیت‌های نقش‌های پایین‌تر است.
+# این نگاشت در زمان بررسی مجوز هم اعمال می‌شود تا به اجرای دوباره
+# دستور setup_article_roles برای هر کاربر وابسته نباشیم.
+CMS_ROLE_PERMISSIONS = {
+    "نویسنده": {
+        "add_article", "change_article", "view_article",
+    },
+    "ویراستار": {
+        "add_article", "change_article", "view_article",
+        "view_all_articles", "publish_article", "review_article",
+    },
+    "ناشر": {
+        "add_article", "change_article", "view_article", "delete_article",
+        "view_all_articles", "publish_article", "review_article",
+    },
+    "مدیر محتوا": {
+        "add_article", "change_article", "view_article", "delete_article",
+        "view_all_articles", "publish_article", "review_article", "moderate_article_comments",
+        "manage_article_roles",
+    },
+    "ناظر کامنت‌ها": {
+        "view_article", "moderate_article_comments",
+    },
+}
+
+
+def has_cms_perm(user, permission):
+    codename = permission.rsplit(".", 1)[-1]
+    if user.is_superuser:
+        return True
+
+    inherited = set()
+    for role_name in user.groups.values_list("name", flat=True):
+        inherited.update(CMS_ROLE_PERMISSIONS.get(role_name, set()))
+
+    # Permission-based inheritance also covers users whose role was assigned
+    # through individual Django permissions instead of a named CMS group.
+    if user.has_perm("article_module.review_article"):
+        inherited.update({
+            "add_article", "change_article", "view_article",
+            "view_all_articles", "publish_article", "review_article",
+        })
+    if user.has_perm("article_module.publish_article"):
+        inherited.update({
+            "add_article", "change_article", "view_article",
+            "view_all_articles", "publish_article", "review_article",
+        })
+    if user.has_perm("article_module.delete_article"):
+        inherited.update({
+            "add_article", "change_article", "view_article", "delete_article",
+            "view_all_articles", "publish_article", "review_article",
+        })
+    if user.has_perm("article_module.manage_article_roles"):
+        inherited.update({
+            "add_article", "change_article", "view_article", "delete_article",
+            "view_all_articles", "publish_article", "review_article", "moderate_article_comments",
+            "manage_article_roles",
+        })
+
+    django_permission = permission if "." in permission else f"article_module.{codename}"
+    return codename in inherited or user.has_perm(django_permission)
+
+
 def require_perm(user, permission):
-    if not user.has_perm(permission):
+    if not has_cms_perm(user, permission):
         raise PermissionDenied("شما مجوز انجام این عملیات را ندارید.")
 
 
-def owned_article_or_404(user, pk):
-    return get_object_or_404(Article.objects.select_related("author"), pk=pk, author=user)
+def managed_article_or_404(user, pk):
+    queryset = Article.objects.select_related("author")
+    if not (has_cms_perm(user, "view_all_articles")):
+        queryset = queryset.filter(author=user)
+    return get_object_or_404(queryset, pk=pk)
+
+
+class ArticleCapabilitiesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({"permissions": {
+                "create": False, "edit_own": False, "view_all": False,
+                "publish": False, "review": False, "delete": False,
+                "moderate_comments": False, "manage_roles": False, "is_superuser": False,
+            }, "groups": []})
+        permissions = {
+            "create": has_cms_perm(user, "add_article"),
+            "edit_own": has_cms_perm(user, "change_article"),
+            "view_all": user.is_superuser or has_cms_perm(user, "view_all_articles"),
+            "publish": has_cms_perm(user, "publish_article"),
+            "review": has_cms_perm(user, "review_article"),
+            "delete": has_cms_perm(user, "delete_article"),
+            "moderate_comments": has_cms_perm(user, "moderate_article_comments"),
+            "manage_roles": has_cms_perm(user, "manage_article_roles"),
+            "is_superuser": user.is_superuser,
+        }
+        return Response({"permissions": permissions, "groups": list(user.groups.values_list("name", flat=True))})
 
 
 class ArticlePagination(PageNumberPagination):
@@ -81,13 +172,16 @@ class ArticleManagementListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not (request.user.has_perm("article_module.add_article") or request.user.has_perm("article_module.change_article")):
+        if not (has_cms_perm(request.user, "add_article") or has_cms_perm(request.user, "change_article") or has_cms_perm(request.user, "view_all_articles")):
             raise PermissionDenied("شما مجوز مشاهده مقالات مدیریتی را ندارید.")
-        articles = Article.objects.filter(author=request.user).prefetch_related("category", "tags")
+        articles = Article.objects.all() if has_cms_perm(request.user, "view_all_articles") else Article.objects.filter(author=request.user)
+        articles = articles.select_related("author").prefetch_related("category", "tags")
         return Response(ArticleManagementSerializer(articles, many=True, context={"request": request}).data)
 
     def post(self, request):
         require_perm(request.user, "article_module.add_article")
+        if "slug" in request.data and not has_cms_perm(request.user, "manage_article_roles"):
+            raise PermissionDenied("فقط مدیر محتوا می‌تواند نشانی مقاله را تعیین کند.")
         serializer = ArticleManagementSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         article = serializer.save(author=request.user, status=Article.Status.DRAFT)
@@ -99,55 +193,54 @@ class ArticleManagementDetailView(APIView):
 
     def get(self, request, pk):
         require_perm(request.user, "article_module.change_article")
-        article = owned_article_or_404(request.user, pk)
+        article = managed_article_or_404(request.user, pk)
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
 
     def patch(self, request, pk):
         require_perm(request.user, "article_module.change_article")
-        article = owned_article_or_404(request.user, pk)
-        if article.status != Article.Status.DRAFT:
-            raise ValidationError("فقط مقاله‌های پیش‌نویس قابل ویرایش هستند.")
+        article = managed_article_or_404(request.user, pk)
+        if "slug" in request.data and not has_cms_perm(request.user, "manage_article_roles"):
+            raise PermissionDenied("فقط مدیر محتوا می‌تواند نشانی مقاله را ویرایش کند.")
         serializer = ArticleManagementSerializer(article, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         article = serializer.save()
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
 
 
-class SubmitArticleForReviewView(APIView):
+class ArticleWorkflowView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        require_perm(request.user, "article_module.change_article")
-        article = owned_article_or_404(request.user, pk)
-        if article.status != Article.Status.DRAFT:
-            raise ValidationError("فقط مقاله پیش‌نویس را می‌توان برای بررسی ارسال کرد.")
-        article.status = Article.Status.REVIEW
-        article.save()
-        return Response(ArticleManagementSerializer(article, context={"request": request}).data)
+        action = request.data.get("action")
+        article = managed_article_or_404(request.user, pk)
 
-
-class ArticleReviewQueueView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        require_perm(request.user, "article_module.review_article")
-        articles = Article.objects.filter(status=Article.Status.REVIEW).select_related("author").prefetch_related("category", "tags")
-        return Response(ArticleManagementSerializer(articles, many=True, context={"request": request}).data)
-
-
-class ArticleReviewDecisionView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk):
-        require_perm(request.user, "article_module.review_article")
-        article = get_object_or_404(Article, pk=pk, status=Article.Status.REVIEW)
-        decision = request.data.get("decision")
-        if decision == "approve":
-            article.status = Article.Status.APPROVED
-        elif decision == "reject":
+        if action == "save_draft":
+            require_perm(request.user, "article_module.change_article")
             article.status = Article.Status.DRAFT
+            article.scheduled_at = None
+            article.published_at = None
+        elif action == "submit_review":
+            require_perm(request.user, "article_module.change_article")
+            article.status = Article.Status.REVIEW
+            article.scheduled_at = None
+            article.published_at = None
+        elif action == "approve":
+            require_perm(request.user, "article_module.review_article")
+            if article.status != Article.Status.REVIEW:
+                raise ValidationError("فقط مقاله‌های در انتظار بررسی قابل تأیید هستند.")
+            article.status = Article.Status.APPROVED
+            article.scheduled_at = None
+            article.published_at = None
+        elif action == "reject":
+            require_perm(request.user, "article_module.review_article")
+            if article.status != Article.Status.REVIEW:
+                raise ValidationError("فقط مقاله‌های در انتظار بررسی قابل رد هستند.")
+            article.status = Article.Status.DRAFT
+            article.scheduled_at = None
+            article.published_at = None
         else:
-            raise ValidationError({"decision": "مقدار مجاز approve یا reject است."})
+            raise ValidationError({"action": "عملیات گردش کار نامعتبر است."})
+
         article.save()
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
 
@@ -157,16 +250,50 @@ class ArticlePublicationView(APIView):
 
     def post(self, request, pk):
         require_perm(request.user, "article_module.publish_article")
-        article = get_object_or_404(Article, pk=pk, status=Article.Status.APPROVED)
+        # هر دارنده مجوز انتشار می‌تواند هر مقاله‌ای را مستقیماً منتشر کند.
+        article = get_object_or_404(Article, pk=pk)
+
         scheduled_at = request.data.get("scheduled_at")
         if scheduled_at:
             from rest_framework.fields import DateTimeField
             scheduled_at = DateTimeField().run_validation(scheduled_at)
-            if scheduled_at > timezone.now():
-                article.scheduled_at = scheduled_at
-                article.save()
-                return Response(ArticleManagementSerializer(article, context={"request": request}).data)
+            if scheduled_at <= timezone.now():
+                raise ValidationError({"scheduled_at": "زمان انتشار باید در آینده باشد."})
+            # وضعیت approved فقط برای سازگاری job زمان‌بندی قدیمی استفاده می‌شود؛
+            # این وضعیت یک مرحله تأیید یا محدودیت دسترسی نیست.
+            article.status = Article.Status.APPROVED
+            article.published_at = None
+            article.scheduled_at = scheduled_at
+            article.save()
+            return Response(ArticleManagementSerializer(article, context={"request": request}).data)
+
         article.publish()
+        return Response(ArticleManagementSerializer(article, context={"request": request}).data)
+
+
+
+class ArticleManagementDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        article = managed_article_or_404(request.user, pk)
+        if article.status != Article.Status.DRAFT and not has_cms_perm(request.user, "delete_article"):
+            raise PermissionDenied("فقط پیش‌نویس‌های خودتان را می‌توانید حذف کنید.")
+        if article.author_id != request.user.id:
+            require_perm(request.user, "article_module.delete_article")
+        article.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ArticleUnpublishView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        require_perm(request.user, "article_module.publish_article")
+        article = get_object_or_404(Article, pk=pk, status=Article.Status.PUBLISHED)
+        article.status = Article.Status.ARCHIVED
+        article.scheduled_at = None
+        article.save()
         return Response(ArticleManagementSerializer(article, context={"request": request}).data)
 
 
@@ -176,9 +303,7 @@ class ArticleImageUploadView(APIView):
 
     def post(self, request, pk):
         require_perm(request.user, "article_module.change_article")
-        article = owned_article_or_404(request.user, pk)
-        if article.status != Article.Status.DRAFT:
-            raise ValidationError("فقط برای پیش‌نویس می‌توان تصویر بارگذاری کرد.")
+        article = managed_article_or_404(request.user, pk)
         serializer = ArticleImageUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         image = ArticleImage.objects.create(
@@ -219,8 +344,10 @@ class ArticleCategoryDetailManagementView(APIView):
     def delete(self, request, pk):
         require_perm(request.user, "article_module.delete_article")
         category = get_object_or_404(ArticleCategory, pk=pk)
-        if category.articles.exists() or category.children.exists():
-            raise ValidationError("ابتدا مقاله‌ها و زیر‌دسته‌ها را از این دسته‌بندی جدا کنید.")
+        if category.children.exists():
+            raise ValidationError("ابتدا زیر‌دسته‌ها را به دسته‌بندی دیگری منتقل یا حذف کنید.")
+        # حذف دسته‌بندی، فقط ارتباط آن را از مقاله‌ها جدا می‌کند و خود مقاله‌ها باقی می‌مانند.
+        category.articles.clear()
         category.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -252,8 +379,8 @@ class ArticleTagDetailManagementView(APIView):
     def delete(self, request, pk):
         require_perm(request.user, "article_module.delete_article")
         tag = get_object_or_404(ArticleTag, pk=pk)
-        if tag.articles.exists():
-            raise ValidationError("ابتدا این برچسب را از مقاله‌ها جدا کنید.")
+        # حذف برچسب، فقط ارتباط آن را از مقاله‌ها جدا می‌کند و خود مقاله‌ها باقی می‌مانند.
+        tag.articles.clear()
         tag.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -276,21 +403,94 @@ class PublicArticleCommentListCreateView(APIView):
         return Response({"id": comment.id, "status": comment.status, "detail": "دیدگاه پس از بررسی نمایش داده می‌شود."}, status=status.HTTP_201_CREATED)
 
 
+class ArticleCommentModerationPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class ArticleCommentModerationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        require_perm(request.user, "article_module.review_article")
-        comments = ArticleComment.objects.select_related("article", "user").filter(status=ArticleComment.Status.PENDING)
-        return Response(ArticleCommentSerializer(comments, many=True, context={"request": request}).data)
+        require_perm(request.user, "article_module.moderate_article_comments")
+
+        comments = ArticleComment.objects.select_related("article", "user")
+        article_id = request.query_params.get("article")
+        if article_id:
+            if not article_id.isdigit():
+                raise ValidationError({"article": "شناسه مقاله معتبر نیست."})
+            comments = comments.filter(article_id=int(article_id))
+
+        stats = comments.values("status").annotate(total=Count("id"))
+        counts = {"pending": 0, "approved": 0, "rejected": 0, "total": 0}
+        for item in stats:
+            counts[item["status"]] = item["total"]
+            counts["total"] += item["total"]
+
+        matching = comments
+        selected_status = request.query_params.get("status")
+        if selected_status in ArticleComment.Status.values:
+            matching = matching.filter(status=selected_status)
+
+        search = request.query_params.get("search", "").strip()
+        if search:
+            matching = matching.filter(
+                Q(text__icontains=search)
+                | Q(user__username__icontains=search)
+                | Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+                | Q(article__title__icontains=search)
+            )
+
+        matched_ids = set(matching.values_list("id", flat=True))
+        parent_map = dict(ArticleComment.objects.values_list("id", "parent_id"))
+        root_ids = set()
+        for comment_id in matched_ids:
+            current_id = comment_id
+            visited = set()
+            while current_id and current_id not in visited:
+                visited.add(current_id)
+                parent_id = parent_map.get(current_id)
+                if parent_id is None:
+                    root_ids.add(current_id)
+                    break
+                current_id = parent_id
+
+        roots = ArticleComment.objects.filter(
+            parent__isnull=True, id__in=root_ids
+        ).select_related("article", "user").prefetch_related(
+            Prefetch(
+                "children",
+                queryset=ArticleComment.objects.select_related("user", "article").order_by("create_date", "id"),
+            )
+        ).order_by("-create_date", "-id")
+
+        paginator = ArticleCommentModerationPagination()
+        page = paginator.paginate_queryset(roots, request, view=self)
+        response = paginator.get_paginated_response(
+            ArticleCommentAdminSerializer(page, many=True, context={"request": request}).data
+        )
+        response.data["stats"] = counts
+        return response
 
 
 class ArticleCommentModerationDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
-        require_perm(request.user, "article_module.review_article")
+        require_perm(request.user, "article_module.moderate_article_comments")
         comment = get_object_or_404(ArticleComment, pk=pk)
         serializer = ArticleCommentModerationSerializer(comment, data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(ArticleCommentSerializer(serializer.save(), context={"request": request}).data)
+
+    def delete(self, request, pk):
+        require_perm(request.user, "article_module.moderate_article_comments")
+        comment = get_object_or_404(ArticleComment, pk=pk)
+        if comment.children.exists() and request.query_params.get("cascade") != "true":
+            raise ValidationError({
+                "detail": "این دیدگاه پاسخ دارد. برای حذف آن و تمام پاسخ‌هایش، حذف آبشاری را تأیید کنید."
+            })
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

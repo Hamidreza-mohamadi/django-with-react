@@ -181,12 +181,17 @@ export interface ApiError {
 export interface Article {
   id: number;
   title: string;
-  author: string;
+  author: PublicUser | string;
   content: string;
+  content_json?: Record<string, unknown> | null;
   short_description: string;
   pub_date: string;
-  category: Category | string;
-  image?: string;
+  published_at?: string | null;
+  created_at?: string;
+  category: Category[] | Category | string;
+  tags?: { id: number; title: string; slug: string }[];
+  image?: string | null;
+  image_alt?: string;
   is_published: boolean;
   slug: string;
 }
@@ -194,12 +199,13 @@ export interface Article {
 export interface ArticleComment {
   id: number;
   article: number;
-  user: string;
+  user: { id: number; username: string; first_name?: string; last_name?: string };
   text: string;
   create_date: string;
-  is_approved: boolean;
-  parent?: number | null;
-  replies?: ArticleComment[];
+  status: "pending" | "approved" | "rejected";
+  parent: number | null;
+  parent_user?: { id: number; username: string; first_name?: string; last_name?: string } | null;
+  replies: ArticleComment[];
 }
 
 export interface ProductComment {

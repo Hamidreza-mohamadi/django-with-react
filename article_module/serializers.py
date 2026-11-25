@@ -54,7 +54,7 @@ def validate_rich_document(document, *, allowed_image_urls=None):
                 raise serializers.ValidationError("نوع قالب‌بندی متن مجاز نیست.")
             mark_attrs = mark.get("attrs") or {}
             allowed_mark_attrs = {
-                "link": {"href", "target", "rel"},
+                "link": {"href", "target", "rel", "class"},
                 "textStyle": {"fontFamily", "fontSize", "color"},
             }
             if not isinstance(mark_attrs, dict) or set(mark_attrs) - allowed_mark_attrs.get(mark["type"], set()):
@@ -62,10 +62,17 @@ def validate_rich_document(document, *, allowed_image_urls=None):
             if mark["type"] == "link":
                 href = mark_attrs.get("href", "")
                 parsed = urlparse(href)
-                if parsed.scheme not in ("", "http", "https", "mailto") or href.startswith("//"):
+                if not isinstance(href, str) or not href.strip() or parsed.scheme not in ("", "http", "https", "mailto") or href.startswith("//"):
                     raise serializers.ValidationError("نشانی لینک معتبر نیست.")
                 if mark_attrs.get("target") not in (None, "_blank", "_self"):
                     raise serializers.ValidationError("مقصد لینک مجاز نیست.")
+                link_class = mark_attrs.get("class")
+                if link_class is not None and (
+                    not isinstance(link_class, str)
+                    or len(link_class) > 100
+                    or any(not (char.isalnum() or char in " _-") for char in link_class)
+                ):
+                    raise serializers.ValidationError("کلاس ظاهری لینک معتبر نیست.")
             if mark["type"] == "textStyle":
                 if mark_attrs.get("fontFamily") and mark_attrs["fontFamily"] not in FONT_FAMILIES:
                     raise serializers.ValidationError("فونت انتخاب‌شده مجاز نیست.")
@@ -88,11 +95,29 @@ class ArticleCategorySerializer(serializers.ModelSerializer):
         model = ArticleCategory
         fields = ("id", "title", "slug", "about", "image", "parent", "is_active")
 
+    def validate_title(self, value):
+        normalized = value.strip().casefold()
+        matches = ArticleCategory.objects.filter(title__iexact=normalized)
+        if self.instance:
+            matches = matches.exclude(pk=self.instance.pk)
+        if matches.exists():
+            raise serializers.ValidationError("دسته‌بندی با این نام از قبل وجود دارد.")
+        return value.strip()
+
 
 class ArticleTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArticleTag
         fields = ("id", "title", "slug", "is_active")
+
+    def validate_title(self, value):
+        normalized = value.strip().casefold()
+        matches = ArticleTag.objects.filter(title__iexact=normalized)
+        if self.instance:
+            matches = matches.exclude(pk=self.instance.pk)
+        if matches.exists():
+            raise serializers.ValidationError("برچسب با این نام از قبل وجود دارد.")
+        return value.strip()
 
 
 class ArticleImageSerializer(serializers.ModelSerializer):
@@ -121,17 +146,26 @@ class ArticleImageUploadSerializer(serializers.Serializer):
 
 class ArticleCommentSerializer(serializers.ModelSerializer):
     user = PublicUserSerializer(read_only=True)
+    parent_user = PublicUserSerializer(source="parent.user", read_only=True)
     replies = serializers.SerializerMethodField()
 
     class Meta:
         model = ArticleComment
-        fields = ("id", "article", "user", "text", "parent", "status", "create_date", "replies")
+        fields = ("id", "article", "user", "text", "parent", "parent_user", "status", "create_date", "replies")
         read_only_fields = fields
 
+    def get_parent_user(self, obj):
+        if not obj.parent_id:
+            return None
+        return PublicUserSerializer(obj.parent.user).data
+
+    def get_parent_user(self, obj):
+        if not obj.parent_id:
+            return None
+        return PublicUserSerializer(obj.parent.user).data
+
     def get_replies(self, obj):
-        if obj.parent_id:
-            return []
-        replies = obj.children.filter(status=ArticleComment.Status.APPROVED).select_related("user")
+        replies = obj.children.filter(status=ArticleComment.Status.APPROVED).select_related("user", "parent__user")
         return ArticleCommentSerializer(replies, many=True, context=self.context).data
 
 
@@ -154,7 +188,7 @@ class ArticleManagementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
         fields = ("id", "title", "slug", "short_description", "content", "content_json", "image", "image_alt", "author", "category", "tags", "status", "scheduled_at", "published_at", "created_at", "updated_at", "meta_title", "meta_description")
-        read_only_fields = ("id", "slug", "author", "status", "scheduled_at", "published_at", "created_at", "updated_at")
+        read_only_fields = ("id", "author", "status", "scheduled_at", "published_at", "created_at", "updated_at")
 
     def validate_content_json(self, value):
         allowed = set()
@@ -177,8 +211,8 @@ class ArticleCommentCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         parent = attrs.get("parent")
         article = self.context["article"]
-        if parent and (parent.article_id != article.id or parent.status != ArticleComment.Status.APPROVED or parent.parent_id):
-            raise serializers.ValidationError({"parent": "پاسخ فقط به دیدگاه تأییدشده همان مقاله و حداکثر در یک سطح مجاز است."})
+        if parent and (parent.article_id != article.id or parent.status != ArticleComment.Status.APPROVED):
+            raise serializers.ValidationError({"parent": "پاسخ فقط به دیدگاه تأییدشده همان مقاله مجاز است."})
         return attrs
 
 
@@ -188,6 +222,38 @@ class ArticleCommentModerationSerializer(serializers.ModelSerializer):
         fields = ("status",)
 
     def validate_status(self, value):
-        if value not in (ArticleComment.Status.APPROVED, ArticleComment.Status.REJECTED):
-            raise serializers.ValidationError("وضعیت باید approved یا rejected باشد.")
+        if value not in (ArticleComment.Status.PENDING, ArticleComment.Status.APPROVED, ArticleComment.Status.REJECTED):
+            raise serializers.ValidationError("وضعیت باید pending، approved یا rejected باشد.")
         return value
+
+
+class ArticleCommentAdminSerializer(serializers.ModelSerializer):
+    user = PublicUserSerializer(read_only=True)
+    article_title = serializers.CharField(source="article.title", read_only=True)
+    article_slug = serializers.CharField(source="article.slug", read_only=True)
+    replies = serializers.SerializerMethodField()
+    parent_user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ArticleComment
+        fields = ("id", "article", "article_title", "article_slug", "user", "text", "parent", "parent_user", "status", "create_date", "replies")
+        read_only_fields = fields
+
+    def get_parent_user(self, obj):
+        if not obj.parent_id:
+            return None
+        parent_user = obj.parent.user
+        display_name = " ".join(
+            part for part in (parent_user.first_name, parent_user.last_name) if part
+        ) or parent_user.username
+        return {
+            "id": parent_user.id,
+            "username": parent_user.username,
+            "first_name": parent_user.first_name,
+            "last_name": parent_user.last_name,
+            "display_name": display_name,
+        }
+
+    def get_replies(self, obj):
+        replies = obj.children.select_related("user", "article", "parent__user").order_by("create_date", "id")
+        return ArticleCommentAdminSerializer(replies, many=True, context=self.context).data

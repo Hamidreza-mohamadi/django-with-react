@@ -23,7 +23,6 @@ import type {
 } from "./types";
 import {
   mockArticles,
-  mockArticleComments,
   mockProductComments,
   mockProducts,
   mockSiteSetting,
@@ -155,7 +154,7 @@ async function djangoFetch<T>(
   accessOverride?: string,
 ): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
+  if (!(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
 
   // A refreshed HttpOnly cookie is attached to the response and may not be
   // readable again during this same server-function invocation. Use the token
@@ -491,7 +490,10 @@ export const getArticles = createServerFn({ method: "GET" })
     const params = new URLSearchParams();
     if (data.category) params.set("category", data.category);
     if (data.search) params.set("search", data.search);
-    return djangoFetch<Article[]>(`/articles/?${params.toString()}`);
+    const result = await djangoFetch<Article[] | { count: number; next: string | null; previous: string | null; results: Article[] }>(
+      `/articles/list/?${params.toString()}`,
+    );
+    return Array.isArray(result) ? result : result.results ?? [];
   });
 
 export const getArticle = createServerFn({ method: "GET" })
@@ -509,43 +511,24 @@ export const getArticle = createServerFn({ method: "GET" })
   });
 
 export const getArticleComments = createServerFn({ method: "GET" })
-  .validator((data: { articleId: number }) => data)
-  .handler(async ({ data }) => {
-    // MOCK DATA — comment/remove this block when using Django.
-    if (USE_MOCK()) {
-      return mockArticleComments.filter(
-        (comment) =>
-          comment.article === data.articleId && comment.is_approved,
-      );
-    }
-    return djangoFetch<ArticleComment[]>(
-      `/articles/${data.articleId}/comments/`,
-    );
-  });
+  .validator((data: { slug: string }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<ArticleComment[]>(
+      `/articles/comments/${encodeURIComponent(data.slug)}/`,
+    ),
+  );
 
 export const createArticleComment = createServerFn({ method: "POST" })
-  .validator(
-    (data: { article: number; text: string; parent?: number | null }) => data,
-  )
-  .handler(async ({ data }) => {
-    // MOCK DATA — comment/remove this block when using Django.
-    if (USE_MOCK()) {
-      return {
-        id: Date.now(),
-        ...data,
-        user: "شما",
-        create_date: new Date().toISOString(),
-        is_approved: true,
-      } as ArticleComment;
-    }
-    return djangoFetch<ArticleComment>(
-      `/articles/${data.article}/comments/`,
+  .validator((data: { slug: string; text: string; parent?: number | null }) => data)
+  .handler(async ({ data }) =>
+    djangoFetch<{ id: number; status: "pending"; detail: string }>(
+      `/articles/comments/${encodeURIComponent(data.slug)}/`,
       {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ text: data.text, parent: data.parent ?? null }),
       },
-    );
-  });
+    ),
+  );
 
 export const getProductComments = createServerFn({ method: "GET" })
   .validator((data: { productId: number }) => data)
@@ -700,3 +683,192 @@ export const getPublicProfile = createServerFn({ method: "GET" })
   .handler(async ({ data }) =>
     djangoFetch<PublicUser>(`/auth/users/${encodeURIComponent(data.username)}/`, {}, false),
   );
+
+
+export interface ManagedArticle {
+  id: number;
+  title: string;
+  slug: string;
+  short_description: string;
+  status: "draft" | "review" | "approved" | "published" | "archived";
+  scheduled_at: string | null;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+  author: { id: number; username: string };
+}
+
+export interface ManagedArticleComment {
+  id: number;
+  article: number;
+  article_title: string;
+  article_slug: string;
+  text: string;
+  status: "pending" | "approved" | "rejected";
+  create_date: string;
+  parent: number | null;
+  parent_user: { id: number; username: string; first_name?: string; last_name?: string } | null;
+  user: { id: number; username: string; first_name?: string; last_name?: string };
+  replies: ManagedArticleComment[];
+}
+
+export interface ManagedArticleCommentsPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ManagedArticleComment[];
+  stats: { pending: number; approved: number; rejected: number; total: number };
+}
+
+export const getManagedArticles = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ManagedArticle[]>("/articles/manage/"),
+);
+
+export const getManagedArticleComments = createServerFn({ method: "GET" })
+  .validator((data: { page?: number; page_size?: number; status?: "pending" | "approved" | "rejected" | "all"; search?: string; article?: number }) => data)
+  .handler(async ({ data }) => {
+    const params = new URLSearchParams();
+    if (data.page) params.set("page", String(data.page));
+    if (data.page_size) params.set("page_size", String(data.page_size));
+    if (data.status && data.status !== "all") params.set("status", data.status);
+    if (data.search) params.set("search", data.search);
+    if (data.article) params.set("article", String(data.article));
+    return djangoFetch<ManagedArticleCommentsPage>(`/articles/manage/comments/?${params.toString()}`);
+  });
+
+export const getPendingArticleComments = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ManagedArticleCommentsPage>("/articles/manage/comments/"),
+);
+
+
+export interface ArticleCategoryOption {
+  id: number;
+  title: string;
+  slug: string;
+  parent: number | null;
+  is_active: boolean;
+}
+export interface ArticleTagOption {
+  id: number;
+  title: string;
+  slug: string;
+  is_active: boolean;
+}
+export interface ManagedArticleDetail extends ManagedArticle {
+  content: string;
+  content_json: Record<string, unknown> | null;
+  image: string | null;
+  image_alt: string;
+  category: number[];
+  tags: number[];
+  meta_title: string;
+  meta_description: string;
+}
+export interface ManagedArticleInput {
+  title: string;
+  short_description: string;
+  content: string;
+  content_json: Record<string, unknown>;
+  category: number[];
+  tags: number[];
+  meta_title: string;
+  meta_description: string;
+  image_alt: string;
+  slug?: string;
+}
+export const getManagedArticle = createServerFn({ method: "GET" })
+  .validator((data: { articleId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/manage/${data.articleId}/`));
+
+export const getArticleCategories = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ArticleCategoryOption[]>("/articles/manage/categories/"),
+);
+export const getArticleTags = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ArticleTagOption[]>("/articles/manage/tags/"),
+);
+export const createArticleCategory = createServerFn({ method: "POST" })
+  .validator((data: { title: string }) => data)
+  .handler(async ({ data }) => djangoFetch<ArticleCategoryOption>("/articles/manage/categories/", { method: "POST", body: JSON.stringify(data) }));
+export const createArticleTag = createServerFn({ method: "POST" })
+  .validator((data: { title: string }) => data)
+  .handler(async ({ data }) => djangoFetch<ArticleTagOption>("/articles/manage/tags/", { method: "POST", body: JSON.stringify(data) }));
+
+export const createManagedArticle = createServerFn({ method: "POST" })
+  .validator((data: ManagedArticleInput) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>("/articles/manage/", {
+    method: "POST", body: JSON.stringify(data),
+  }));
+export const updateManagedArticle = createServerFn({ method: "POST" })
+  .validator((data: ManagedArticleInput & { articleId: number }) => data)
+  .handler(async ({ data }) => {
+    const { articleId, ...payload } = data;
+    return djangoFetch<ManagedArticleDetail>(`/articles/manage/${articleId}/`, {
+      method: "PATCH", body: JSON.stringify(payload),
+    });
+  });
+export const uploadManagedArticleImage = createServerFn({ method: "POST" })
+  .validator((data: { articleId: number; fileName: string; mimeType: string; base64: string; altText: string; isCover?: boolean }) => data)
+  .handler(async ({ data }) => {
+    const bytes = Uint8Array.from(atob(data.base64), (char) => char.charCodeAt(0));
+    const form = new FormData();
+    form.set("image", new Blob([bytes], { type: data.mimeType }), data.fileName);
+    form.set("alt_text", data.altText);
+    if (data.isCover) form.set("is_cover", "true");
+    const send = async (access?: string) => fetch(`${API_BASE_URL()}/articles/manage/${data.articleId}/images/`, {
+      method: "POST",
+      headers: access ? { Authorization: `Bearer ${access}` } : {},
+      body: form,
+    });
+    let response = await send(getCookie(ACCESS_COOKIE));
+    if (response.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) response = await send(refreshed);
+      else clearAuthCookies();
+    }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({})) as Record<string, unknown>;
+      throw new Error(formatApiError(error));
+    }
+    return response.json() as Promise<{ id: number; url: string; alt_text: string; created_at: string }>;
+  });
+
+
+export interface ArticleCmsCapabilities {
+  permissions: {
+    create: boolean; edit_own: boolean; view_all: boolean;
+    publish: boolean; review: boolean; delete: boolean; moderate_comments: boolean;
+    manage_roles: boolean; is_superuser: boolean;
+  };
+  groups: string[];
+}
+export const getArticleCmsCapabilities = createServerFn({ method: "GET" }).handler(
+  async () => djangoFetch<ArticleCmsCapabilities>("/articles/manage/capabilities/"),
+);
+export const updateManagedArticleWorkflow = createServerFn({ method: "POST" })
+  .validator((data: { articleId: number; action: "save_draft" | "submit_review" | "approve" | "reject" }) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/manage/${data.articleId}/workflow/`, {
+    method: "POST", body: JSON.stringify({ action: data.action }),
+  }));
+export const publishManagedArticle = createServerFn({ method: "POST" })
+  .validator((data: { articleId: number; scheduled_at?: string }) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/publish/${data.articleId}/`, { method: "POST", body: JSON.stringify(data.scheduled_at ? { scheduled_at: data.scheduled_at } : {}) }));
+export const moderateArticleComment = createServerFn({ method: "POST" })
+  .validator((data: { commentId: number; status: "pending" | "approved" | "rejected" }) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleComment>(`/articles/manage/comments/${data.commentId}/`, { method: "PATCH", body: JSON.stringify({ status: data.status }) }));
+
+export const unpublishManagedArticle = createServerFn({ method: "POST" })
+  .validator((data: { articleId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/publish/${data.articleId}/unpublish/`, { method: "POST" }));
+export const deleteManagedArticle = createServerFn({ method: "POST" })
+  .validator((data: { articleId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/${data.articleId}/delete/`, { method: "DELETE" }));
+export const deleteArticleComment = createServerFn({ method: "POST" })
+  .validator((data: { commentId: number; cascade?: boolean }) => data)
+  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/comments/${data.commentId}/${data.cascade ? "?cascade=true" : ""}`, { method: "DELETE" }));
+
+export const deleteArticleCategory = createServerFn({ method: "POST" })
+  .validator((data: { categoryId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/categories/${data.categoryId}/`, { method: "DELETE" }));
+export const deleteArticleTag = createServerFn({ method: "POST" })
+  .validator((data: { tagId: number }) => data)
+  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/tags/${data.tagId}/`, { method: "DELETE" }));

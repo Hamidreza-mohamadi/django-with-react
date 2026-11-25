@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
@@ -76,89 +76,66 @@ class ArticleLifecycleTests(TestCase):
         comment = ArticleComment.objects.create(article=article, user=self.author, text="A comment")
         self.assertEqual(comment.status, ArticleComment.Status.PENDING)
 
-    def test_author_editor_publisher_workflow(self):
+    def test_editor_and_publisher_can_publish_without_review_workflow(self):
         editor = User.objects.create_user(username="editor", password="test-password")
         publisher = User.objects.create_user(username="publisher", password="test-password")
         self.grant(self.author, "add_article", "change_article")
-        self.grant(editor, "review_article")
-        self.grant(publisher, "publish_article")
+        self.grant(editor, "add_article", "change_article", "view_article", "view_all_articles", "publish_article")
+        self.grant(publisher, "add_article", "change_article", "view_article", "view_all_articles", "publish_article", "delete_article")
 
         self.client.force_authenticate(self.author)
         response = self.client.post("/api/v1/articles/manage/", {
-            "title": "Editorial workflow", "content": "Article body",
+            "title": "Direct publication", "content": "Article body",
             "category": [self.category.pk],
         }, format="json")
         self.assertEqual(response.status_code, 201)
         article_id = response.data["id"]
         self.assertEqual(response.data["status"], Article.Status.DRAFT)
-        self.assertEqual(response.data["author"]["username"], self.author.username)
-
-        response = self.client.post(f"/api/v1/articles/manage/{article_id}/submit/")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["status"], Article.Status.REVIEW)
 
         self.client.force_authenticate(editor)
-        response = self.client.get("/api/v1/articles/review/")
+        response = self.client.post(f"/api/v1/articles/publish/{article_id}/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
-        response = self.client.post(
-            f"/api/v1/articles/review/{article_id}/decision/",
-            {"decision": "approve"}, format="json",
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["status"], Article.Status.APPROVED)
+        self.assertEqual(response.data["status"], Article.Status.PUBLISHED)
 
+        scheduled = Article.objects.create(title="Scheduled directly", author=self.author)
         self.client.force_authenticate(publisher)
         future = timezone.now() + timedelta(days=2)
         response = self.client.post(
-            f"/api/v1/articles/publish/{article_id}/",
+            f"/api/v1/articles/publish/{scheduled.pk}/",
             {"scheduled_at": future.isoformat()}, format="json",
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], Article.Status.APPROVED)
         self.assertIsNotNone(response.data["scheduled_at"])
 
-        article = Article.objects.get(pk=article_id)
         self.assertEqual(publish_scheduled_articles(now=future + timedelta(seconds=1)), 1)
-        article.refresh_from_db()
-        self.assertEqual(article.status, Article.Status.PUBLISHED)
-        self.assertTrue(article.is_published)
+        scheduled.refresh_from_db()
+        self.assertEqual(scheduled.status, Article.Status.PUBLISHED)
 
-    def test_reviewer_cannot_publish_and_publisher_cannot_skip_review(self):
-        editor = User.objects.create_user(username="reviewer-only", password="test-password")
-        publisher = User.objects.create_user(username="publisher-only", password="test-password")
-        self.grant(editor, "review_article")
-        self.grant(publisher, "publish_article")
-        article = Article.objects.create(title="Needs review", author=self.author)
+    def test_publisher_can_publish_draft_and_edit_any_article_status(self):
+        publisher = User.objects.create_user(username="publisher-direct", password="test-password")
+        self.grant(self.author, "change_article")
+        self.grant(publisher, "publish_article", "change_article", "view_all_articles")
+        article = Article.objects.create(title="Still draft", author=self.author)
 
-        self.client.force_authenticate(publisher)
-        response = self.client.post(f"/api/v1/articles/publish/{article.pk}/")
-        self.assertEqual(response.status_code, 404)
-
-        article.status = Article.Status.REVIEW
-        article.save()
-        self.client.force_authenticate(editor)
-        response = self.client.post(
-            f"/api/v1/articles/review/{article.pk}/decision/",
-            {"decision": "approve"}, format="json",
-        )
-        self.assertEqual(response.status_code, 200)
-
-        self.client.force_authenticate(editor)
-        response = self.client.post(f"/api/v1/articles/publish/{article.pk}/")
-        self.assertEqual(response.status_code, 403)
-
-    def test_author_cannot_edit_after_submitting(self):
-        self.grant(self.author, "add_article", "change_article")
-        article = Article.objects.create(title="In review", author=self.author, status=Article.Status.REVIEW)
         self.client.force_authenticate(self.author)
         response = self.client.patch(
             f"/api/v1/articles/manage/{article.pk}/",
-            {"title": "Tampered"}, format="json",
+            {"title": "Edited without workflow"}, format="json",
         )
-        self.assertEqual(response.status_code, 400)
-        article.refresh_from_db()
-        self.assertEqual(article.title, "In review")
+        self.assertEqual(response.status_code, 200)
+
+        self.client.force_authenticate(publisher)
+        response = self.client.post(f"/api/v1/articles/publish/{article.pk}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], Article.Status.PUBLISHED)
+
+        article.status = Article.Status.REVIEW
+        article.published_at = None
+        article.save()
+        response = self.client.post(f"/api/v1/articles/publish/{article.pk}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], Article.Status.PUBLISHED)
 
     def test_due_scheduled_article_is_published_once(self):
         due = timezone.now() - timedelta(minutes=1)
@@ -189,6 +166,50 @@ class ArticleCmsApiTests(TestCase):
         permissions = Permission.objects.filter(content_type__app_label="article_module", codename__in=codenames)
         user.user_permissions.add(*permissions)
 
+    def test_publish_permission_inherits_writer_and_editor_capabilities(self):
+        publisher = User.objects.create_user(
+            username="permission-publisher", email="permission-publisher@example.com", password="test-password",
+        )
+        self.grant(publisher, "publish_article")
+
+        self.client.force_authenticate(publisher)
+        response = self.client.get("/api/v1/articles/manage/capabilities/")
+        self.assertEqual(response.status_code, 200)
+        for capability in ("create", "edit_own", "view_all", "publish"):
+            self.assertTrue(response.data["permissions"][capability], capability)
+
+    def test_publisher_group_inherits_writer_and_editor_capabilities(self):
+        publisher = User.objects.create_user(
+            username="cms-publisher", email="publisher@example.com", password="test-password",
+        )
+        publisher_group = Group.objects.create(name="ناشر")
+        publisher.groups.add(publisher_group)
+
+        self.client.force_authenticate(publisher)
+        capabilities = self.client.get("/api/v1/articles/manage/capabilities/")
+        self.assertEqual(capabilities.status_code, 200)
+        for capability in ("create", "edit_own", "view_all", "publish", "delete"):
+            self.assertTrue(capabilities.data["permissions"][capability], capability)
+
+        listing = self.client.get("/api/v1/articles/manage/")
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(len(listing.data), 1)
+
+        update = self.client.patch(
+            f"/api/v1/articles/manage/{self.article.pk}/",
+            {"title": "Edited by publisher"}, format="json",
+        )
+        self.assertEqual(update.status_code, 200)
+
+        publish = self.client.post(f"/api/v1/articles/publish/{self.article.pk}/")
+        self.assertEqual(publish.status_code, 200)
+        self.assertEqual(publish.data["status"], Article.Status.PUBLISHED)
+
+        create = self.client.post(
+            "/api/v1/articles/manage/", {"title": "Created by publisher"}, format="json",
+        )
+        self.assertEqual(create.status_code, 201)
+
     def test_management_api_accepts_structured_tiptap_document_and_rejects_unsafe_values(self):
         self.grant(self.author, "add_article", "change_article")
         self.client.force_authenticate(self.author)
@@ -215,7 +236,7 @@ class ArticleCmsApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    def test_article_image_upload_is_owned_by_draft_and_can_be_referenced(self):
+    def test_article_image_upload_is_owned_by_article_and_can_be_referenced(self):
         self.grant(self.author, "change_article")
         self.client.force_authenticate(self.author)
         png = base64.b64decode(
@@ -277,7 +298,7 @@ class ArticleCmsApiTests(TestCase):
 
     def test_comments_require_review_before_public_display(self):
         reviewer = User.objects.create_user(username="cms-reviewer", password="test-password")
-        self.grant(reviewer, "review_article")
+        self.grant(reviewer, "moderate_article_comments")
         public_article = Article.objects.create(
             title="Public comments", author=self.author, status=Article.Status.PUBLISHED,
         )
