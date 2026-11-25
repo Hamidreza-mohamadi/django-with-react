@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from .models import Article, ArticleCategory, ArticleComment, ArticleImage, ArticleTag
 from .serializers import (
     ArticleCategorySerializer, ArticleCommentCreateSerializer, ArticleCommentModerationSerializer,
-    ArticleCommentSerializer, ArticleImageSerializer, ArticleManagementSerializer,
+    ArticleCommentAdminSerializer, ArticleCommentSerializer, ArticleImageSerializer, ArticleManagementSerializer,
     ArticleImageUploadSerializer, ArticleSerializer, ArticleTagSerializer,
 )
 
@@ -397,13 +397,67 @@ class PublicArticleCommentListCreateView(APIView):
         return Response({"id": comment.id, "status": comment.status, "detail": "دیدگاه پس از بررسی نمایش داده می‌شود."}, status=status.HTTP_201_CREATED)
 
 
+class ArticleCommentModerationPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class ArticleCommentModerationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         require_perm(request.user, "article_module.moderate_article_comments")
-        comments = ArticleComment.objects.select_related("article", "user").filter(status=ArticleComment.Status.PENDING)
-        return Response(ArticleCommentSerializer(comments, many=True, context={"request": request}).data)
+
+        comments = ArticleComment.objects.select_related("article", "user")
+        article_id = request.query_params.get("article")
+        if article_id:
+            if not article_id.isdigit():
+                raise ValidationError({"article": "شناسه مقاله معتبر نیست."})
+            comments = comments.filter(article_id=int(article_id))
+
+        stats = comments.values("status").annotate(total=Count("id"))
+        counts = {"pending": 0, "approved": 0, "rejected": 0, "total": 0}
+        for item in stats:
+            counts[item["status"]] = item["total"]
+            counts["total"] += item["total"]
+
+        matching = comments
+        selected_status = request.query_params.get("status")
+        if selected_status in ArticleComment.Status.values:
+            matching = matching.filter(status=selected_status)
+
+        search = request.query_params.get("search", "").strip()
+        if search:
+            matching = matching.filter(
+                Q(text__icontains=search)
+                | Q(user__username__icontains=search)
+                | Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+                | Q(article__title__icontains=search)
+            )
+
+        matched_rows = matching.values_list("id", "parent_id")
+        root_ids = set()
+        for comment_id, parent_id in matched_rows:
+            root_ids.add(parent_id or comment_id)
+
+        roots = ArticleComment.objects.filter(
+            parent__isnull=True, id__in=root_ids
+        ).select_related("article", "user").prefetch_related(
+            Prefetch(
+                "children",
+                queryset=ArticleComment.objects.select_related("user", "article").order_by("create_date", "id"),
+            )
+        ).order_by("-create_date", "-id")
+
+        paginator = ArticleCommentModerationPagination()
+        page = paginator.paginate_queryset(roots, request, view=self)
+        response = paginator.get_paginated_response(
+            ArticleCommentAdminSerializer(page, many=True, context={"request": request}).data
+        )
+        response.data["stats"] = counts
+        return response
 
 
 class ArticleCommentModerationDetailView(APIView):
