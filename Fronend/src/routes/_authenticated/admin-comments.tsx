@@ -57,6 +57,7 @@ function AdminCommentsPage() {
   const data = commentsQuery.data;
   const pageCount = Math.max(1, Math.ceil((data?.count ?? 0) / 20));
   const busy = statusMutation.isPending || deleteMutation.isPending;
+  const mutationError = statusMutation.error ?? deleteMutation.error;
 
   const changeStatus = (comment: ManagedArticleComment, status: "pending" | "approved" | "rejected") => {
     statusMutation.mutate({ commentId: comment.id, status });
@@ -160,8 +161,8 @@ function AdminCommentsPage() {
 
         {statusMutation.isError || deleteMutation.isError ? (
           <p role="alert" className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-            {(statusMutation.error || deleteMutation.error) instanceof Error
-              ? (statusMutation.error || deleteMutation.error as Error).message
+            {mutationError instanceof Error
+              ? mutationError.message
               : "عملیات انجام نشد. دوباره تلاش کنید."}
           </p>
         ) : null}
