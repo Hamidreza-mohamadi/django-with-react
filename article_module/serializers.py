@@ -165,8 +165,6 @@ class ArticleCommentSerializer(serializers.ModelSerializer):
         return PublicUserSerializer(obj.parent.user).data
 
     def get_replies(self, obj):
-        if obj.parent_id:
-            return []
         replies = obj.children.filter(status=ArticleComment.Status.APPROVED).select_related("user", "parent__user")
         return ArticleCommentSerializer(replies, many=True, context=self.context).data
 
@@ -213,8 +211,8 @@ class ArticleCommentCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         parent = attrs.get("parent")
         article = self.context["article"]
-        if parent and (parent.article_id != article.id or parent.status != ArticleComment.Status.APPROVED or parent.parent_id):
-            raise serializers.ValidationError({"parent": "پاسخ فقط به دیدگاه تأییدشده همان مقاله و حداکثر در یک سطح مجاز است."})
+        if parent and (parent.article_id != article.id or parent.status != ArticleComment.Status.APPROVED):
+            raise serializers.ValidationError({"parent": "پاسخ فقط به دیدگاه تأییدشده همان مقاله مجاز است."})
         return attrs
 
 
@@ -257,7 +255,5 @@ class ArticleCommentAdminSerializer(serializers.ModelSerializer):
         }
 
     def get_replies(self, obj):
-        if obj.parent_id:
-            return []
         replies = obj.children.select_related("user", "article", "parent__user").order_by("create_date", "id")
         return ArticleCommentAdminSerializer(replies, many=True, context=self.context).data
