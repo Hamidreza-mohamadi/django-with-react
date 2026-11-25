@@ -473,5 +473,9 @@ class ArticleCommentModerationDetailView(APIView):
     def delete(self, request, pk):
         require_perm(request.user, "article_module.moderate_article_comments")
         comment = get_object_or_404(ArticleComment, pk=pk)
+        if comment.children.exists() and request.query_params.get("cascade") != "true":
+            raise ValidationError({
+                "detail": "این دیدگاه پاسخ دارد. برای حذف آن و تمام پاسخ‌هایش، حذف آبشاری را تأیید کنید."
+            })
         comment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
