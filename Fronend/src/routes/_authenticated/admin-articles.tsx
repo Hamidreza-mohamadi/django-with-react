@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, MessageSquare, Clock3, Plus, RefreshCw, LayoutDashboard, Tags, Pencil } from "lucide-react";
-import { getManagedArticles, getPendingArticleComments, getArticleCmsCapabilities, moderateArticleComment, deleteArticleComment, unpublishManagedArticle, deleteManagedArticle, publishManagedArticle } from "@/lib/shop/api";
+import { getManagedArticles, getPendingArticleComments, getArticleCmsCapabilities, unpublishManagedArticle, deleteManagedArticle, publishManagedArticle } from "@/lib/shop/api";
 
 export const Route = createFileRoute("/_authenticated/admin-articles")({
   component: ArticleAdminPage,
@@ -43,8 +43,6 @@ function ArticleAdminPage() {
   const permissions = capabilities.data?.permissions;
   const articles = useQuery({ queryKey: ["cms", "my-articles"], queryFn: () => getManagedArticles(), enabled: !!(permissions?.create || permissions?.edit_own || permissions?.view_all) });
   const comments = useQuery({ queryKey: ["cms", "pending-comments"], queryFn: () => getPendingArticleComments(), enabled: !!permissions?.moderate_comments });
-  const runComment = async (commentId: number, status: "approved" | "rejected") => { await moderateArticleComment({ data: { commentId, status } }); await queryClient.invalidateQueries({ queryKey: ["cms"] }); };
-  const runDeleteComment = async (commentId: number) => { await deleteArticleComment({ data: { commentId } }); await queryClient.invalidateQueries({ queryKey: ["cms"] }); };
   const runPublish = async (articleId: number) => { await publishManagedArticle({ data: { articleId } }); await queryClient.invalidateQueries({ queryKey: ["cms"] }); };
   const runUnpublish = async (articleId: number) => { await unpublishManagedArticle({ data: { articleId } }); await queryClient.invalidateQueries({ queryKey: ["cms"] }); };
   const runDeleteArticle = async (articleId: number) => { await deleteManagedArticle({ data: { articleId } }); await queryClient.invalidateQueries({ queryKey: ["cms"] }); };
@@ -76,7 +74,7 @@ function ArticleAdminPage() {
           <span className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><LayoutDashboard className="h-4 w-4" /> داشبورد</span>
           <a href="#my-articles" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><FileText className="h-4 w-4" /> فهرست مقاله‌ها</a>
           <Link to="/admin-taxonomies" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><Tags className="h-4 w-4" /> دسته‌بندی و برچسب</Link>
-          <Link to="/admin-comments" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><MessageSquare className="h-4 w-4" /> مدیریت دیدگاه‌ها</Link>
+          {permissions?.moderate_comments && <Link to="/admin-comments" className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm hover:bg-muted"><MessageSquare className="h-4 w-4" /> مدیریت دیدگاه‌ها</Link>}
         </nav>
 
         {capabilities.isLoading && <p className="mb-5 text-sm text-muted-foreground">در حال دریافت سطح دسترسی…</p>}
