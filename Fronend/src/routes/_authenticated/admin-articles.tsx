@@ -48,7 +48,7 @@ function ArticleAdminPage() {
   const runDeleteArticle = async (articleId: number) => { await deleteManagedArticle({ data: { articleId } }); await queryClient.invalidateQueries({ queryKey: ["cms"] }); };
 
   const own = articles.data ?? [];
-  const pendingComments = comments.data ?? [];
+  const pendingComments = comments.data?.stats.pending ?? 0;
   const waitingPublish = own.filter((article) => article.status === "approved");
   const waitingReview = own.filter((article) => article.status === "review");
   const drafts = own.filter((article) => article.status === "draft");
@@ -82,7 +82,7 @@ function ArticleAdminPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {(permissions?.create || permissions?.edit_own || permissions?.view_all) && <Metric title={permissions?.view_all ? "همه مقاله‌ها" : "مقاله‌های من"} value={articles.isLoading ? "…" : own.length} icon={FileText} detail={permissions?.view_all ? "مقاله‌های تمام نویسندگان" : "مقاله‌های ثبت‌شده توسط شما"} />}
           <Metric title="مقاله‌های منتشرنشده" value={articles.isLoading ? "…" : unpublishedCount} icon={Clock3} detail="قابل انتشار مستقیم بر اساس سطح دسترسی" />
-          {permissions?.moderate_comments && <Metric title="دیدگاه‌های منتظر" value={comments.isLoading ? "…" : pendingComments.length} icon={MessageSquare} detail="در انتظار تأیید یا رد" />}
+          {permissions?.moderate_comments && <Metric title="دیدگاه‌های منتظر" value={comments.isLoading ? "…" : pendingComments} icon={MessageSquare} detail="در انتظار تأیید یا رد" />}
         </div>
 
 
