@@ -29,10 +29,10 @@ const articleQueryOptions = (slug: string, previewId?: number) =>
       : getArticle({ data: { slug } }),
   });
 
-const commentsQueryOptions = (id: number, preview = false) =>
+const commentsQueryOptions = (slug: string, preview = false) =>
   queryOptions({
-    queryKey: ["articles", "comments", id, preview],
-    queryFn: () => preview ? Promise.resolve([]) : getArticleComments({ data: { articleId: id } }),
+    queryKey: ["articles", "comments", slug, preview],
+    queryFn: () => preview ? Promise.resolve([]) : getArticleComments({ data: { slug } }),
   });
 
 const articlesListQueryOptions = (preview = false) => queryOptions({
@@ -50,7 +50,7 @@ export const Route = createFileRoute("/articles/$slug")({
   loader: async ({ context, params, deps }) => {
     const previewId = deps.previewId;
     const article = await context.queryClient.ensureQueryData(articleQueryOptions(params.slug, previewId));
-    if (!previewId) context.queryClient.ensureQueryData(commentsQueryOptions(article.id));
+    if (!previewId) context.queryClient.ensureQueryData(commentsQueryOptions(article.slug));
     if (!previewId) await context.queryClient.ensureQueryData(articlesListQueryOptions());
     return article;
   },
@@ -322,7 +322,7 @@ function ArticleDetailPage() {
                 </section>
               )}
 
-              {!isPreview && <CommentsSection articleId={article.id} comments={comments} />}
+              {!isPreview && <CommentsSection slug={article.slug} comments={comments} />}
 
             </article>
           </div>
@@ -398,24 +398,36 @@ function ArticleDetailPage() {
   );
 }
 
-function CommentsSection({ articleId, comments }: { articleId: number; comments: ArticleComment[] }) {
+function CommentsSection({ slug, comments }: { slug: string; comments: ArticleComment[] }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
-  const topLevel = comments.filter((c) => !c.parent);
-  const repliesOf = (id: number) => comments.filter((c) => c.parent === id);
+  const totalComments = comments.reduce((total, comment) => total + 1 + comment.replies.length, 0);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    const cleanText = text.trim();
+    if (!cleanText || submitting) return;
     setSubmitting(true);
+    setFeedback(null);
     try {
-      await createArticleComment({ data: { article: articleId, text: text.trim(), parent: replyTo } });
+      const result = await createArticleComment({
+        data: { slug, text: cleanText, parent: replyTo },
+      });
       setText("");
       setReplyTo(null);
-      await qc.invalidateQueries({ queryKey: ["articles", "comments", articleId] });
+      setFeedback({ kind: "success", message: result.detail || "دیدگاه شما ثبت شد و پس از بررسی نمایش داده می‌شود." });
+      await qc.invalidateQueries({ queryKey: ["articles", "comments", slug] });
+    } catch (error) {
+      setFeedback({
+        kind: "error",
+        message: error instanceof Error
+          ? error.message
+          : "ثبت دیدگاه انجام نشد. لطفاً دوباره تلاش کنید.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -425,7 +437,7 @@ function CommentsSection({ articleId, comments }: { articleId: number; comments:
     <section id="comments" className="mt-14 scroll-mt-28 border-t border-border pt-10">
       <h2 className="flex items-center gap-2 text-xl font-bold">
         <MessageCircle className="h-5 w-5" />
-        دیدگاه‌ها ({toFa(comments.length)})
+        دیدگاه‌ها ({toFa(totalComments)})
       </h2>
 
       <form onSubmit={submit} className="mt-6">
@@ -439,11 +451,20 @@ function CommentsSection({ articleId, comments }: { articleId: number; comments:
         )}
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (feedback) setFeedback(null);
+          }}
           placeholder="دیدگاه خود را بنویسید..."
           rows={3}
+          maxLength={2000}
           className="w-full resize-none rounded-md border border-input bg-background p-3 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
+        {feedback && (
+          <p role="status" className={`mt-2 text-sm ${feedback.kind === "success" ? "text-emerald-600" : "text-destructive"}`}>
+            {feedback.message}
+          </p>
+        )}
         <div className="mt-3 flex justify-end">
           <Button type="submit" size="sm" className="rounded-md" disabled={submitting || !text.trim()}>
             {submitting ? "در حال ارسال..." : "ثبت دیدگاه"}
@@ -452,16 +473,16 @@ function CommentsSection({ articleId, comments }: { articleId: number; comments:
       </form>
 
       <div className="mt-8 space-y-6">
-        {topLevel.length === 0 ? (
+        {comments.length === 0 ? (
           <p className="text-sm text-muted-foreground">هنوز دیدگاهی ثبت نشده. اولین نفر باشید.</p>
         ) : (
-          topLevel.map((c) => (
-            <div key={c.id} className="space-y-3">
-              <CommentItem c={c} onReply={() => setReplyTo(c.id)} />
-              {repliesOf(c.id).length > 0 && (
+          comments.map((comment) => (
+            <div key={comment.id} className="space-y-3">
+              <CommentItem c={comment} onReply={() => setReplyTo(comment.id)} />
+              {comment.replies.length > 0 && (
                 <div className="mr-8 space-y-3 border-r-2 border-border pr-4">
-                  {repliesOf(c.id).map((r) => (
-                    <CommentItem key={r.id} c={r} onReply={() => setReplyTo(c.id)} />
+                  {comment.replies.map((reply) => (
+                    <CommentItem key={reply.id} c={reply} onReply={() => setReplyTo(comment.id)} />
                   ))}
                 </div>
               )}
@@ -479,10 +500,10 @@ function CommentItem({ c, onReply }: { c: ArticleComment; onReply: () => void })
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-            {c.user.charAt(0).toUpperCase()}
+            {(c.user.first_name || c.user.username || "ک").charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-sm font-medium">{c.user}</p>
+            <p className="text-sm font-medium">{[c.user.first_name, c.user.last_name].filter(Boolean).join(" ") || c.user.username}</p>
             <p className="text-xs text-muted-foreground">{formatDate(c.create_date)}</p>
           </div>
         </div>
