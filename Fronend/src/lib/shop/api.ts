@@ -707,6 +707,7 @@ export interface ManagedArticleComment {
   status: "pending" | "approved" | "rejected";
   create_date: string;
   parent: number | null;
+  parent_user: { id: number; username: string; first_name?: string; last_name?: string } | null;
   user: { id: number; username: string; first_name?: string; last_name?: string };
   replies: ManagedArticleComment[];
 }
