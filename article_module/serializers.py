@@ -216,3 +216,21 @@ class ArticleCommentModerationSerializer(serializers.ModelSerializer):
         if value not in (ArticleComment.Status.APPROVED, ArticleComment.Status.REJECTED):
             raise serializers.ValidationError("وضعیت باید approved یا rejected باشد.")
         return value
+
+
+class ArticleCommentAdminSerializer(serializers.ModelSerializer):
+    user = PublicUserSerializer(read_only=True)
+    article_title = serializers.CharField(source="article.title", read_only=True)
+    article_slug = serializers.CharField(source="article.slug", read_only=True)
+    replies = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ArticleComment
+        fields = ("id", "article", "article_title", "article_slug", "user", "text", "parent", "status", "create_date", "replies")
+        read_only_fields = fields
+
+    def get_replies(self, obj):
+        if obj.parent_id:
+            return []
+        replies = obj.children.select_related("user", "article").order_by("create_date", "id")
+        return ArticleCommentAdminSerializer(replies, many=True, context=self.context).data
