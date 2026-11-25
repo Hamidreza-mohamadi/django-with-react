@@ -1,4 +1,11 @@
-/* eslint-disable */
+/* esl
+    '/_authenticated/admin-comments': {
+      id: '/_authenticated/admin-comments'
+      path: '/admin-comments'
+      fullPath: '/admin-comments'
+      preLoaderRoute: typeof AuthenticatedAdminCommentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    },int-disable */
 
 // @ts-nocheck
 
@@ -26,6 +33,7 @@ import { Route as AuthenticatedCheckoutRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
 import { Route as AuthenticatedAdminArticlesRouteImport } from './routes/_authenticated/admin-articles'
 import { Route as AuthenticatedAdminTaxonomiesRouteImport } from './routes/_authenticated/admin-taxonomies'
+import { Route as AuthenticatedAdminCommentsRouteImport } from './routes/_authenticated/admin-comments'
 import { Route as AuthenticatedAdminArticleEditorArticleIdRouteImport } from './routes/_authenticated/admin-article-editor.$articleId'
 import { Route as ArticlesIndexRouteImport } from './routes/articles.index'
 import { Route as ArticlesSlugRouteImport } from './routes/articles.$slug'
@@ -114,6 +122,11 @@ const AuthenticatedAdminArticlesRoute = AuthenticatedAdminArticlesRouteImport.up
   path: '/admin-articles',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminCommentsRoute = AuthenticatedAdminCommentsRouteImport.update({
+  id: '/admin-comments',
+  path: '/admin-comments',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAdminTaxonomiesRoute = AuthenticatedAdminTaxonomiesRouteImport.update({
   id: '/admin-taxonomies',
   path: '/admin-taxonomies',
@@ -168,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/orders': typeof AuthenticatedOrdersRoute
   '/admin-articles': typeof AuthenticatedAdminArticlesRoute
   '/admin-taxonomies': typeof AuthenticatedAdminTaxonomiesRoute
+  '/admin-comments': typeof AuthenticatedAdminCommentsRoute
   '/admin-article-editor/$articleId': typeof AuthenticatedAdminArticleEditorArticleIdRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -216,6 +230,7 @@ export interface FileRoutesById {
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
   '/_authenticated/admin-articles': typeof AuthenticatedAdminArticlesRoute
   '/_authenticated/admin-taxonomies': typeof AuthenticatedAdminTaxonomiesRoute
+  '/_authenticated/admin-comments': typeof AuthenticatedAdminCommentsRoute
   '/_authenticated/admin-article-editor/$articleId': typeof AuthenticatedAdminArticleEditorArticleIdRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -242,6 +257,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/admin-articles'
     | '/admin-taxonomies'
+    | '/admin-comments'
     | '/admin-article-editor/$articleId'
     | '/articles/$slug'
     | '/products/$productId'
@@ -289,6 +305,7 @@ export interface FileRouteTypes {
     | '/_authenticated/orders'
     | '/_authenticated/admin-articles'
     | '/_authenticated/admin-taxonomies'
+    | '/_authenticated/admin-comments'
     | '/_authenticated/admin-article-editor/$articleId'
     | '/articles/$slug'
     | '/products/$productId'
@@ -485,6 +502,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
   AuthenticatedAdminArticlesRoute: typeof AuthenticatedAdminArticlesRoute
   AuthenticatedAdminTaxonomiesRoute: typeof AuthenticatedAdminTaxonomiesRoute
+  AuthenticatedAdminCommentsRoute: typeof AuthenticatedAdminCommentsRoute
   AuthenticatedAdminArticleEditorArticleIdRoute: typeof AuthenticatedAdminArticleEditorArticleIdRoute
 }
 
@@ -493,6 +511,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
   AuthenticatedAdminArticlesRoute: AuthenticatedAdminArticlesRoute,
   AuthenticatedAdminTaxonomiesRoute: AuthenticatedAdminTaxonomiesRoute,
+  AuthenticatedAdminCommentsRoute: AuthenticatedAdminCommentsRoute,
+  AuthenticatedAdminCommentsRoute: AuthenticatedAdminCommentsRoute,
   AuthenticatedAdminArticleEditorArticleIdRoute: AuthenticatedAdminArticleEditorArticleIdRoute,
 }
 
