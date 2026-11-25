@@ -529,6 +529,14 @@ function CommentItem({ c, onReply }: { c: ArticleComment; onReply: () => void })
           پاسخ
         </button>
       </div>
+      {c.parent_user && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          در پاسخ به <span className="font-medium text-primary">
+            {[c.parent_user.first_name, c.parent_user.last_name].filter(Boolean).join(" ") || c.parent_user.username}
+          </span>
+          <span dir="ltr" className="mr-1">(@{c.parent_user.username})</span>
+        </p>
+      )}
       <p className="mt-3 text-sm leading-relaxed">{c.text}</p>
     </div>
   );
