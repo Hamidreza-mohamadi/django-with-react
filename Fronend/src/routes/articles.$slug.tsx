@@ -517,7 +517,7 @@ function CommentThread({ comment, onReply, isNested = false }: { comment: Articl
     <div className="space-y-3">
       <CommentItem c={comment} onReply={() => onReply(comment.id)} />
       {comment.replies?.length > 0 && (
-        <div className={`${isNested ? "" : "mr-8"} space-y-3 border-r-2 border-border pr-4`}>
+        <div className={isNested ? "space-y-3" : "mr-8 space-y-3 border-r-2 border-border pr-4"}>
           {comment.replies.map((reply) => (
             <CommentThread key={reply.id} comment={reply} onReply={onReply} isNested />
           ))}
