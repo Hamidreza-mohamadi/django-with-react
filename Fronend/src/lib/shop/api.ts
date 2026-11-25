@@ -701,18 +701,42 @@ export interface ManagedArticle {
 export interface ManagedArticleComment {
   id: number;
   article: number;
+  article_title: string;
+  article_slug: string;
   text: string;
   status: "pending" | "approved" | "rejected";
   create_date: string;
-  user: { id: number; username: string };
+  parent: number | null;
+  user: { id: number; username: string; first_name?: string; last_name?: string };
+  replies: ManagedArticleComment[];
+}
+
+export interface ManagedArticleCommentsPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ManagedArticleComment[];
+  stats: { pending: number; approved: number; rejected: number; total: number };
 }
 
 export const getManagedArticles = createServerFn({ method: "GET" }).handler(
   async () => djangoFetch<ManagedArticle[]>("/articles/manage/"),
 );
 
+export const getManagedArticleComments = createServerFn({ method: "GET" })
+  .validator((data: { page?: number; page_size?: number; status?: "pending" | "approved" | "rejected" | "all"; search?: string; article?: number }) => data)
+  .handler(async ({ data }) => {
+    const params = new URLSearchParams();
+    if (data.page) params.set("page", String(data.page));
+    if (data.page_size) params.set("page_size", String(data.page_size));
+    if (data.status && data.status !== "all") params.set("status", data.status);
+    if (data.search) params.set("search", data.search);
+    if (data.article) params.set("article", String(data.article));
+    return djangoFetch<ManagedArticleCommentsPage>(`/articles/manage/comments/?${params.toString()}`);
+  });
+
 export const getPendingArticleComments = createServerFn({ method: "GET" }).handler(
-  async () => djangoFetch<ManagedArticleComment[]>("/articles/manage/comments/"),
+  async () => djangoFetch<ManagedArticleCommentsPage>("/articles/manage/comments/"),
 );
 
 
@@ -828,7 +852,7 @@ export const publishManagedArticle = createServerFn({ method: "POST" })
   .validator((data: { articleId: number; scheduled_at?: string }) => data)
   .handler(async ({ data }) => djangoFetch<ManagedArticleDetail>(`/articles/publish/${data.articleId}/`, { method: "POST", body: JSON.stringify(data.scheduled_at ? { scheduled_at: data.scheduled_at } : {}) }));
 export const moderateArticleComment = createServerFn({ method: "POST" })
-  .validator((data: { commentId: number; status: "approved" | "rejected" }) => data)
+  .validator((data: { commentId: number; status: "pending" | "approved" | "rejected" }) => data)
   .handler(async ({ data }) => djangoFetch<ManagedArticleComment>(`/articles/manage/comments/${data.commentId}/`, { method: "PATCH", body: JSON.stringify({ status: data.status }) }));
 
 export const unpublishManagedArticle = createServerFn({ method: "POST" })
@@ -838,8 +862,8 @@ export const deleteManagedArticle = createServerFn({ method: "POST" })
   .validator((data: { articleId: number }) => data)
   .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/${data.articleId}/delete/`, { method: "DELETE" }));
 export const deleteArticleComment = createServerFn({ method: "POST" })
-  .validator((data: { commentId: number }) => data)
-  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/comments/${data.commentId}/`, { method: "DELETE" }));
+  .validator((data: { commentId: number; cascade?: boolean }) => data)
+  .handler(async ({ data }) => djangoFetch<void>(`/articles/manage/comments/${data.commentId}/${data.cascade ? "?cascade=true" : ""}`, { method: "DELETE" }));
 
 export const deleteArticleCategory = createServerFn({ method: "POST" })
   .validator((data: { categoryId: number }) => data)
