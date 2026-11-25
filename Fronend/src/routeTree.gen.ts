@@ -514,7 +514,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminArticlesRoute: AuthenticatedAdminArticlesRoute,
   AuthenticatedAdminTaxonomiesRoute: AuthenticatedAdminTaxonomiesRoute,
   AuthenticatedAdminCommentsRoute: AuthenticatedAdminCommentsRoute,
-  AuthenticatedAdminCommentsRoute: AuthenticatedAdminCommentsRoute,
   AuthenticatedAdminArticleEditorArticleIdRoute: AuthenticatedAdminArticleEditorArticleIdRoute,
 }
 
