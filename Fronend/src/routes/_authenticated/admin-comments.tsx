@@ -108,9 +108,9 @@ function AdminCommentsPage() {
         </div>
       </div>
       <p className="mt-4 whitespace-pre-wrap text-sm leading-7">{comment.text}</p>
-      {!isReply && comment.replies?.length > 0 && (
-        <div className="mr-3 mt-4 space-y-3 border-r-2 border-border pr-4">
-          <p className="text-xs font-semibold text-muted-foreground">پاسخ‌ها ({comment.replies.length})</p>
+      {comment.replies?.length > 0 && (
+        <div className={`${isReply ? "" : "mr-3"} mt-4 space-y-3 border-r-2 border-border pr-4`}>
+          {!isReply && <p className="text-xs font-semibold text-muted-foreground">پاسخ‌ها ({comment.replies.length})</p>}
           {comment.replies.map((reply) => renderComment(reply, true))}
         </div>
       )}
