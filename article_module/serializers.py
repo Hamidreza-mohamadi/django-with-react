@@ -240,8 +240,21 @@ class ArticleCommentAdminSerializer(serializers.ModelSerializer):
         fields = ("id", "article", "article_title", "article_slug", "user", "text", "parent", "parent_user", "status", "create_date", "replies")
         read_only_fields = fields
 
+    def get_parent_user(self, obj):
+        if not obj.parent_id:
+            return None
+        parent_user = obj.parent.user
+        display_name = " ".join(
+            part for part in (parent_user.first_name, parent_user.last_name) if part
+        ) or parent_user.username
+        return {
+            "id": parent_user.id,
+            "username": parent_user.username,
+            "display_name": display_name,
+        }
+
     def get_replies(self, obj):
         if obj.parent_id:
             return []
-        replies = obj.children.select_related("user", "article").order_by("create_date", "id")
+        replies = obj.children.select_related("user", "article", "parent__user").order_by("create_date", "id")
         return ArticleCommentAdminSerializer(replies, many=True, context=self.context).data
