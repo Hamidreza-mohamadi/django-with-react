@@ -172,8 +172,6 @@ class ArticleComment(models.Model):
                 raise ValidationError({"parent": "پاسخ باید متعلق به همان مقاله باشد."})
             if self.parent_id == self.pk:
                 raise ValidationError({"parent": "یک دیدگاه نمی‌تواند والد خودش باشد."})
-            if self.parent.parent_id:
-                raise ValidationError({"parent": "عمق پاسخ‌ها حداکثر یک سطح است."})
 
     def __str__(self):
         return f"{self.user} - {self.article}"
