@@ -131,7 +131,7 @@ function ArticleDetailPage() {
   const { data: article } = useSuspenseQuery(articleQueryOptions(slug, previewId));
   if (!article) throw notFound();
 
-  const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.id, isPreview));
+  const { data: comments } = useSuspenseQuery(commentsQueryOptions(article.slug, isPreview));
   const { data: allArticles } = useSuspenseQuery(articlesListQueryOptions(isPreview));
   const progress = useReadingProgress();
   const [copied, setCopied] = useState(false);
