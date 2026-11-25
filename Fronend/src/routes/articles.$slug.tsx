@@ -235,7 +235,7 @@ function ArticleDetailPage() {
                   className="flex items-center gap-1.5 font-medium text-primary hover:underline"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  {toFa(comments.length)} دیدگاه
+                  {toFa(comments.reduce((total, comment) => total + 1 + comment.replies.length, 0))} دیدگاه
                 </button>
 
               </div>
