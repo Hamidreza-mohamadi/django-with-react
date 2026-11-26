@@ -87,11 +87,44 @@ function AdminCommentsPage() {
   };
 
   /*
-   * روش قبلی نمایش تو‌در‌تو؛ برای بازگشت، منطق renderComment بازگشتی قبلی را فعال کنید.
+   * روش قبلی نمایش تو‌در‌تو؛ برای بازگشت به نمایش سلسله‌مراتبی، تابع قبلی را از کامنت خارج کنید.
    *
    * const renderComment = (comment: ManagedArticleComment, isReply = false) => (
    *   <article key={comment.id} className={`rounded-xl border border-border bg-card p-4 ${isReply ? "bg-muted/30" : ""}`}>
-   *     ... نمایش مشخصات و عملیات دیدگاه ...
+   *     <div className="flex flex-wrap items-start justify-between gap-3">
+   *       <div className="min-w-0">
+   *         <div className="flex flex-wrap items-center gap-2">
+   *           <strong className="text-sm">{[comment.user.first_name, comment.user.last_name].filter(Boolean).join(" ") || comment.user.username}</strong>
+   *           <span className="text-xs text-muted-foreground">@{comment.user.username}</span>
+   *           <span className={`rounded-full px-2 py-1 text-[11px] ${comment.status === "pending" ? "bg-amber-100 text-amber-800" : comment.status === "approved" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+   *             {statusLabels[comment.status]}
+   *           </span>
+   *           {isReply && <span className="text-xs text-muted-foreground">پاسخ به {comment.parent_user ? ([comment.parent_user.first_name, comment.parent_user.last_name].filter(Boolean).join(" ") || comment.parent_user.username) + " (@" + comment.parent_user.username + ")" : "دیدگاه #" + comment.parent}</span>}
+   *         </div>
+   *         <p className="mt-1 text-xs text-muted-foreground">{formatDate(comment.create_date)}</p>
+   *       </div>
+   *       <div className="flex flex-wrap items-center gap-2">
+   *         {comment.status !== "approved" && (
+   *           <Button size="sm" variant="outline" disabled={busy} onClick={() => changeStatus(comment, "approved")} title="تأیید دیدگاه">
+   *             <Check className="ml-1 h-4 w-4" /> تأیید
+   *           </Button>
+   *         )}
+   *         {comment.status !== "rejected" && (
+   *           <Button size="sm" variant="outline" disabled={busy} onClick={() => changeStatus(comment, "rejected")} title="رد دیدگاه">
+   *             <X className="ml-1 h-4 w-4" /> رد
+   *           </Button>
+   *         )}
+   *         {comment.status === "rejected" && (
+   *           <Button size="sm" variant="outline" disabled={busy} onClick={() => changeStatus(comment, "pending")} title="بازگردانی به صف بررسی">
+   *             <RotateCcw className="ml-1 h-4 w-4" /> بازگردانی
+   *           </Button>
+   *         )}
+   *         <Button size="sm" variant="ghost" disabled={busy} onClick={() => removeComment(comment)} title="حذف دیدگاه">
+   *           <Trash2 className="h-4 w-4 text-destructive" />
+   *         </Button>
+   *       </div>
+   *     </div>
+   *     <p className="mt-4 whitespace-pre-wrap text-sm leading-7">{comment.text}</p>
    *     {comment.replies?.length > 0 && (
    *       <div className={isReply ? "-mx-4 mt-4 space-y-3" : "mr-3 mt-4 space-y-3 border-r-2 border-border pr-4"}>
    *         {!isReply && <p className="text-xs font-semibold text-muted-foreground">پاسخ‌ها ({comment.replies.length})</p>}
