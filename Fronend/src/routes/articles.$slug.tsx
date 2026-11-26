@@ -512,14 +512,48 @@ function CommentsSection({ slug, articleId, comments, canManageComments }: { slu
   );
 }
 
-function CommentThread({ comment, onReply, isNested = false }: { comment: ArticleComment; onReply: (id: number) => void; isNested?: boolean }) {
+function flattenCommentReplies(comment: ArticleComment): ArticleComment[] {
+  const replies: ArticleComment[] = [];
+  const collect = (items: ArticleComment[]) => {
+    for (const item of items) {
+      replies.push(item);
+      collect(item.replies ?? []);
+    }
+  };
+  collect(comment.replies ?? []);
+  return replies.sort((a, b) =>
+    new Date(a.create_date).getTime() - new Date(b.create_date).getTime() || a.id - b.id
+  );
+}
+
+/*
+ * روش قبلی نمایش تو‌در‌تو؛ برای بازگشت به نمایش سلسله‌مراتبی:
+ *
+ * function CommentThread({ comment, onReply, isNested = false }: { comment: ArticleComment; onReply: (id: number) => void; isNested?: boolean }) {
+ *   return (
+ *     <div className="space-y-3">
+ *       <CommentItem c={comment} onReply={() => onReply(comment.id)} />
+ *       {comment.replies?.length > 0 && (
+ *         <div className={isNested ? "space-y-3" : "mr-8 space-y-3 border-r-2 border-border pr-4"}>
+ *           {comment.replies.map((reply) => (
+ *             <CommentThread key={reply.id} comment={reply} onReply={onReply} isNested />
+ *           ))}
+ *         </div>
+ *       )}
+ *     </div>
+ *   );
+ * }
+ */
+
+function CommentThread({ comment, onReply }: { comment: ArticleComment; onReply: (id: number) => void }) {
+  const replies = flattenCommentReplies(comment);
   return (
     <div className="space-y-3">
       <CommentItem c={comment} onReply={() => onReply(comment.id)} />
-      {comment.replies?.length > 0 && (
-        <div className={isNested ? "space-y-3" : "mr-8 space-y-3 border-r-2 border-border pr-4"}>
-          {comment.replies.map((reply) => (
-            <CommentThread key={reply.id} comment={reply} onReply={onReply} isNested />
+      {replies.length > 0 && (
+        <div className="mr-8 space-y-3 border-r-2 border-border pr-4">
+          {replies.map((reply) => (
+            <CommentItem key={reply.id} c={reply} onReply={() => onReply(reply.id)} />
           ))}
         </div>
       )}
