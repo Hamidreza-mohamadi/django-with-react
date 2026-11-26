@@ -468,7 +468,7 @@ function CommentsSection({ slug, articleId, comments, canManageComments }: { slu
           <div className="mb-2 flex items-center justify-between rounded-md bg-secondary px-3 py-2 text-xs">
             <span>
               در حال پاسخ به {replyTarget
-                ? ([replyTarget.user.first_name, replyTarget.user.last_name].filter(Boolean).join(" ") || replyTarget.user.username) + " (@" + replyTarget.user.username + ")"
+                ? ([replyTarget.user.first_name, replyTarget.user.last_name].filter(Boolean).join(" ") || replyTarget.user.username)
                 : `دیدگاه #${toFa(replyTo)}`}
             </span>
             <button type="button" onClick={() => setReplyTo(null)} className="text-primary hover:underline">
