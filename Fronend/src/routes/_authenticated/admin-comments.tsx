@@ -72,6 +72,36 @@ function AdminCommentsPage() {
     deleteMutation.mutate({ commentId: comment.id, cascade: hasReplies });
   };
 
+  const flattenReplies = (comment: ManagedArticleComment): ManagedArticleComment[] => {
+    const replies: ManagedArticleComment[] = [];
+    const collect = (items: ManagedArticleComment[]) => {
+      for (const item of items) {
+        replies.push(item);
+        collect(item.replies ?? []);
+      }
+    };
+    collect(comment.replies ?? []);
+    return replies.sort((a, b) =>
+      new Date(a.create_date).getTime() - new Date(b.create_date).getTime() || a.id - b.id
+    );
+  };
+
+  /*
+   * روش قبلی نمایش تو‌در‌تو؛ برای بازگشت، منطق renderComment بازگشتی قبلی را فعال کنید.
+   *
+   * const renderComment = (comment: ManagedArticleComment, isReply = false) => (
+   *   <article key={comment.id} className={`rounded-xl border border-border bg-card p-4 ${isReply ? "bg-muted/30" : ""}`}>
+   *     ... نمایش مشخصات و عملیات دیدگاه ...
+   *     {comment.replies?.length > 0 && (
+   *       <div className={isReply ? "-mx-4 mt-4 space-y-3" : "mr-3 mt-4 space-y-3 border-r-2 border-border pr-4"}>
+   *         {!isReply && <p className="text-xs font-semibold text-muted-foreground">پاسخ‌ها ({comment.replies.length})</p>}
+   *         {comment.replies.map((reply) => renderComment(reply, true))}
+   *       </div>
+   *     )}
+   *   </article>
+   * );
+   */
+
   const renderComment = (comment: ManagedArticleComment, isReply = false) => (
     <article key={comment.id} className={`rounded-xl border border-border bg-card p-4 ${isReply ? "bg-muted/30" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -108,12 +138,6 @@ function AdminCommentsPage() {
         </div>
       </div>
       <p className="mt-4 whitespace-pre-wrap text-sm leading-7">{comment.text}</p>
-      {comment.replies?.length > 0 && (
-        <div className={isReply ? "-mx-4 mt-4 space-y-3" : "mr-3 mt-4 space-y-3 border-r-2 border-border pr-4"}>
-          {!isReply && <p className="text-xs font-semibold text-muted-foreground">پاسخ‌ها ({comment.replies.length})</p>}
-          {comment.replies.map((reply) => renderComment(reply, true))}
-        </div>
-      )}
     </article>
   );
 
@@ -181,6 +205,12 @@ function AdminCommentsPage() {
                   <a href={`/articles/${comment.article_slug}`} target="_blank" rel="noreferrer" className="text-primary hover:underline">مشاهده مقاله</a>
                 </div>
                 {renderComment(comment)}
+                {flattenReplies(comment).length > 0 && (
+                  <div className="mr-3 space-y-3 border-r-2 border-border pr-4">
+                    <p className="text-xs font-semibold text-muted-foreground">پاسخ‌ها ({flattenReplies(comment).length})</p>
+                    {flattenReplies(comment).map((reply) => renderComment(reply, true))}
+                  </div>
+                )}
               </div>
             ))
           ) : (
